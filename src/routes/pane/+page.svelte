@@ -120,6 +120,10 @@
 
   onMount(() => {
     load();
+    // placed before this page listened, maybe
+    invoke<{ side: Side; size: number } | null>("pane_placement").then((placed) => {
+      if (placed) [side, size] = [placed.side, placed.size];
+    });
     const unlisteners = [
       listen<{ side: Side; size: number }>("pane-placed", (e) => {
         side = e.payload.side;

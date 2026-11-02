@@ -211,6 +211,12 @@ fn set_review(app: AppHandle, webview: Webview, path: PathBuf) -> Result<(), Str
     Ok(())
 }
 
+/// Where the pane is, for its page as it loads.
+#[tauri::command]
+fn pane_placement(app: AppHandle, webview: Webview) -> Option<pane::Placed> {
+    pane::placement(&app, webview.window().label())
+}
+
 /// The pane took the keys, or gave them up.
 #[tauri::command]
 fn pane_focus(app: AppHandle, webview: Webview, focused: bool) {
@@ -257,6 +263,7 @@ pub fn run() {
             pane_side,
             pane_size,
             pane_focus,
+            pane_placement,
             review,
             save_review,
             set_review

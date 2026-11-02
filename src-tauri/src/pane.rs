@@ -42,11 +42,13 @@ pub struct Panes {
     pub focused: HashSet<String>,
     /// the window of each project that holds its pane
     pub holder: HashMap<PathBuf, String>,
+    /// where the pane of each window was placed last, for its page as it loads
+    pub placed: HashMap<String, Placed>,
 }
 
 /// What the pane's page learns of where it is, to draw its edge.
 #[derive(Debug, Clone, Serialize)]
-struct Placed {
+pub struct Placed {
     side: Side,
     size: f64,
 }
@@ -121,7 +123,14 @@ pub fn place(app: &AppHandle, window: &str) {
         Side::Bottom => height,
         Side::Right => width,
     };
-    let _ = app.emit_to(EventTarget::webview(label(window)), "pane-placed", Placed { side: layout.side, size });
+    let placed = Placed { side: layout.side, size };
+    state.panes.lock().unwrap().placed.insert(window.to_string(), placed.clone());
+    let _ = app.emit_to(EventTarget::webview(label(window)), "pane-placed", placed);
+}
+
+/// Where the pane of `window` was placed last: its page loads after the first placing.
+pub fn placement(app: &AppHandle, window: &str) -> Option<Placed> {
+    app.state::<AppState>().panes.lock().unwrap().placed.get(window).cloned()
 }
 
 /// The windows of the project of `window`, placed again.
@@ -238,6 +247,7 @@ pub fn closed(app: &AppHandle, window: &str) {
     panes.areas.remove(window);
     panes.focused.remove(window);
     panes.holder.retain(|_, w| w != window);
+    panes.placed.remove(window);
 }
 
 #[cfg(test)]
