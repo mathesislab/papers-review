@@ -21,6 +21,8 @@ pub struct Saved {
     /// the projects whose window was open as the app quit
     pub open: Vec<PathBuf>,
     pub layouts: HashMap<PathBuf, Layout>,
+    /// the review pane of each project
+    pub panes: HashMap<PathBuf, PaneLayout>,
 }
 
 /// How a project's window looked.
@@ -35,6 +37,36 @@ pub struct Layout {
     pub front: Option<PathBuf>,
     /// the page in view of each PDF open (from 1)
     pub pages: HashMap<PathBuf, usize>,
+}
+
+/// The side of the viewer the review pane lies on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Side {
+    Bottom,
+    Right,
+}
+
+/// The review pane of a project: shown or not, its side, its height at the
+/// bottom and its width on the right (points).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PaneLayout {
+    pub shown: bool,
+    pub side: Side,
+    pub bottom: f64,
+    pub right: f64,
+}
+
+impl Default for PaneLayout {
+    fn default() -> Self {
+        PaneLayout {
+            shown: false,
+            side: Side::Bottom,
+            bottom: 280.0,
+            right: 420.0,
+        }
+    }
 }
 
 impl Default for Layout {

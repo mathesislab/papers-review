@@ -45,6 +45,20 @@
   let current = $state(1);
   /** the find field, and its text */
   let findInput = $state<HTMLInputElement>();
+  /** the viewer: where it is tells the review pane where to lie */
+  let viewer = $state<HTMLDivElement>();
+
+  $effect(() => {
+    if (!viewer) return;
+    const area = viewer;
+    const tell = () => {
+      const box = area.getBoundingClientRect();
+      invoke("pane_area", { area: { x: box.left, y: box.top, width: box.width, height: box.height } });
+    };
+    const observer = new ResizeObserver(tell);
+    observer.observe(area);
+    return () => observer.disconnect();
+  });
   let findText = $state("");
   let notFound = $state(false);
 
@@ -165,9 +179,12 @@
     const unlisten = listen<string>("menu", (e) => command(e.payload));
     // the colour or the files changed, from this window or another of the project
     const unlistenChanged = listen("project-changed", () => load());
+    // the review pane hidden: the keys back to the PDF
+    const unlistenHidden = listen("pane-hidden", () => pdf?.focus());
     return () => {
       unlisten.then((f) => f());
       unlistenChanged.then((f) => f());
+      unlistenHidden.then((f) => f());
     };
   });
 
@@ -237,7 +254,7 @@
         </div>
       {/if}
       </div>
-      <div class="viewer">
+      <div class="viewer" bind:this={viewer}>
         {#if front?.kind === "pdf"}
           {#key front.path}
             <PdfView

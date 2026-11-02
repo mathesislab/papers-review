@@ -8,7 +8,7 @@ use tauri::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Emitter, EventTarget, Manager, Wry};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::{AppState, windows};
+use crate::{AppState, pane, windows};
 
 /// The commands of the page, by the id of their item.
 const PAGE: &[&str] = &[
@@ -94,6 +94,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         true,
         &[
             &item("files", "Show or Hide Files", Some("Alt+CmdOrCtrl+S"))?,
+            &item("review", "Show or Hide Review", Some("CmdOrCtrl+J"))?,
+            &item("review-side", "Review at the Bottom or Right", Some("Shift+CmdOrCtrl+J"))?,
             &separator()?,
             &item("zoom-in", "Zoom In", Some("CmdOrCtrl+="))?,
             &item("zoom-out", "Zoom Out", Some("CmdOrCtrl+-"))?,
@@ -133,6 +135,15 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
             state.saved.lock().unwrap().recent.clear();
             state.save();
             update(app);
+        }
+        "review" | "review-side" => {
+            if let Some(window) = front(app).filter(|w| w.label() != windows::START) {
+                if id == "review" {
+                    pane::toggle(app, window.label());
+                } else {
+                    pane::switch_side(app, window.label());
+                }
+            }
         }
         "close-window" => {
             if let Some(window) = front(app) {

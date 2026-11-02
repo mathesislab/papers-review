@@ -36,6 +36,11 @@
     send(() => pdfkit.zoom(step));
   }
 
+  /** The keys to the PDF. */
+  export function focus() {
+    send(() => pdfkit.cover(path, false));
+  }
+
   /** Find `text`: the first place, or `again` the next (the one before, `backwards`); an empty text clears. */
   export function find(text: string, again = false, backwards = false): Promise<boolean> {
     return send(() => pdfkit.find(text, again, backwards));

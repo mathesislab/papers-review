@@ -8,11 +8,11 @@ use std::sync::atomic::Ordering;
 use review_core::{Colour, Project};
 use tauri::window::WindowBuilder;
 use tauri::{
-    AppHandle, Emitter, EventTarget, LogicalPosition, Manager, WebviewBuilder, WebviewUrl,
-    WebviewWindowBuilder, Window,
+    AppHandle, Emitter, EventTarget, LogicalPosition, LogicalSize, Manager, WebviewBuilder,
+    WebviewUrl, WebviewWindowBuilder, Window,
 };
 
-use crate::{AppState, menu};
+use crate::{AppState, menu, pane};
 
 /// The start window: the projects opened last, and Open.
 pub const START: &str = "start";
@@ -113,6 +113,13 @@ fn make(app: &AppHandle, label: &str, title: &str) -> tauri::Result<()> {
         LogicalPosition::new(0.0, 0.0),
         size,
     )?;
+    // the review pane, above the page; placed and shown once the page tells where its viewer is
+    let pane = window.add_child(
+        WebviewBuilder::new(pane::label(label), WebviewUrl::App("pane".into())),
+        LogicalPosition::new(0.0, 0.0),
+        LogicalSize::new(1.0, 1.0),
+    )?;
+    pane.hide()?;
     Ok(())
 }
 
@@ -141,6 +148,7 @@ pub fn closing(app: &AppHandle, window: &str) {
 /// A project's window gone (closed, or the app quitting): its project goes
 /// when no other window shows it.
 pub fn closed(app: &AppHandle, window: &str) {
+    pane::closed(app, window);
     let state = app.state::<AppState>();
     let mut windows = state.windows.lock().unwrap();
     if let Some(root) = windows.remove(window)
@@ -150,18 +158,21 @@ pub fn closed(app: &AppHandle, window: &str) {
     }
 }
 
-/// The project of `root` changed (its colour, its files): its windows are told.
-pub fn changed(app: &AppHandle, root: &Path) {
-    let labels: Vec<String> = app
-        .state::<AppState>()
+/// The windows that show the project of `root`, by their labels.
+pub fn of_project(app: &AppHandle, root: &Path) -> Vec<String> {
+    app.state::<AppState>()
         .windows
         .lock()
         .unwrap()
         .iter()
         .filter(|(_, r)| *r == root)
         .map(|(label, _)| label.clone())
-        .collect();
-    for label in labels {
+        .collect()
+}
+
+/// The project of `root` changed (its colour, its files): its windows are told.
+pub fn changed(app: &AppHandle, root: &Path) {
+    for label in of_project(app, root) {
         let _ = app.emit_to(EventTarget::webview(page(&label)), "project-changed", ());
     }
 }

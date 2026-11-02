@@ -2,6 +2,7 @@
 //! window. The project of a window is found by its label (`windows`).
 
 mod menu;
+mod pane;
 mod state;
 mod windows;
 
@@ -26,6 +27,8 @@ pub struct AppState {
     data: PathBuf,
     /// the number of the next window
     next: AtomicUsize,
+    /// the review panes, as they are now
+    pub panes: Mutex<pane::Panes>,
 }
 
 impl AppState {
@@ -157,6 +160,36 @@ fn set_colour(app: AppHandle, webview: Webview, state: State<'_, AppState>, colo
     Ok(())
 }
 
+/// The viewer of a project's page moved or changed size: the pane follows.
+#[tauri::command]
+fn pane_area(app: AppHandle, webview: Webview, area: pane::Area) {
+    pane::set_area(&app, webview.window().label(), area);
+}
+
+/// The pane's hide button.
+#[tauri::command]
+fn pane_hide(app: AppHandle, webview: Webview) {
+    pane::hide(&app, webview.window().label());
+}
+
+/// The pane's side button.
+#[tauri::command]
+fn pane_side(app: AppHandle, webview: Webview) {
+    pane::switch_side(&app, webview.window().label());
+}
+
+/// The pane's edge dragged to `size` (points); `done` when let go.
+#[tauri::command]
+fn pane_size(app: AppHandle, webview: Webview, size: f64, done: bool) {
+    pane::resize(&app, webview.window().label(), size, done);
+}
+
+/// The pane took the keys, or gave them up.
+#[tauri::command]
+fn pane_focus(app: AppHandle, webview: Webview, focused: bool) {
+    pane::set_focused(&app, webview.window().label(), focused);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -171,6 +204,7 @@ pub fn run() {
                 saved: Mutex::new(Saved::load(&data)),
                 data,
                 next: AtomicUsize::new(1),
+                panes: Mutex::new(pane::Panes::default()),
             });
             app.set_menu(menu::build(app.handle())?)?;
             app.on_menu_event(menu::on_event);
@@ -189,7 +223,12 @@ pub fn run() {
             project,
             layout,
             set_layout,
-            set_colour
+            set_colour,
+            pane_area,
+            pane_hide,
+            pane_side,
+            pane_size,
+            pane_focus
         ])
         .build(tauri::generate_context!())
         .expect("error while building papers-review")
