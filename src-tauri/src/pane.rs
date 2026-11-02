@@ -148,7 +148,7 @@ pub fn set_area(app: &AppHandle, window: &str, area: Area) {
 
 /// ⌘J: the pane shown in this window with the keys, or hidden when it has them.
 pub fn toggle(app: &AppHandle, window: &str) {
-    let Some((root, mut layout)) = layout_of(app, window) else {
+    let Some((root, layout)) = layout_of(app, window) else {
         return;
     };
     let state = app.state::<AppState>();
@@ -156,8 +156,17 @@ pub fn toggle(app: &AppHandle, window: &str) {
     let held = state.panes.lock().unwrap().holder.get(&root).is_some_and(|w| w == window);
     if layout.shown && held && focused {
         hide(app, window);
-        return;
+    } else {
+        show(app, window);
     }
+}
+
+/// The pane shown in this window, with the keys (hidden in the project's other windows).
+pub fn show(app: &AppHandle, window: &str) {
+    let Some((root, mut layout)) = layout_of(app, window) else {
+        return;
+    };
+    let state = app.state::<AppState>();
     layout.shown = true;
     state.panes.lock().unwrap().holder.insert(root.clone(), window.to_string());
     keep(app, root, layout);

@@ -3,6 +3,7 @@
 
 mod menu;
 mod pane;
+mod review;
 mod state;
 mod windows;
 
@@ -29,6 +30,8 @@ pub struct AppState {
     next: AtomicUsize,
     /// the review panes, as they are now
     pub panes: Mutex<pane::Panes>,
+    /// the review of each project open, watched
+    pub watchers: Mutex<HashMap<PathBuf, notify::RecommendedWatcher>>,
 }
 
 impl AppState {
@@ -49,6 +52,8 @@ struct ProjectView {
     colour: Colour,
     files: Vec<Node>,
     linked: Vec<Node>,
+    /// the Markdown file of the review
+    review: PathBuf,
 }
 
 /// A project opened before, as the start window lists it.
@@ -117,6 +122,7 @@ fn project(webview: Webview, state: State<'_, AppState>) -> Result<ProjectView, 
         colour: manifest.colour.unwrap_or(Colour::None),
         files: project.files(),
         linked: project.linked(),
+        review: project.review_path(),
         root,
     })
 }
@@ -184,6 +190,27 @@ fn pane_size(app: AppHandle, webview: Webview, size: f64, done: bool) {
     pane::resize(&app, webview.window().label(), size, done);
 }
 
+/// The review of the project, for its pane.
+#[tauri::command]
+fn review(app: AppHandle, webview: Webview) -> Result<review::ReviewView, String> {
+    review::read(&app, webview.window().label())
+}
+
+/// The review as typed, written to the file the pane read.
+#[tauri::command]
+fn save_review(app: AppHandle, webview: Webview, path: PathBuf, text: String) -> Result<(), String> {
+    review::write(&app, webview.window().label(), &path, &text)
+}
+
+/// A Markdown file of the project as its review, shown in the pane.
+#[tauri::command]
+fn set_review(app: AppHandle, webview: Webview, path: PathBuf) -> Result<(), String> {
+    let window = webview.window().label().to_string();
+    review::choose(&app, &window, &path)?;
+    pane::show(&app, &window);
+    Ok(())
+}
+
 /// The pane took the keys, or gave them up.
 #[tauri::command]
 fn pane_focus(app: AppHandle, webview: Webview, focused: bool) {
@@ -205,6 +232,7 @@ pub fn run() {
                 data,
                 next: AtomicUsize::new(1),
                 panes: Mutex::new(pane::Panes::default()),
+                watchers: Mutex::new(HashMap::new()),
             });
             app.set_menu(menu::build(app.handle())?)?;
             app.on_menu_event(menu::on_event);
@@ -228,7 +256,10 @@ pub fn run() {
             pane_hide,
             pane_side,
             pane_size,
-            pane_focus
+            pane_focus,
+            review,
+            save_review,
+            set_review
         ])
         .build(tauri::generate_context!())
         .expect("error while building papers-review")

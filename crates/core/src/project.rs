@@ -161,7 +161,7 @@ impl Project {
 }
 
 /// A file written whole, atomically: a hidden file beside it, renamed.
-fn write_atomically(path: &Path, text: &str) -> Result<(), Error> {
+pub fn write_atomically(path: &Path, text: &str) -> Result<(), Error> {
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let temporary = path.with_file_name(format!(".{name}.tmp"));
     fs::write(&temporary, text)

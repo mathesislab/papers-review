@@ -134,6 +134,16 @@
     edge.addEventListener("pointerup", up);
   }
 
+  /** A Markdown file as the review, in the pane. */
+  async function editReview(path: string) {
+    try {
+      await invoke("set_review", { path });
+      await load();
+    } catch (e) {
+      error = String(e);
+    }
+  }
+
   /** A command of the menu bar. */
   function command(id: string) {
     switch (id) {
@@ -212,7 +222,15 @@
   >
     {#if layout.files}
       <div class="files">
-        <Files files={project.files} linked={project.linked} due={project.due} front={layout.front} onopen={open} />
+        <Files
+          files={project.files}
+          linked={project.linked}
+          due={project.due}
+          front={layout.front}
+          review={project.review}
+          onopen={open}
+          onreview={(node) => editReview(node.path)}
+        />
         <!-- its right edge, dragged, sets its width -->
         <div class="splitter" onpointerdown={resize} role="separator" aria-orientation="vertical"></div>
       </div>
@@ -271,7 +289,12 @@
         {:else if front}
           <div class="other">
             <p>{front.name}</p>
-            <button onclick={() => openPath(front.path)}>Open in Default App</button>
+            <div class="actions">
+              {#if front.kind === "markdown" && front.path !== project.review}
+                <button onclick={() => editReview(front.path)}>Edit in Review Pane</button>
+              {/if}
+              <button onclick={() => openPath(front.path)}>Open in Default App</button>
+            </div>
           </div>
         {:else}
           <div class="other">
@@ -418,6 +441,10 @@
   .muted {
     color: var(--muted);
     margin: 0;
+  }
+  .actions {
+    display: flex;
+    gap: 8px;
   }
   .error {
     color: var(--error);

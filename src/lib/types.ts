@@ -20,6 +20,8 @@ export type Project = {
   colour: Colour;
   files: Node[];
   linked: Node[];
+  /** the Markdown file of the review */
+  review: string;
 };
 
 /** mirrors Recent */

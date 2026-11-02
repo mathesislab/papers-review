@@ -12,7 +12,7 @@ use tauri::{
     WebviewUrl, WebviewWindowBuilder, Window,
 };
 
-use crate::{AppState, menu, pane};
+use crate::{AppState, menu, pane, review};
 
 /// The start window: the projects opened last, and Open.
 pub const START: &str = "start";
@@ -91,6 +91,7 @@ pub fn open_project(app: &AppHandle, folder: &Path) -> Result<(), String> {
         state.projects.lock().unwrap().remove(&root);
         return Err(e.to_string());
     }
+    review::watch(app, &root);
     state.saved.lock().unwrap().opened(&root);
     state.save();
     menu::update(app);
@@ -155,6 +156,8 @@ pub fn closed(app: &AppHandle, window: &str) {
         && !windows.values().any(|r| *r == root)
     {
         state.projects.lock().unwrap().remove(&root);
+        drop(windows);
+        review::unwatch(app, &root);
     }
 }
 

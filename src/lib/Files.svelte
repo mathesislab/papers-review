@@ -1,7 +1,9 @@
 <script lang="ts">
   // The files of the project, as a tree (folders first), then the files linked from elsewhere, then the due date.
-  // A click opens a file in a tab; folders open and close.
+  // A click opens a file in a tab; folders open and close. A Markdown file, right-clicked, can be the review (the
+  // pane's), marked ✎.
 
+  import { Menu, MenuItem } from "@tauri-apps/api/menu";
   import type { Kind, Node } from "./types";
 
   let {
@@ -9,15 +11,28 @@
     linked,
     due,
     front,
+    review,
     onopen,
+    onreview,
   }: {
     files: Node[];
     linked: Node[];
     due: string | null;
     /** the file in front */
     front: string | null;
+    /** the file of the review */
+    review: string;
     onopen: (node: Node) => void;
+    /** a Markdown file to be the review */
+    onreview: (node: Node) => void;
   } = $props();
+
+  async function menu(e: MouseEvent, node: Node) {
+    if (node.kind !== "markdown") return;
+    e.preventDefault();
+    const item = await MenuItem.new({ text: "Edit in Review Pane", action: () => onreview(node) });
+    await (await Menu.new({ items: [item] })).popup();
+  }
 
   /** the folders closed (all open at first) */
   let closed = $state(new Set<string>());
@@ -66,12 +81,14 @@
         class:missing={node.missing}
         style:padding-left="{8 + depth * 14}px"
         onclick={() => onopen(node)}
+        oncontextmenu={(e) => menu(e, node)}
         disabled={node.missing}
         title={node.missing ? `${node.path}: not found` : node.path}
       >
         <span class="disclosure"></span>
         <span class="kind {node.kind}">{LABELS[node.kind]}</span>
         <span class="name">{node.name}</span>
+        {#if node.path === review}<span class="review" title="The review (⌘J)">✎</span>{/if}
       </button>
     {/if}
   {/each}
@@ -141,6 +158,10 @@
   .name {
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .review {
+    margin-left: auto;
+    color: var(--muted);
   }
   .kind {
     flex: none;
