@@ -53,16 +53,27 @@ all the windows of a project share its colour.
 - **Viewer**: a PDF in PDFKit (tauri-plugin-pdfkit), with find, zoom, the
   outline; a text file rendered or as source (`⌘R`: Markdown, READMEs, code
   and data descriptions). Tabs for the files open.
-- **Review pane** (`⌘J`): a Markdown editor floating over the viewer, at the
-  bottom or on the right (`⌘⇧J`), its size and place kept per project.
-  Tabs: the top-level headings of the file (a level to choose), or several
-  files. Hidden, a strip remains, or nothing in full screen.
+- **Review pane** (`⌘J`): a Markdown editor over the viewer, at the bottom
+  or on the right (`⌘⇧J`), its inner edge dragged for its size; its side,
+  sizes and whether shown kept per project (the app's `state.json`). `⌘J`
+  hides it when it has the keys (they go back to the PDF), else shows it
+  with them. Hidden, nothing remains. One window of a project holds its
+  pane at a time.
+- **The review**: any Markdown file of the project (`review` in
+  `review.toml`, `review.md` without; Edit in Review Pane on a Markdown
+  file), marked ✎ in the files. Written half a second after the typing
+  stops and as the pane loses the keys; read again when changed elsewhere,
+  or, with changes typed not yet written, Reload or Keep mine.
+- **Tabs of the pane**: the headings at the shallowest level with two of
+  them (`## Round 1`, `## Round 2` under a `# Review`); a tab shows its
+  section alone, the rest of the file hidden (it stays one file), All the
+  whole of it.
 
 The PDF view lies above the page of the window (a native view over the web
 view), so the page cannot draw over it. The pane is a second web view above
-the first (Tauri's multiwebview, the `unstable` feature); else a child
-window attached to the main one. Its translucency needs an
-NSVisualEffectView under it; an opaque pane needs nothing.
+the first (Tauri's multiwebview, the `unstable` feature), opaque and square
+(the web view is not transparent); translucency would need an
+NSVisualEffectView under it.
 
 ## Writing the review
 
@@ -125,7 +136,9 @@ the margin).
    the colour bar, `review.toml`; the state between sessions in the app's
    data folder (`state.json`: the recent projects, the windows open, how
    each looked).
-2. The review pane: the second web view over the viewer, CodeMirror, saving.
+2. Done: the review pane, the second web view over the viewer; CodeMirror,
+   saving, the file watched; any Markdown file as the review; the tabs of its
+   sections.
 3. Quotes with page and line; the symbols.
 4. Export.
 5. References.
