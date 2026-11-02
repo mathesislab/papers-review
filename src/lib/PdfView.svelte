@@ -42,14 +42,16 @@
   }
 
   onMount(() => {
+    // the PDF this view opened: as the tab changes, `path` is already the next file's when the view goes
+    const shown = path;
     let opened = false;
     // the area changes with the files panel, the tabs, the window
     const resize = new ResizeObserver(() => {
       if (opened) send(() => pdfkit.setFrame(pdfkit.frameOf(area)));
     });
     resize.observe(area);
-    const unlisten = pdfkit.onPage((p) => onpage(path, p));
-    send(() => pdfkit.open(path, path, page, pdfkit.frameOf(area)))
+    const unlisten = pdfkit.onPage((p) => onpage(shown, p));
+    send(() => pdfkit.open(shown, shown, page, pdfkit.frameOf(area)))
       .then(({ count }) => {
         opened = true;
         onopen(count);
@@ -58,7 +60,7 @@
     return () => {
       resize.disconnect();
       unlisten.then((f) => f());
-      send(() => pdfkit.close(path));
+      send(() => pdfkit.close(shown));
     };
   });
 </script>
