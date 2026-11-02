@@ -27,8 +27,9 @@ pub struct Saved {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Layout {
-    /// the files panel shown
+    /// the files panel shown, and its width (points)
     pub files: bool,
+    pub files_width: f64,
     /// the files open in tabs, and the one in front
     pub tabs: Vec<PathBuf>,
     pub front: Option<PathBuf>,
@@ -40,6 +41,7 @@ impl Default for Layout {
     fn default() -> Self {
         Layout {
             files: true,
+            files_width: 240.0,
             tabs: Vec::new(),
             front: None,
             pages: HashMap::new(),

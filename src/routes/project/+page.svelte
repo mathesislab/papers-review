@@ -17,7 +17,7 @@
 
   let project = $state<Project | null>(null);
   let error = $state("");
-  let layout = $state<Layout>({ files: true, tabs: [], front: null, pages: {} });
+  let layout = $state<Layout>({ files: true, files_width: 240, tabs: [], front: null, pages: {} });
   /** the layout read: written back only after */
   let ready = false;
 
@@ -100,6 +100,26 @@
     if (layout.front === path) layout.front = layout.tabs[Math.min(i, layout.tabs.length - 1)] ?? null;
   }
 
+  /** The narrowest and widest the files panel is dragged. */
+  const FILES_WIDTH = { min: 160, max: 520 };
+
+  /** The right edge of the files panel dragged: its width follows. The PDF lies over the page, but the drag stays
+   *  with the edge: AppKit sends the moves to the view the press went to. */
+  function resize(e: PointerEvent) {
+    const edge = e.currentTarget as HTMLElement;
+    edge.setPointerCapture(e.pointerId);
+    const [start, width] = [e.clientX, layout.files_width];
+    const move = (m: PointerEvent) => {
+      layout.files_width = Math.round(Math.min(FILES_WIDTH.max, Math.max(FILES_WIDTH.min, width + m.clientX - start)));
+    };
+    const up = () => {
+      edge.removeEventListener("pointermove", move);
+      edge.removeEventListener("pointerup", up);
+    };
+    edge.addEventListener("pointermove", move);
+    edge.addEventListener("pointerup", up);
+  }
+
   /** A command of the menu bar. */
   function command(id: string) {
     switch (id) {
@@ -167,9 +187,18 @@
 {/if}
 
 {#if project}
-  <div class="window" class:nofiles={!layout.files} class:coloured={cssOf(project.colour)}>
+  <div
+    class="window"
+    class:nofiles={!layout.files}
+    class:coloured={cssOf(project.colour)}
+    style:grid-template-columns={layout.files ? `${layout.files_width}px 1fr` : "1fr"}
+  >
     {#if layout.files}
-      <Files files={project.files} linked={project.linked} due={project.due} front={layout.front} onopen={open} />
+      <div class="files">
+        <Files files={project.files} linked={project.linked} due={project.due} front={layout.front} onopen={open} />
+        <!-- its right edge, dragged, sets its width -->
+        <div class="splitter" onpointerdown={resize} role="separator" aria-orientation="vertical"></div>
+      </div>
     {/if}
     <section class="main">
       <div class="bar">
@@ -255,13 +284,23 @@
     height: 100vh;
     box-sizing: border-box;
     display: grid;
-    grid-template-columns: 240px 1fr;
   }
   .window.coloured {
     padding-top: 6px;
   }
-  .window.nofiles {
-    grid-template-columns: 1fr;
+  .files {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+  }
+  .splitter {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: -3px;
+    width: 6px;
+    z-index: 5;
+    cursor: col-resize;
   }
   .main {
     display: flex;

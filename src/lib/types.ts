@@ -26,4 +26,4 @@ export type Project = {
 export type Recent = { root: string; name: string; colour: Colour; missing: boolean };
 
 /** mirrors state::Layout */
-export type Layout = { files: boolean; tabs: string[]; front: string | null; pages: Record<string, number> };
+export type Layout = { files: boolean; files_width: number; tabs: string[]; front: string | null; pages: Record<string, number> };
