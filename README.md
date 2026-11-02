@@ -14,8 +14,20 @@ Part of the papers family:
 [Papers Desktop](https://github.com/mathesislab/papers-desktop),
 [papers-rs](https://github.com/mathesislab/papers-rs).
 
-**State**: design. The plans are in [docs/design.md](docs/design.md), the
-mock-ups in [docs/mockups/review.html](docs/mockups/review.html).
+**State**: the first steps. A window per project: its files, the files open in
+tabs, the PDF in PDFKit (page, zoom, find), the colour bar; a start window.
+The plans are in [docs/design.md](docs/design.md), the mock-ups in
+[docs/mockups/review.html](docs/mockups/review.html).
+
+## Develop
+
+```bash
+npm install
+npm run tauri dev
+```
+
+Rust (stable) and Node.js. macOS first: the PDF view is PDFKit
+([tauri-plugin-pdfkit](https://github.com/mathesislab/tauri-plugin-pdfkit)).
 
 ## License
 

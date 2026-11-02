@@ -43,10 +43,11 @@ journal and DOI are read from the PDF with papers-rs (as papers reads them).
 One window per project, several when asked (a file opened in a new window);
 all the windows of a project share its colour.
 
-- **Colour bar**: a thin bar along the top in the project's colour, to tell
-  the windows apart in Mission Control and the window switcher. Right-click
-  it, or Settings: the colour, a tinted title bar, none. A new project takes
-  the next colour not in use. Kept in `review.toml`.
+- **Colour bar**: a thin bar along the top of the page, under the title bar,
+  in the project's colour, to tell the windows apart in Mission Control and
+  the window switcher: the pastel colours of Papers Desktop's window, by
+  name (`colour = "orange"` in `review.toml`). Right-click it: the colour, or
+  none. A new project takes the next colour not in use among those open.
 - **Files** (sidebar, `⌘⌥S`): the files of the project by folder, the linked
   files, the due date. Hidden, the viewer takes the whole window.
 - **Viewer**: a PDF in PDFKit (tauri-plugin-pdfkit), with find, zoom, the
@@ -120,8 +121,10 @@ the margin).
 
 ## First steps
 
-1. The window: the files, a PDF in the viewer (tauri-plugin-pdfkit), the
-   colour bar, `review.toml`.
+1. Done: the window, the files, a PDF in the viewer (tauri-plugin-pdfkit),
+   the colour bar, `review.toml`; the state between sessions in the app's
+   data folder (`state.json`: the recent projects, the windows open, how
+   each looked).
 2. The review pane: the second web view over the viewer, CodeMirror, saving.
 3. Quotes with page and line; the symbols.
 4. Export.
