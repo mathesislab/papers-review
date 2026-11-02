@@ -3,3 +3,4 @@ node_modules
 /build
 /.svelte-kit
 /target
+/src-tauri/gen/schemas
