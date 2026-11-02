@@ -192,6 +192,9 @@
             bind:value={findText}
             class:missed={notFound}
             placeholder="Find (⌘F)"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
             oninput={() => search(false)}
             onkeydown={(e) => {
               if (e.key === "Enter") search(true, e.shiftKey);
