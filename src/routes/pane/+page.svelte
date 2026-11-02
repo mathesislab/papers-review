@@ -11,7 +11,8 @@
   import type { EditorView } from "@codemirror/view";
   import { onMount } from "svelte";
   import "$lib/theme.css";
-  import { makeEditor, replaceText, wordsOf } from "$lib/editor";
+  import { makeEditor, replaceText, showSection, wordsOf } from "$lib/editor";
+  import { sections, type Section } from "$lib/sections";
 
   type Side = "bottom" | "right";
   type Review = { path: string; name: string; text: string };
@@ -31,6 +32,23 @@
   let error = $state("");
   /** changed elsewhere while changes of its own were not written */
   let conflict = $state(false);
+  /** the sections, as tabs, and the one shown alone (null: all of the text) */
+  let tabs = $state<Section[]>([]);
+  let active = $state<number | null>(null);
+
+  /** The tabs and the words of what is shown, from the text. */
+  function count(now: string) {
+    tabs = sections(now);
+    if (active !== null && active >= tabs.length) show(null);
+    const section = active === null ? undefined : tabs[active];
+    words = wordsOf(section ? now.slice(section.from, section.to) : now);
+  }
+
+  function show(index: number | null) {
+    active = index;
+    if (view) showSection(view, index);
+    count(text());
+  }
 
   /** The inner edge dragged: the size follows, in points of the screen (the pane moves as it grows). */
   function drag(e: PointerEvent) {
@@ -62,7 +80,7 @@
       [path, name, written, conflict] = [review.path, review.name, review.text, false];
       if (view) replaceText(view, review.text);
       else view = makeEditor(host, review.text, typed);
-      words = wordsOf(review.text);
+      count(review.text);
       status = "saved";
     } catch (e) {
       [status, error] = ["error", String(e)];
@@ -72,7 +90,7 @@
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   function typed(now: string) {
-    words = wordsOf(now);
+    count(now);
     status = "editing";
     clearTimeout(timer);
     timer = setTimeout(save, 500);
@@ -111,6 +129,7 @@
       // another file as the review: what was typed goes to the one before, then the new one is read
       listen("review-switched", async () => {
         await save();
+        show(null);
         await load();
       }),
     ];
@@ -138,6 +157,14 @@
   <div class="edge" onpointerdown={drag} role="separator" aria-orientation={side === "bottom" ? "horizontal" : "vertical"}></div>
   <header>
     <span class="name" title={path}>{name || "Review"}</span>
+    {#if tabs.length}
+      <nav class="tabs">
+        <button class:on={active === null} onclick={() => show(null)}>All</button>
+        {#each tabs as tab, i (i)}
+          <button class:on={active === i} onclick={() => show(i)} title={tab.title}>{tab.title}</button>
+        {/each}
+      </nav>
+    {/if}
     <span class="meta">
       {words} words ·
       {#if status === "error"}<span class="error" title={error}>not saved</span>{:else}{status === "saved" ? "saved" : "editing"}{/if}
@@ -206,6 +233,28 @@
   }
   .name {
     font-weight: 600;
+  }
+  .tabs {
+    display: flex;
+    gap: 2px;
+    min-width: 0;
+    overflow-x: auto;
+    background: var(--chip);
+    border-radius: 7px;
+    padding: 2px;
+  }
+  .tabs button {
+    flex: none;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12px;
+    padding: 1px 9px;
+  }
+  .tabs button.on {
+    background: var(--bg);
+    color: var(--fg);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
   }
   .meta {
     margin-left: auto;
