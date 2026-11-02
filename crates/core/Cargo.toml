@@ -1,0 +1,18 @@
+[package]
+name = "papers-review-core"
+version = "0.1.0"
+description = "The review projects of papers-review: the folder, review.toml, the files"
+authors = ["Alexander Robinson"]
+edition = "2024"
+license = "MIT"
+
+[lib]
+name = "review_core"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+toml_edit = { version = "0.25", features = ["serde"] }
+
+[dev-dependencies]
+tempfile = "3"
