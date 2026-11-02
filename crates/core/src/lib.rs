@@ -7,4 +7,4 @@ pub mod project;
 
 pub use colour::Colour;
 pub use files::{Kind, Node};
-pub use project::{Error, MANIFEST, Manifest, Project};
+pub use project::{Error, MANIFEST, Manifest, Project, REVIEW};

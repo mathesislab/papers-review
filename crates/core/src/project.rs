@@ -16,6 +16,9 @@ use crate::files::{self, Node};
 /// The file of the app in a project folder.
 pub const MANIFEST: &str = "review.toml";
 
+/// The review, when `review.toml` names none.
+pub const REVIEW: &str = "review.md";
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("{0}: not a folder")]
@@ -41,6 +44,8 @@ pub struct Manifest {
     /// files elsewhere, part of the project
     #[serde(default)]
     pub linked: Vec<PathBuf>,
+    /// the Markdown file of the review (`review.md` without)
+    pub review: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -118,17 +123,53 @@ impl Project {
         self.root.join(path)
     }
 
-    /// `review.toml` written whole, atomically: a file beside it, renamed.
-    fn save(&self) -> Result<(), Error> {
-        let path = self.root.join(MANIFEST);
-        let temporary = self.root.join(format!(".{MANIFEST}.tmp"));
-        fs::write(&temporary, self.document.to_string())
-            .and_then(|()| fs::rename(&temporary, &path))
-            .map_err(|e| {
-                let _ = fs::remove_file(&temporary);
-                Error::Write(path, e)
-            })
+    /// The file of the review: `review` of `review.toml`, else `review.md`
+    /// in the folder.
+    pub fn review_path(&self) -> PathBuf {
+        self.resolve(self.manifest.review.as_deref().unwrap_or(Path::new(REVIEW)))
     }
+
+    /// The text of the review; empty while it is not written yet.
+    pub fn read_review(&self) -> Result<String, Error> {
+        let path = self.review_path();
+        match fs::read_to_string(&path) {
+            Ok(text) => Ok(text),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(String::new()),
+            Err(e) => Err(Error::Read(path, e)),
+        }
+    }
+
+    /// The review written, atomically.
+    pub fn write_review(&self, text: &str) -> Result<(), Error> {
+        write_atomically(&self.review_path(), text)
+    }
+
+    /// Another Markdown file as the review, in `review.toml`: by its path
+    /// from the folder when it is in it.
+    pub fn set_review(&mut self, path: &Path) -> Result<(), Error> {
+        let kept = path.strip_prefix(&self.root).unwrap_or(path).to_path_buf();
+        self.document["review"] = value(kept.to_string_lossy().as_ref());
+        self.save()?;
+        self.manifest.review = Some(kept);
+        Ok(())
+    }
+
+    /// `review.toml` written whole, atomically.
+    fn save(&self) -> Result<(), Error> {
+        write_atomically(&self.root.join(MANIFEST), &self.document.to_string())
+    }
+}
+
+/// A file written whole, atomically: a hidden file beside it, renamed.
+fn write_atomically(path: &Path, text: &str) -> Result<(), Error> {
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let temporary = path.with_file_name(format!(".{name}.tmp"));
+    fs::write(&temporary, text)
+        .and_then(|()| fs::rename(&temporary, path))
+        .map_err(|e| {
+            let _ = fs::remove_file(&temporary);
+            Error::Write(path.to_path_buf(), e)
+        })
 }
 
 #[cfg(test)]
@@ -201,6 +242,38 @@ mod tests {
         let file = dir.path().join("paper.pdf");
         fs::write(&file, "").unwrap();
         assert!(matches!(Project::open(&file), Err(Error::NotAFolder(_))));
+    }
+
+    #[test]
+    fn the_review_is_review_md_until_another_file_is_chosen() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut project = Project::open(dir.path()).unwrap();
+        assert_eq!(project.review_path(), dir.path().join(REVIEW));
+        // not written yet: empty
+        assert_eq!(project.read_review().unwrap(), "");
+        project.write_review("## Round 1\n").unwrap();
+        assert_eq!(fs::read_to_string(dir.path().join(REVIEW)).unwrap(), "## Round 1\n");
+        assert!(!dir.path().join(".review.md.tmp").exists());
+
+        fs::create_dir(dir.path().join("round-2")).unwrap();
+        let notes = dir.path().join("round-2/notes.md");
+        fs::write(&notes, "notes").unwrap();
+        project.set_review(&notes).unwrap();
+        assert_eq!(project.read_review().unwrap(), "notes");
+        // kept from the folder, read again so
+        let written = fs::read_to_string(dir.path().join(MANIFEST)).unwrap();
+        assert_eq!(written, "review = \"round-2/notes.md\"\n");
+        assert_eq!(Project::open(dir.path()).unwrap().review_path(), notes);
+    }
+
+    #[test]
+    fn a_review_elsewhere_is_kept_by_its_whole_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let elsewhere = tempfile::tempdir().unwrap();
+        let notes = elsewhere.path().join("notes.md");
+        let mut project = Project::open(dir.path()).unwrap();
+        project.set_review(&notes).unwrap();
+        assert_eq!(project.review_path(), notes);
     }
 
     #[test]
