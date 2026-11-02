@@ -141,6 +141,22 @@ fn set_layout(webview: Webview, state: State<'_, AppState>, layout: Layout) -> R
     Ok(())
 }
 
+/// The colour of the project, for all its windows, written in its `review.toml`.
+#[tauri::command]
+fn set_colour(app: AppHandle, webview: Webview, state: State<'_, AppState>, colour: Colour) -> Result<(), String> {
+    let root = root_of(&webview)?;
+    state
+        .projects
+        .lock()
+        .unwrap()
+        .get_mut(&root)
+        .ok_or("the project is not open")?
+        .set_colour(colour)
+        .map_err(|e| e.to_string())?;
+    windows::changed(&app, &root);
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -172,7 +188,8 @@ pub fn run() {
             recent,
             project,
             layout,
-            set_layout
+            set_layout,
+            set_colour
         ])
         .build(tauri::generate_context!())
         .expect("error while building papers-review")

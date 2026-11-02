@@ -1,16 +1,19 @@
 <script lang="ts">
-  // The page of a project's window: the files (⌘⌥S hides them), the files open in tabs, the one in front: a PDF in PDFKit, with its page, zoom and find. How the window looked is kept
+  // The page of a project's window: the colour bar (right-click: its colour), the files (⌘⌥S hides them), the files
+  // open in tabs, the one in front: a PDF in PDFKit, with its page, zoom and find. How the window looked is kept
   // between sessions (the app's state.json); the commands of the menu bar come as `menu`.
 
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
+  import { CheckMenuItem, Menu } from "@tauri-apps/api/menu";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { openPath } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
   import "$lib/theme.css";
+  import { COLOURS, cssOf } from "$lib/colour";
   import Files from "$lib/Files.svelte";
   import PdfView from "$lib/PdfView.svelte";
-  import type { Layout, Node, Project } from "$lib/types";
+  import type { Colour, Layout, Node, Project } from "$lib/types";
 
   let project = $state<Project | null>(null);
   let error = $state("");
@@ -53,6 +56,27 @@
   async function search(again: boolean, backwards = false) {
     if (!pdf) return;
     notFound = findText !== "" && !(await pdf.find(findText, again, backwards));
+  }
+
+  /** A right-click on the bar: the colour of the project, for all its windows (review.toml). */
+  async function colourMenu(e: MouseEvent) {
+    e.preventDefault();
+    const items = COLOURS.map((c) =>
+      CheckMenuItem.new({
+        text: c.name,
+        checked: project?.colour === c.colour,
+        action: () => setColour(c.colour),
+      }),
+    );
+    await (await Menu.new({ items: await Promise.all(items) })).popup();
+  }
+
+  async function setColour(colour: Colour) {
+    try {
+      await invoke("set_colour", { colour });
+    } catch (e) {
+      error = String(e);
+    }
   }
 
   async function load() {
@@ -119,8 +143,11 @@
       ready = true;
     })();
     const unlisten = listen<string>("menu", (e) => command(e.payload));
+    // the colour or the files changed, from this window or another of the project
+    const unlistenChanged = listen("project-changed", () => load());
     return () => {
       unlisten.then((f) => f());
+      unlistenChanged.then((f) => f());
     };
   });
 
@@ -134,8 +161,13 @@
   });
 </script>
 
+<!-- the project's colour, at the top, to tell its windows apart among others; a right-click chooses it -->
+{#if project && cssOf(project.colour)}
+  <div class="colour" style:background={cssOf(project.colour)} title="The colour of the project: right-click to choose" oncontextmenu={colourMenu} role="presentation"></div>
+{/if}
+
 {#if project}
-  <div class="window" class:nofiles={!layout.files}>
+  <div class="window" class:nofiles={!layout.files} class:coloured={cssOf(project.colour)}>
     {#if layout.files}
       <Files files={project.files} linked={project.linked} due={project.due} front={layout.front} onopen={open} />
     {/if}
@@ -206,11 +238,24 @@
 {/if}
 
 <style>
+  /* absolute, not fixed: WebKit tints the title bar with what is fixed at the top of the page (as in Papers
+     Desktop) */
+  .colour {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    height: 6px;
+  }
   .window {
     height: 100vh;
     box-sizing: border-box;
     display: grid;
     grid-template-columns: 240px 1fr;
+  }
+  .window.coloured {
+    padding-top: 6px;
   }
   .window.nofiles {
     grid-template-columns: 1fr;

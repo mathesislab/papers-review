@@ -8,7 +8,8 @@ use std::sync::atomic::Ordering;
 use review_core::{Colour, Project};
 use tauri::window::WindowBuilder;
 use tauri::{
-    AppHandle, LogicalPosition, Manager, WebviewBuilder, WebviewUrl, WebviewWindowBuilder, Window,
+    AppHandle, Emitter, EventTarget, LogicalPosition, Manager, WebviewBuilder, WebviewUrl,
+    WebviewWindowBuilder, Window,
 };
 
 use crate::{AppState, menu};
@@ -146,5 +147,21 @@ pub fn closed(app: &AppHandle, window: &str) {
         && !windows.values().any(|r| *r == root)
     {
         state.projects.lock().unwrap().remove(&root);
+    }
+}
+
+/// The project of `root` changed (its colour, its files): its windows are told.
+pub fn changed(app: &AppHandle, root: &Path) {
+    let labels: Vec<String> = app
+        .state::<AppState>()
+        .windows
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|(_, r)| *r == root)
+        .map(|(label, _)| label.clone())
+        .collect();
+    for label in labels {
+        let _ = app.emit_to(EventTarget::webview(page(&label)), "project-changed", ());
     }
 }
