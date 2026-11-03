@@ -269,6 +269,7 @@
     gap: 8px;
     /* the height of the collapsed pane (HEADER in pane.rs) less the border of the pane, 1px at each side */
     height: calc(32px - 2px);
+    position: relative;
     box-sizing: border-box;
     padding: 0 8px 0 14px;
     border-bottom: 1px solid var(--line);
@@ -339,6 +340,13 @@
   .arrow {
     display: flex;
     padding: 4px 6px;
+  }
+  /* in the middle of the header, not among the buttons at its end; the strip on the right keeps it at its top */
+  header:not(.strip) .arrow {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
   }
   .arrow svg {
     transition: transform 0.12s;
