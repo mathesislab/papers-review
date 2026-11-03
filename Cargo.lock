@@ -2481,6 +2481,7 @@ name = "papers-review"
 version = "0.1.0"
 dependencies = [
  "notify",
+ "objc2-foundation",
  "papers-review-core",
  "serde",
  "serde_json",

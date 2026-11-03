@@ -8,6 +8,7 @@ mod pane;
 mod review;
 mod settings;
 mod state;
+mod trash;
 mod windows;
 
 use std::collections::HashMap;
@@ -487,6 +488,19 @@ fn pane_focus(app: AppHandle, webview: Webview, focused: bool) {
     pane::set_focused(&app, webview.window().label(), focused);
 }
 
+/// A file or folder of the project (not a linked one) moved to the Trash.
+#[tauri::command]
+fn trash(app: AppHandle, webview: Webview, path: PathBuf) -> Result<(), String> {
+    let root = root_of(&webview)?;
+    let path = path.canonicalize().map_err(|e| format!("{}: {e}", path.display()))?;
+    if path == root || !path.starts_with(&root) {
+        return Err(format!("{}: not a file of the project", path.display()));
+    }
+    trash::trash(&path)?;
+    windows::changed(&app, &root);
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -550,7 +564,8 @@ pub fn run() {
             pane_placement,
             review,
             save_review,
-            set_review
+            set_review,
+            trash
         ])
         .build(tauri::generate_context!())
         .expect("error while building papers-review")
