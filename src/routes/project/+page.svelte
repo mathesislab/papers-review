@@ -730,8 +730,10 @@
   .name span {
     display: block;
   }
-  /* the due date, with a dot for how near it is */
+  /* the due date, with a dot for how near it is; dark, as small as it is, on the light colours of the tiles */
   .when {
+    color: rgba(0, 0, 0, 0.68);
+    text-shadow: none;
     display: flex;
     align-items: center;
     gap: 4px;
