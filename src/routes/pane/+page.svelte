@@ -13,7 +13,7 @@
   import { keymap } from "@codemirror/view";
   import { onMount } from "svelte";
   import "$lib/theme.css";
-  import { insertQuote, showSection, wordsOf } from "$lib/editor";
+  import { insertQuote, insertText, showSection, wordsOf } from "$lib/editor";
   import FileEditor, { type Status } from "$lib/FileEditor.svelte";
   import { sections, type Section } from "$lib/sections";
 
@@ -102,10 +102,10 @@
       listen("review-changed", () => editor?.changedOnDisk()),
       // Undo and Redo of the menu: the editor's own history
       listen<string>("edit", (e) => (e.payload === "redo" ? editor?.redo() : editor?.undo())),
-      // ⌘' in the page: a quote of the PDF at the cursor
-      listen<string>("review-insert", (e) => {
+      // ⌘' and ⌘; in the page: a quote of the PDF, or its text alone, at the cursor
+      listen<{ text: string; paragraph: boolean }>("review-insert", (e) => {
         const view = editor?.view();
-        if (view) insertQuote(view, e.payload);
+        if (view) (e.payload.paragraph ? insertQuote : insertText)(view, e.payload.text);
       }),
       // another file as the review: what was typed goes to the one before, then the new one is read
       listen("review-switched", async () => {

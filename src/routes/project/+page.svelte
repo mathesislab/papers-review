@@ -23,7 +23,7 @@
   import Files from "$lib/Files.svelte";
   import InfoCard from "$lib/InfoCard.svelte";
   import PdfView from "$lib/PdfView.svelte";
-  import { quote } from "$lib/quote";
+  import { quote, quoteText } from "$lib/quote";
   import type { BarItem, Colour, Kind, Layout, Node, Project, Settings } from "$lib/types";
 
   let project = $state<Project | null>(null);
@@ -320,12 +320,12 @@
     }
   }
 
-  /** ⌘': the selection of the PDF as a quote, into the review at its cursor. */
-  async function quoteSelection() {
+  /** ⌘': the selection of the PDF as a quote, into the review at its cursor; ⌘; its text alone (`plain`). */
+  async function quoteSelection(plain = false) {
     const selection = await pdf?.selection();
     if (!selection) return;
     try {
-      await invoke("quote", { text: quote(selection) });
+      await invoke("quote", plain ? { text: quoteText(selection), paragraph: false } : { text: quote(selection), paragraph: true });
     } catch (e) {
       error = String(e);
     }
@@ -362,6 +362,9 @@
         break;
       case "quote":
         quoteSelection();
+        break;
+      case "insert":
+        quoteSelection(true);
         break;
       case "info":
         openCard();

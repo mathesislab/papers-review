@@ -213,11 +213,19 @@ pub fn release(app: &AppHandle, window: &str) {
     keys_to_page(app, window);
 }
 
+/// What the pane is told to put in at its cursor.
+#[derive(Clone, Serialize)]
+struct Insert<'a> {
+    text: &'a str,
+    /// a paragraph of its own, or within the text
+    paragraph: bool,
+}
+
 /// A quote into the review at the pane's cursor: the pane shown and expanded
 /// in this window, with the keys, to write what it is about.
-pub fn insert(app: &AppHandle, window: &str, text: &str) {
+pub fn insert(app: &AppHandle, window: &str, text: &str, paragraph: bool) {
     show(app, window);
-    let _ = app.emit_to(EventTarget::webview(label(window)), "review-insert", text);
+    let _ = app.emit_to(EventTarget::webview(label(window)), "review-insert", Insert { text, paragraph });
 }
 
 /// A card of the page shown or gone: the pane hidden meanwhile, then placed
