@@ -1,6 +1,6 @@
 //! The menu bar. The commands of a project's page go to the page of the
-//! window in front (event `menu`, the id of the item); the others are the
-//! app's.
+//! window in front (event `menu`, the id of the item); the export commands go
+//! to its review pane (event `export`); the others are the app's.
 
 use std::path::PathBuf;
 
@@ -76,6 +76,9 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             &separator()?,
             &item("close-tab", "Close Tab", Some("CmdOrCtrl+W"))?,
             &item("close-window", "Close Window", Some("Shift+CmdOrCtrl+W"))?,
+            &separator()?,
+            &item("export-pdf", "Export Review as PDF…", Some("CmdOrCtrl+E"))?,
+            &item("export-text", "Copy Review as Text", Some("Shift+CmdOrCtrl+E"))?,
         ],
     )?;
     let edit = Submenu::with_items(
@@ -169,6 +172,13 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
                 } else {
                     pane::switch_side(app, window.label());
                 }
+            }
+        }
+        // the pane knows which section of the review is shown, and has its editor loaded even when hidden
+        "export-pdf" | "export-text" => {
+            if let Some(window) = front(app).filter(|w| windows::root_of(app, w.label()).is_some()) {
+                let kind = if id == "export-pdf" { "pdf" } else { "text" };
+                let _ = app.emit_to(EventTarget::webview(pane::label(window.label())), "export", kind);
             }
         }
         "close-window" => {
