@@ -10,6 +10,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { emitTo, listen } from "@tauri-apps/api/event";
   import { CheckMenuItem, Menu, MenuItem } from "@tauri-apps/api/menu";
+  import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { confirm, message } from "@tauri-apps/plugin-dialog";
   import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -337,6 +338,20 @@
     }
   }
 
+  /** Files or folders dropped on the window from the Finder: added to the project, but for those of the project
+   *  itself. Not while a card is shown. */
+  async function drop(paths: string[]) {
+    if (!project || covered) return;
+    const root = project.root;
+    const added = paths.filter((p) => p !== root && !p.startsWith(`${root}/`));
+    if (!added.length) return;
+    try {
+      await addPaths(added, null);
+    } catch (e) {
+      await fail("Add to the Project", e);
+    }
+  }
+
   /** A path gone from the project: its tabs close. */
   function closeUnder(path: string) {
     for (const tab of [...layout.tabs]) if (tab === path || tab.startsWith(`${path}/`)) close(tab);
@@ -464,7 +479,12 @@
       if (e.payload === edited?.path) editor?.changedOnDisk();
     });
     const unlistenSettings = listen("settings-changed", () => loadSettings());
+    // files dropped from the Finder
+    const unlistenDrop = getCurrentWebview().onDragDropEvent((e) => {
+      if (e.payload.type === "drop") drop(e.payload.paths);
+    });
     return () => {
+      unlistenDrop.then((f) => f());
       unlistenSwitched.then((f) => f());
       unlistenBar.then((f) => f());
       unlistenOpen.then((f) => f());
