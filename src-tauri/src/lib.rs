@@ -173,10 +173,16 @@ fn settings(state: State<'_, AppState>) -> Settings {
 
 /// The settings changed: kept, and every page told.
 #[tauri::command]
-fn set_settings(app: AppHandle, state: State<'_, AppState>, settings: Settings) {
+fn set_settings(app: AppHandle, settings: Settings) {
+    apply_settings(&app, settings);
+}
+
+/// The settings kept as `settings`, and every page told.
+pub fn apply_settings(app: &AppHandle, settings: Settings) {
+    let state = app.state::<AppState>();
     *state.settings.lock().unwrap() = settings.clone();
     settings.save(&state.data);
-    windows::settings_changed(&app);
+    windows::settings_changed(app);
     let _ = app.emit("settings-changed", settings);
 }
 

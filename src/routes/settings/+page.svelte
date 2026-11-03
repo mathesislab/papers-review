@@ -1,12 +1,13 @@
 <script lang="ts">
   // The Settings window (⌘,): whether the projects open in one window, with a bar to switch between them, or each in
-  // a window of its own; how dates are written; the font and size of the editors; the exports of the review (the
+  // a window of its own; the folder new reviews are made in; how dates are written; the font and size of the editors; the exports of the review (the
   // reviewer's name, whether the PDF is signed with it, whether its header has the journal, the manuscript ID and the
   // date); and the sequences typed in the review that become symbols: the defaults, each turned off if not wanted,
   // and the user's own. Kept in the app's data folder (settings.json); the project windows are told as it changes.
 
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
+  import { open } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
   import "$lib/theme.css";
   import { DEFAULTS } from "$lib/symbols";
@@ -36,6 +37,19 @@
   function change(e: Event) {
     if (!settings) return;
     settings.project_bar = (e.currentTarget as HTMLInputElement).checked;
+    save();
+  }
+
+  async function chooseReviews() {
+    if (!settings) return;
+    const folder = await open({
+      directory: true,
+      title: "Choose the folder for your reviews",
+      defaultPath: settings.reviews_folder ?? undefined,
+      canCreateDirectories: true,
+    });
+    if (!folder) return;
+    settings.reviews_folder = folder;
     save();
   }
 
@@ -80,6 +94,14 @@
       <span>Open projects in one window, with a bar to switch between them</span>
     </label>
     <p class="note">Off: each project opens in a window of its own.</p>
+
+    <h2>New reviews</h2>
+    <div class="field">
+      <label for="reviews-folder">Reviews folder</label>
+      <span id="reviews-folder" class="folder" class:unset={!settings.reviews_folder} title={settings.reviews_folder ?? ""}>{settings.reviews_folder ?? "Not chosen yet"}</span>
+      <button onclick={chooseReviews}>Choose…</button>
+    </div>
+    <p class="note first">New reviews from a manuscript are made in it, a folder each.</p>
 
     <h2>Dates</h2>
     <div class="field">
@@ -204,8 +226,21 @@
     margin-top: 8px;
   }
   .field label {
-    width: 80px;
+    width: 100px;
     color: var(--muted);
+  }
+  .folder {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    direction: rtl;
+    text-align: left;
+  }
+  .folder.unset {
+    color: var(--muted);
+    direction: ltr;
   }
   select {
     font: inherit;

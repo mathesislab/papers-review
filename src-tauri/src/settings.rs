@@ -1,7 +1,7 @@
 //! The app's settings, in its data folder (`settings.json`), set in the
 //! Settings window.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -51,6 +51,8 @@ pub struct Settings {
     pub sign: bool,
     /// the header of the PDF has the journal, the manuscript, the title and the date; off, it is the heading alone
     pub header_details: bool,
+    /// the folder the folders of new reviews are made in; none: asked for with the first
+    pub reviews_folder: Option<PathBuf>,
 }
 
 impl Default for Settings {
@@ -64,6 +66,7 @@ impl Default for Settings {
             reviewer_name: String::new(),
             sign: false,
             header_details: false,
+            reviews_folder: None,
         }
     }
 }
@@ -116,6 +119,14 @@ mod tests {
     }
 
     #[test]
+    fn the_reviews_folder_is_not_set_unless_the_settings_say_so() {
+        assert_eq!(Settings::default().reviews_folder, None);
+        assert_eq!(serde_json::from_str::<Settings>("{}").unwrap().reviews_folder, None);
+        let set: Settings = serde_json::from_str(r#"{"reviews_folder": "/reviews"}"#).unwrap();
+        assert_eq!(set.reviews_folder, Some(PathBuf::from("/reviews")));
+    }
+
+    #[test]
     fn saved_and_loaded_back_a_missing_or_broken_file_is_the_defaults() {
         let dir = std::env::temp_dir().join(format!("papers-review-settings-{}", std::process::id()));
         assert_eq!(Settings::load(&dir), Settings::default());
@@ -128,6 +139,7 @@ mod tests {
             reviewer_name: "A. Reviewer".into(),
             sign: true,
             header_details: true,
+            reviews_folder: Some("/reviews".into()),
         };
         settings.save(&dir);
         assert_eq!(Settings::load(&dir), settings);

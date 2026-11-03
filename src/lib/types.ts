@@ -52,6 +52,8 @@ export type Settings = {
   sign: boolean;
   /** the PDF's header holds the journal, the manuscript ID and the date as well as the heading */
   header_details: boolean;
+  /** the folder the folders of new reviews are made in; null: asked for with the first */
+  reviews_folder: string | null;
 };
 
 /** mirrors settings::DateFormat: 2026-11-14, 14.11.2026, 11/14/2026 */
