@@ -29,3 +29,9 @@ export type Recent = { root: string; name: string; colour: Colour; missing: bool
 
 /** mirrors state::Layout */
 export type Layout = { files: boolean; files_width: number; tabs: string[]; front: string | null; pages: Record<string, number> };
+
+/** mirrors settings::Settings */
+export type Settings = {
+  /** the projects in one window, with a bar to switch between them; off: each in a window of its own */
+  project_bar: boolean;
+};

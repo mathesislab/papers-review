@@ -1,6 +1,6 @@
-//! The windows: the start window, and one window per project, which holds
-//! web views (its page now; the review pane over it later). A window's label
-//! names its project in `AppState::windows`.
+//! The windows: the start window, the Settings window, and the windows of the
+//! projects, which hold web views (the page, the review pane over it). A
+//! window's label names its project in `AppState::windows`.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
@@ -17,6 +17,9 @@ use crate::{AppState, menu, pane, review};
 /// The start window: the projects opened last, and Open.
 pub const START: &str = "start";
 
+/// The Settings window.
+pub const SETTINGS: &str = "settings";
+
 /// The label of the page of a project's window.
 pub fn page(window: &str) -> String {
     format!("{window}-page")
@@ -31,6 +34,21 @@ pub fn show_start(app: &AppHandle) {
     let _ = WebviewWindowBuilder::new(app, START, WebviewUrl::App("/".into()))
         .title("Papers Review")
         .inner_size(560.0, 460.0)
+        .resizable(false)
+        .center()
+        .build();
+}
+
+/// The Settings window, brought forward or made.
+pub fn show_settings(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window(SETTINGS) {
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+        return;
+    }
+    let _ = WebviewWindowBuilder::new(app, SETTINGS, WebviewUrl::App("settings".into()))
+        .title("Settings")
+        .inner_size(460.0, 220.0)
         .resizable(false)
         .center()
         .build();

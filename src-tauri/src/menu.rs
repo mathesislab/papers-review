@@ -50,6 +50,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         &[
             &PredefinedMenuItem::about(app, None, None)?,
             &separator()?,
+            &item("settings", "Settings…", Some("CmdOrCtrl+,"))?,
+            &separator()?,
             &PredefinedMenuItem::services(app, None)?,
             &separator()?,
             &PredefinedMenuItem::hide(app, None)?,
@@ -133,6 +135,7 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
     let id = event.id().as_ref();
     match id {
         "open" => choose_project(app),
+        "settings" => windows::show_settings(app),
         "clear-recent" => {
             let state = app.state::<AppState>();
             state.saved.lock().unwrap().recent.clear();
@@ -164,7 +167,7 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
             }
         }
         _ if PAGE.contains(&id) => match front(app) {
-            Some(window) if window.label() == windows::START => {
+            Some(window) if window.label() == windows::START || window.label() == windows::SETTINGS => {
                 if id == "close-tab" {
                     let _ = window.close();
                 }

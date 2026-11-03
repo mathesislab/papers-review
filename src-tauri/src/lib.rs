@@ -1,9 +1,11 @@
-//! papers-review: a window per review project (a folder), and a start
+//! papers-review: a window per review project (a folder), or one window with a
+//! bar to switch between projects (a setting), a start window and a Settings
 //! window. The project of a window is found by its label (`windows`).
 
 mod menu;
 mod pane;
 mod review;
+mod settings;
 mod state;
 mod windows;
 
@@ -14,8 +16,9 @@ use std::sync::atomic::AtomicUsize;
 
 use review_core::{Colour, Node, Project};
 use serde::Serialize;
-use tauri::{AppHandle, Manager, RunEvent, State, Webview, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, State, Webview, WindowEvent};
 
+use settings::Settings;
 use state::{Layout, Saved};
 
 pub struct AppState {
@@ -24,7 +27,8 @@ pub struct AppState {
     /// the project of each window, by the window's label
     pub windows: Mutex<HashMap<String, PathBuf>>,
     pub saved: Mutex<Saved>,
-    /// the app's data folder, where `saved` is written
+    pub settings: Mutex<Settings>,
+    /// the app's data folder, where `saved` and `settings` are written
     data: PathBuf,
     /// the number of the next window
     next: AtomicUsize,
@@ -70,6 +74,20 @@ struct Recent {
 fn root_of(webview: &Webview) -> Result<PathBuf, String> {
     windows::root_of(webview.app_handle(), webview.window().label())
         .ok_or_else(|| format!("{}: no project in this window", webview.label()))
+}
+
+/// The settings, for the Settings window and the project pages.
+#[tauri::command]
+fn settings(state: State<'_, AppState>) -> Settings {
+    state.settings.lock().unwrap().clone()
+}
+
+/// The settings changed: kept, and every page told.
+#[tauri::command]
+fn set_settings(app: AppHandle, state: State<'_, AppState>, settings: Settings) {
+    *state.settings.lock().unwrap() = settings.clone();
+    settings.save(&state.data);
+    let _ = app.emit("settings-changed", settings);
 }
 
 #[tauri::command]
@@ -253,6 +271,7 @@ pub fn run() {
                 projects: Mutex::new(HashMap::new()),
                 windows: Mutex::new(HashMap::new()),
                 saved: Mutex::new(Saved::load(&data)),
+                settings: Mutex::new(Settings::load(&data)),
                 data,
                 next: AtomicUsize::new(1),
                 panes: Mutex::new(pane::Panes::default()),
@@ -269,6 +288,8 @@ pub fn run() {
             _ => {}
         })
         .invoke_handler(tauri::generate_handler![
+            settings,
+            set_settings,
             open_project,
             choose_project,
             recent,
