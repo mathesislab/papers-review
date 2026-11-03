@@ -1,0 +1,66 @@
+% A made-up manuscript for the demo project of Papers Review (its screenshots): no real study, no real authors.
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=2.8cm]{geometry}
+\usepackage{lineno,amsmath,lipsum}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\linenumbers
+\title{Hysteresis of a marine ice-sheet margin in a two-stage toy model}
+\author{A. N. Author$^{1}$ and B. Coauthor$^{2}$\\[2pt]
+\small $^1$Institute of Imaginary Glaciology \quad $^2$Department of Made-up Sciences}
+\date{Preprint, demo manuscript}
+\begin{document}
+\maketitle
+\begin{abstract}
+Marine ice sheets resting on bedrock that deepens inland can retreat irreversibly once their grounding line passes a
+threshold. We present a two-stage toy model of a marine margin that couples a flux condition at the grounding line to
+a slowly adjusting ocean forcing. The model reproduces the hysteresis loop of more complex flowline models at a small
+fraction of their cost, and shows that the width of the loop depends mainly on the basal friction exponent. Under a
+warming of 1.5\,K the margin crosses its upper tipping point within two centuries, while recovery requires a cooling
+well below the pre-industrial state.
+\end{abstract}
+
+\section{Introduction}
+The stability of marine ice-sheet margins has been debated since the first theoretical treatments showed that a
+grounding line on a retrograde bed has no stable position. Later work derived a flux condition at the grounding line
+that made the argument quantitative, and flowline models have since mapped the hysteresis of idealized margins in
+detail. These models remain expensive to run over the many thousands of years and the wide range of forcing that an
+assessment of irreversibility requires.
+
+Here we take the opposite approach. We reduce the margin to two stages, the grounded sheet and a shelf, and keep only
+the processes that set the position of the grounding line. The aim is not to replace the flowline models but to make
+their main result, the width of the hysteresis loop, easy to explore. We ask three questions: how wide is the loop,
+what sets its width, and how fast is it crossed under a realistic warming?
+
+\section{Model}
+The grounded stage has a thickness $H$ and a length $L$. Mass is gained by accumulation $a$ over the length and lost
+through the flux $q_g$ at the grounding line, so that
+\begin{equation}
+  \frac{d}{dt}(H L) = a L - q_g .
+\end{equation}
+Following the flux condition of the boundary-layer theory, the flux at the grounding line scales with the ice
+thickness there to a high power,
+\begin{equation}
+  q_g = C\, h_g^{\,(m+n+3)/(m+1)} ,
+\end{equation}
+where $m$ is the basal friction exponent, $n=3$ the exponent of the flow law and $C$ a constant that collects the
+material and friction parameters. The ocean forcing enters as a melt rate at the base of the shelf that relaxes
+towards a target set by the temperature anomaly $\Delta T$ with a time scale $\tau$ of a few decades.
+
+\section{Results}
+The steady states of the model form a fold in the plane of forcing and margin position. Between the two folds, three
+steady states coexist for the same forcing, of which the middle one is unstable. The loop is widest for a linear
+friction law, $m=1$, and narrows as $m$ decreases towards a plastic bed. For $m=1/3$ the upper tipping point lies at
+a warming of about 1.2\,K, and the margin only regrows once the ocean has cooled by 0.8\,K below its initial state.
+
+The time to cross the loop depends on the rate of warming. Under a warming of 1.5\,K reached within a century, the
+grounding line passes the upper fold after 120 to 190 years, depending on the friction law, and the retreat then
+proceeds at a rate set by the accumulation alone. The transient lag between forcing and response is therefore
+dominated by the slow mass balance of the grounded stage and not by the ocean.
+
+\section{Discussion}
+\lipsum[1-4]
+
+\section{Conclusions}
+\lipsum[5-6]
+\end{document}

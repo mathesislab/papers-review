@@ -1,0 +1,7 @@
+# a demo project: a made-up manuscript and its review, for the screenshots
+title = "Ice-margin hysteresis"
+short = "Ice margin"
+journal = "Journal of Toy Models"
+manuscript = "jtm-2026-0042"
+due = 2026-11-20
+colour = "teal"
