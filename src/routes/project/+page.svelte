@@ -338,8 +338,9 @@
     }
   }
 
-  /** Files or folders dropped on the window from the Finder: added to the project, but for those of the project
-   *  itself. Not while a card is shown. */
+  /** Files or folders dropped on the window from the Finder: added to the project. Those of the project itself
+   *  are left (the project does not add them again either), so as not to ask about nothing. Not while a card is
+   *  shown. */
   async function drop(paths: string[]) {
     if (!project || covered) return;
     const root = project.root;

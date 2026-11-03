@@ -304,12 +304,13 @@ impl Project {
         self.manifest.linked.iter().any(|l| self.resolve(l) == path)
     }
 
-    /// Files and folders (with all they hold) copied into `folder` of the project. Nothing is copied
-    /// when one of the names is there already.
+    /// Files and folders (with all they hold) copied into `folder` of the project; those in the
+    /// project already are left as they are. Nothing is copied when one of the names is there already.
     pub fn copy_in(&self, paths: &[PathBuf], folder: &Path) -> Result<(), Error> {
         self.check_folder(folder)?;
+        let paths: Vec<&PathBuf> = paths.iter().filter(|p| !self.within(p)).collect();
         let mut targets: Vec<PathBuf> = Vec::new();
-        for path in paths {
+        for path in paths.iter().copied() {
             let name = path.file_name().ok_or_else(|| Error::Name(path.display().to_string()))?;
             let target = folder.join(name);
             if target.symlink_metadata().is_ok() || targets.contains(&target) {
@@ -320,7 +321,7 @@ impl Project {
             }
             targets.push(target);
         }
-        for (path, target) in paths.iter().zip(&targets) {
+        for (path, target) in paths.into_iter().zip(&targets) {
             files::copy(path, target).map_err(|e| Error::Write(target.clone(), e))?;
         }
         Ok(())
@@ -907,9 +908,18 @@ mod tests {
         let dodging = dir.path().join("round-1/../../");
         assert!(matches!(project.copy_in(&paths, &dodging), Err(Error::Outside(_))));
         assert!(matches!(project.copy_in(&paths, &dir.path().join("nowhere")), Err(Error::NotAFolder(_))));
-        let root = [dir.path().to_path_buf()];
-        let error = project.copy_in(&root, &dir.path().join("round-1")).unwrap_err();
+        let above = [dir.path().parent().unwrap().to_path_buf()];
+        let error = project.copy_in(&above, &dir.path().join("round-1")).unwrap_err();
         assert!(matches!(error, Error::Itself(_)), "{error}");
+    }
+
+    #[test]
+    fn what_is_in_the_project_already_is_not_copied_in() {
+        let (dir, _elsewhere) = two_folders();
+        let project = Project::open(dir.path()).unwrap();
+        let inside = [dir.path().to_path_buf(), dir.path().join("round-1")];
+        project.copy_in(&inside, dir.path()).unwrap();
+        assert!(!dir.path().join("round-1/round-1").exists());
     }
 
     #[test]
