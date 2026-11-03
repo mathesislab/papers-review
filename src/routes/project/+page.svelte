@@ -1,7 +1,7 @@
 <script lang="ts">
   // The page of a project's window: the colour bar (right-click: its colour), the files (⌘⌥S hides them), the files
-  // open in tabs, the one in front: a PDF in PDFKit, with its page, zoom and find. How the window looked is kept
-  // between sessions (the app's state.json); the commands of the menu bar come as `menu`.
+  // open in tabs, the one in front: a PDF in PDFKit, with its outline, page, zoom and find. How the window looked is
+  // kept between sessions (the app's state.json); the commands of the menu bar come as `menu`.
 
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
@@ -9,6 +9,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { openPath } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
+  import type { Entry } from "tauri-plugin-pdfkit-api";
   import "$lib/theme.css";
   import { COLOURS, cssOf } from "$lib/colour";
   import Files from "$lib/Files.svelte";
@@ -43,6 +44,14 @@
   let pdf = $state<PdfView>();
   let count = $state(0);
   let current = $state(1);
+  /** its outline (empty until it is open), and whether the panel for it is shown */
+  let outline = $state<Entry[]>([]);
+  let showOutline = $state(false);
+  // the outline of the file before is not this one's
+  $effect(() => {
+    layout.front;
+    outline = [];
+  });
   /** the find field, and its text */
   let findInput = $state<HTMLInputElement>();
   /** the viewer: where it is tells the review pane where to lie */
@@ -237,25 +246,37 @@
     {/if}
     <section class="main">
       <div class="bar">
-      <div class="tabs">
-        {#each layout.tabs as path (path)}
-          <div class="tab" class:front={path === layout.front}>
-            <button class="label" onclick={() => (layout.front = path)} title={path}>{nodes.get(path)?.name ?? path}</button>
-            <button class="close" onclick={() => close(path)} title="Close Tab (⌘W)">✕</button>
-          </div>
-        {/each}
+        <!-- the files panel, shown or hidden as by ⌘⌥S -->
+        <button class="toggle" class:on={layout.files} onclick={() => command("files")} title="Show or Hide Files (⌘⌥S)" aria-label="Show or Hide Files">
+          <svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
+            <rect x="0.65" y="0.65" width="14.7" height="12.7" rx="2.5" />
+            <line x1="5.65" y1="1" x2="5.65" y2="13" />
+            <line x1="2.4" y1="4" x2="4" y2="4" stroke-linecap="round" />
+            <line x1="2.4" y1="6" x2="4" y2="6" stroke-linecap="round" />
+            <line x1="2.4" y1="8" x2="4" y2="8" stroke-linecap="round" />
+          </svg>
+        </button>
+        <div class="tabs">
+          {#each layout.tabs as path (path)}
+            <div class="tab" class:front={path === layout.front}>
+              <button class="label" onclick={() => (layout.front = path)} title={path}>{nodes.get(path)?.name ?? path}</button>
+              <button class="close" onclick={() => close(path)} title="Close Tab (⌘W)">✕</button>
+            </div>
+          {/each}
+        </div>
       </div>
       {#if front?.kind === "pdf"}
+        <!-- the tools of the PDF in front, under the tabs -->
         <div class="tools">
-          <span class="page">{current} / {count}</span>
-          <button onclick={() => pdf?.zoom(-1)} title="Zoom Out (⌘-)">−</button>
-          <button onclick={() => pdf?.zoom(0)} title="Fit Width (⌘0)">Fit</button>
-          <button onclick={() => pdf?.zoom(1)} title="Zoom In (⌘=)">+</button>
+          {#if outline.length}
+            <button class:on={showOutline} onclick={() => (showOutline = !showOutline)}>Outline</button>
+          {/if}
           <input
             bind:this={findInput}
             bind:value={findText}
             class:missed={notFound}
-            placeholder="Find (⌘F)"
+            type="search"
+            placeholder="Find in the PDF (⌘F)"
             autocomplete="off"
             autocorrect="off"
             spellcheck="false"
@@ -263,51 +284,73 @@
             onkeydown={(e) => {
               if (e.key === "Enter") search(true, e.shiftKey);
               if (e.key === "Escape") {
+                e.preventDefault();
                 findText = "";
                 search(false);
                 findInput?.blur();
               }
             }}
           />
+          <span class="page">{count ? `Page ${current} of ${count}` : ""}</span>
+          <button onclick={() => pdf?.zoom(-1)} title="Zoom Out (⌘-)">−</button>
+          <button onclick={() => pdf?.zoom(0)} title="Fit Width (⌘0)">Fit</button>
+          <button onclick={() => pdf?.zoom(1)} title="Zoom In (⌘=)">+</button>
+          <button class="icon" onclick={() => openPath(front.path)} title="Open in Default App" aria-label="Open in Default App">↗</button>
         </div>
       {/if}
-      </div>
-      <div class="viewer" bind:this={viewer}>
-        {#if front?.kind === "pdf"}
-          {#key front.path}
-            <PdfView
-              bind:this={pdf}
-              path={front.path}
-              page={layout.pages[front.path] ?? 1}
-              onpage={turned}
-              onopen={(c) => {
-                count = c;
-                current = layout.pages[front.path] ?? 1;
-              }}
-            />
-          {/key}
-        {:else if front}
-          <div class="other">
-            <p>{front.name}</p>
-            <div class="actions">
-              {#if front.kind === "markdown" && front.path !== project.review}
-                <button onclick={() => editReview(front.path)}>Edit in Review Pane</button>
-              {/if}
-              <button onclick={() => openPath(front.path)}>Open in Default App</button>
-            </div>
-          </div>
-        {:else}
-          <div class="other">
-            <p class="muted">{project.name}</p>
-            <p class="muted">Choose a file{layout.files ? "" : " (⌘⌥S shows them)"}.</p>
-          </div>
+      <div class="body">
+        <!-- the outline beside the viewer, not over it: the PDF is native and lies over the viewer alone -->
+        {#if front?.kind === "pdf" && showOutline && outline.length}
+          <nav class="outline">{@render entries(outline, 0)}</nav>
         {/if}
+        <div class="viewer" bind:this={viewer}>
+          {#if front?.kind === "pdf"}
+            {#key front.path}
+              <PdfView
+                bind:this={pdf}
+                path={front.path}
+                page={layout.pages[front.path] ?? 1}
+                onpage={turned}
+                onopen={(c, o) => {
+                  count = c;
+                  outline = o;
+                  current = layout.pages[front.path] ?? 1;
+                }}
+              />
+            {/key}
+          {:else if front}
+            <div class="other">
+              <p>{front.name}</p>
+              <div class="actions">
+                {#if front.kind === "markdown" && front.path !== project.review}
+                  <button onclick={() => editReview(front.path)}>Edit in Review Pane</button>
+                {/if}
+                <button onclick={() => openPath(front.path)}>Open in Default App</button>
+              </div>
+            </div>
+          {:else}
+            <div class="other">
+              <p class="muted">{project.name}</p>
+              <p class="muted">Choose a file{layout.files ? "" : " (⌘⌥S shows them)"}.</p>
+            </div>
+          {/if}
+        </div>
       </div>
     </section>
   </div>
 {:else if error}
   <p class="error">{error}</p>
 {/if}
+
+<!-- the entries of an outline, each nested ones indented below it -->
+{#snippet entries(list: Entry[], depth: number)}
+  {#each list as entry}
+    <button class="entry" style:padding-left="{10 + depth * 14}px" onclick={() => pdf?.go(entry.target)} title={entry.title}>{entry.title}</button>
+    {#if entry.items.length}
+      {@render entries(entry.items, depth + 1)}
+    {/if}
+  {/each}
+{/snippet}
 
 <style>
   /* absolute, not fixed: WebKit tints the title bar with what is fixed at the top of the page (as in Papers
@@ -360,38 +403,101 @@
     min-width: 0;
     overflow-x: auto;
   }
+  .toggle {
+    flex: none;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    color: var(--muted);
+    background: none;
+    border: none;
+    border-right: 1px solid var(--line);
+  }
+  .toggle.on {
+    color: var(--accent);
+  }
   .tools {
     flex: none;
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 0 8px;
+    gap: 8px;
+    height: 40px;
+    padding: 0 12px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
   }
   .tools .page {
     color: var(--muted);
+    font-size: 12px;
     font-variant-numeric: tabular-nums;
-    margin-right: 6px;
+    white-space: nowrap;
   }
   .tools button {
-    font: inherit;
-    color: inherit;
-    background: var(--chip);
-    border: none;
-    border-radius: 5px;
-    padding: 2px 8px;
-  }
-  .tools input {
-    font: inherit;
-    width: 150px;
-    margin-left: 6px;
-    padding: 2px 8px;
+    padding: 3px 9px;
     border: 1px solid var(--border);
     border-radius: 6px;
-    background: var(--bg);
+    background: none;
     color: var(--fg);
+    font: inherit;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .tools button.icon {
+    min-width: 28px;
+    padding: 3px 7px;
+  }
+  .tools button.on {
+    background: var(--line);
+  }
+  .tools input {
+    width: min(360px, 40%);
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: transparent;
+    color: var(--fg);
+    font: inherit;
+    outline: none;
+  }
+  .tools input:focus {
+    border-color: var(--accent);
   }
   .tools input.missed {
     border-color: var(--error);
+  }
+  .body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+  .outline {
+    flex: none;
+    width: 240px;
+    box-sizing: border-box;
+    padding: 6px 0;
+    overflow-y: auto;
+    background: var(--sidebar);
+    border-right: 1px solid var(--line);
+  }
+  .entry {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    padding-right: 10px;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    background: none;
+    border: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .entry:hover {
+    background: var(--chip);
   }
   .tab {
     display: flex;
@@ -427,6 +533,7 @@
   .viewer {
     position: relative;
     flex: 1;
+    min-width: 0;
     min-height: 0;
     background: var(--viewer);
   }
