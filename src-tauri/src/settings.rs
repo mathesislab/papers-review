@@ -53,6 +53,8 @@ pub struct Settings {
     pub header_details: bool,
     /// the folder the folders of new reviews are made in; none: asked for with the first
     pub reviews_folder: Option<PathBuf>,
+    /// look for updates at start and twice a day; they are installed only when asked
+    pub check_updates: bool,
 }
 
 impl Default for Settings {
@@ -67,6 +69,7 @@ impl Default for Settings {
             sign: false,
             header_details: false,
             reviews_folder: None,
+            check_updates: true,
         }
     }
 }
@@ -127,6 +130,13 @@ mod tests {
     }
 
     #[test]
+    fn updates_are_looked_for_unless_the_settings_say_otherwise() {
+        assert!(Settings::default().check_updates);
+        assert!(serde_json::from_str::<Settings>("{}").unwrap().check_updates);
+        assert!(!serde_json::from_str::<Settings>(r#"{"check_updates": false}"#).unwrap().check_updates);
+    }
+
+    #[test]
     fn saved_and_loaded_back_a_missing_or_broken_file_is_the_defaults() {
         let dir = std::env::temp_dir().join(format!("papers-review-settings-{}", std::process::id()));
         assert_eq!(Settings::load(&dir), Settings::default());
@@ -140,6 +150,7 @@ mod tests {
             sign: true,
             header_details: true,
             reviews_folder: Some("/reviews".into()),
+            check_updates: false,
         };
         settings.save(&dir);
         assert_eq!(Settings::load(&dir), settings);

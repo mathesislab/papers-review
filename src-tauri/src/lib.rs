@@ -12,6 +12,7 @@ mod review;
 mod settings;
 mod state;
 mod trash;
+mod update;
 mod windows;
 
 use std::collections::HashMap;
@@ -26,6 +27,7 @@ use tauri::{AppHandle, Emitter, Manager, RunEvent, State, Webview, WindowEvent};
 
 use settings::Settings;
 use state::{Layout, Saved};
+use update::{Available, Installed, Updates};
 
 pub struct AppState {
     /// the projects open, by their folder
@@ -660,6 +662,30 @@ fn trash(app: AppHandle, webview: Webview, path: PathBuf) -> Result<(), String> 
     Ok(())
 }
 
+/// Look for an update now.
+#[tauri::command]
+async fn check_update(app: AppHandle) -> Result<Option<Available>, String> {
+    update::check(&app).await
+}
+
+/// The update found by the last look, if any.
+#[tauri::command]
+fn found_update(updates: State<'_, Updates>) -> Option<Available> {
+    updates.available()
+}
+
+/// The update installed just before this start, if any.
+#[tauri::command]
+fn installed_update(updates: State<'_, Updates>) -> Option<Installed> {
+    updates.installed()
+}
+
+/// Install the update found, and restart.
+#[tauri::command]
+async fn install_update(app: AppHandle) -> Result<(), String> {
+    update::install(&app).await
+}
+
 /// The app's configuration, assets and permissions. Made once: the example that checks the PDF export
 /// builds an app of its own with it.
 pub fn context() -> tauri::Context {
@@ -672,6 +698,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_pdfkit::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let data = app.path().app_data_dir()?;
             app.manage(AppState {
@@ -688,9 +715,15 @@ pub fn run() {
                 references: Mutex::new(HashMap::new()),
                 started: Mutex::new(HashMap::new()),
             });
+            app.manage(Updates::new(app.handle()));
             app.set_menu(menu::build(app.handle())?)?;
             app.on_menu_event(menu::on_event);
             windows::reopen(app.handle());
+            update::watch(app.handle());
+            // after an update, the Settings window tells of it
+            if app.state::<Updates>().installed().is_some() {
+                windows::show_settings(app.handle(), Some("updates"));
+            }
             Ok(())
         })
         .on_window_event(|window, event| match event {
@@ -747,7 +780,11 @@ pub fn run() {
             closest_references,
             reference_sources,
             open_reference_pdf,
-            trash
+            trash,
+            check_update,
+            found_update,
+            installed_update,
+            install_update
         ])
         .build(context())
         .expect("error while building papers-review")

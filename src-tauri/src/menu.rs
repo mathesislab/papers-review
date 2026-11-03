@@ -8,7 +8,7 @@ use tauri::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Emitter, EventTarget, Manager, Wry};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::{AppState, manuscript, pane, windows};
+use crate::{AppState, manuscript, pane, update, windows};
 
 /// The commands of the page, by the id of their item.
 const PAGE: &[&str] = &[
@@ -52,6 +52,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         true,
         &[
             &PredefinedMenuItem::about(app, None, None)?,
+            &item("check-updates", "Check for Updates…", None)?,
             &separator()?,
             &item("settings", "Settings…", Some("CmdOrCtrl+,"))?,
             &separator()?,
@@ -161,7 +162,8 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
         "new-review" => choose_manuscript(app),
         "open" => choose_project(app, false),
         "open-new" => choose_project(app, true),
-        "settings" => windows::show_settings(app),
+        "settings" => windows::show_settings(app, None),
+        "check-updates" => update::ask(app),
         "clear-recent" => {
             let state = app.state::<AppState>();
             state.saved.lock().unwrap().recent.clear();

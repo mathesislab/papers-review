@@ -42,14 +42,21 @@ pub fn show_start(app: &AppHandle) {
         .build();
 }
 
-/// The Settings window, brought forward or made.
-pub fn show_settings(app: &AppHandle) {
+/// The Settings window, brought forward or made; at a section of it (its id: "updates") if named.
+pub fn show_settings(app: &AppHandle, section: Option<&str>) {
     if let Some(window) = app.get_webview_window(SETTINGS) {
         let _ = window.unminimize();
         let _ = window.set_focus();
+        if let Some(section) = section {
+            let _ = app.emit_to(SETTINGS, "section", section);
+        }
         return;
     }
-    let _ = WebviewWindowBuilder::new(app, SETTINGS, WebviewUrl::App("settings".into()))
+    let url = match section {
+        Some(section) => format!("settings#{section}"),
+        None => "settings".to_string(),
+    };
+    let _ = WebviewWindowBuilder::new(app, SETTINGS, WebviewUrl::App(url.into()))
         .title("Settings")
         .inner_size(520.0, 640.0)
         .min_inner_size(440.0, 300.0)
