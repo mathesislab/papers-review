@@ -1,7 +1,8 @@
 <script lang="ts">
   // The card of a new project, over the top of the window like the project's info: a folder without a review.toml
   // asks for the project's name, short name, journal, manuscript, the heading of its exports, due date and the
-  // file of its review, a new one (review.md) or a Markdown file of the folder. Create writes review.toml and makes
+  // file of its review, a new one (review.md) or a Markdown file of the folder; the title, journal and manuscript
+  // are filled in when the project was made from a manuscript (New Review). Create writes review.toml and makes
   // the file; Cancel closes the project, which leaves nothing behind. There is no Esc: it would close the project by
   // a stray key.
 
@@ -42,6 +43,9 @@
     try {
       const next = await invoke<ProjectInfo>("project_info");
       info = next;
+      title = next.title ?? "";
+      journal = next.journal ?? "";
+      manuscript = next.manuscript ?? "";
       // a review.md there already is the review, rather than a new one
       const there = `${next.root}/review.md`;
       if (next.markdown.includes(there)) existing = there;
