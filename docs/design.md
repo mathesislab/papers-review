@@ -40,8 +40,18 @@ Cancel closes the project, leaving nothing, and it is not among the recent
 ones until created. A review file that is missing later is not made as one
 types: the pane offers to make it.
 
-New review: a manuscript dropped on the app makes the folder; the title,
-journal and DOI are read from the PDF with papers-rs (as papers reads them).
+New review (File > New Review from Manuscript…, `⌘N`; a PDF dropped on the
+start window or on the Dock icon): the folder is made in the reviews folder
+of Settings (asked for with the first review), named after the manuscript ID
+or the PDF's name (`-2`, `-3`… where taken), the PDF copied into it and open in
+a tab, and the project opened with its card filled in. The PDF is read with
+papers-rs as papers reads one: the DOI of its metadata, else of its first
+pages if the title Crossref gives it is in the text; Crossref's record gives
+the title and journal (EGUsphere for a preprint without one), else the PDF's
+own title is used. The ID is the suffix of a Copernicus DOI
+(`10.5194/egusphere-2026-6269`), else one of that shape on the first page.
+Without network, or a DOI, the fields are left empty. Nothing is written
+until Create; Cancel leaves the folder and the PDF copied in it.
 
 ## The window
 
@@ -256,5 +266,4 @@ the margin).
    folder); the info card, the new project's card.
 5. Done: export, as PDF and as plain text.
 6. Done: references.
-7. Text files edited in their tab (done); new review from a dropped
-   manuscript.
+7. Done: text files edited in their tab; new review from a manuscript.
