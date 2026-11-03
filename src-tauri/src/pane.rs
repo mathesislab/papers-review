@@ -36,6 +36,8 @@ pub struct Area {
     pub y: f64,
     pub width: f64,
     pub height: f64,
+    /// the height of the page itself
+    pub viewport: f64,
 }
 
 /// What the app knows of the panes beyond what it keeps between sessions.
@@ -124,6 +126,9 @@ pub fn place(app: &AppHandle, window: &str) {
         return;
     };
     let (x, y, width, height) = bounds(area, &layout);
+    // wry places a child web view in the window's content view, which runs under the title bar; the page's
+    // coordinates start below it
+    let y = y + title_bar(app, window, area.viewport);
     let _ = pane.set_bounds(Rect {
         position: LogicalPosition::new(x, y).into(),
         size: LogicalSize::new(width, height).into(),
@@ -136,6 +141,19 @@ pub fn place(app: &AppHandle, window: &str) {
     let placed = Placed { side: layout.side, size, collapsed: layout.collapsed };
     state.panes.lock().unwrap().placed.insert(window.to_string(), placed.clone());
     let _ = app.emit_to(EventTarget::webview(label(window)), "pane-placed", placed);
+}
+
+/// The height of the title bar of `window` (points): its content, which runs under the title bar, less the
+/// height of the page (`viewport`), which starts below it.
+fn title_bar(app: &AppHandle, window: &str, viewport: f64) -> f64 {
+    let Some(window) = app.get_window(window) else {
+        return 0.0;
+    };
+    let scale = window.scale_factor().unwrap_or(1.0);
+    window
+        .inner_size()
+        .map(|inner| (f64::from(inner.height) / scale - viewport).max(0.0))
+        .unwrap_or(0.0)
 }
 
 /// Where the pane of `window` was placed last: its page loads after the first placing.
@@ -330,6 +348,7 @@ mod tests {
         y: 30.0,
         width: 960.0,
         height: 770.0,
+        viewport: 800.0,
     };
 
     #[test]

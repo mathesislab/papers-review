@@ -114,7 +114,8 @@
     const area = viewer;
     const tell = () => {
       const box = area.getBoundingClientRect();
-      invoke("pane_area", { area: { x: box.left, y: box.top, width: box.width, height: box.height } });
+      const viewport = window.innerHeight;
+      invoke("pane_area", { area: { x: box.left, y: box.top, width: box.width, height: box.height, viewport } });
     };
     const observer = new ResizeObserver(tell);
     observer.observe(area);
