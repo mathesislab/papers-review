@@ -14,7 +14,7 @@ export type Project = {
   root: string;
   name: string;
   title: string | null;
-  /** at most four letters, for the tile of the project bar */
+  /** at most ten letters, for the tile of the project bar */
   short: string | null;
   journal: string | null;
   manuscript: string | null;
