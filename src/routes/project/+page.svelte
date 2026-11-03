@@ -630,7 +630,7 @@
 {/snippet}
 
 {#if project?.new}
-  <NewProjectCard oncreated={load} />
+  <NewProjectCard format={settings?.date_format ?? "ymd"} oncreated={load} />
 {:else if card}
   <InfoCard format={settings?.date_format ?? "ymd"} onclose={closeCard} />
 {/if}

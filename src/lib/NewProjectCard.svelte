@@ -7,9 +7,10 @@
   import { invoke } from "@tauri-apps/api/core";
   import { onMount } from "svelte";
   import { SHORT, initials } from "./bar";
-  import type { InfoEdit, ProjectInfo } from "./types";
+  import DateField from "./DateField.svelte";
+  import type { DateFormat, InfoEdit, ProjectInfo } from "./types";
 
-  let { oncreated }: { oncreated: () => void } = $props();
+  let { format, oncreated }: { format: DateFormat; oncreated: () => void } = $props();
 
   /** the project as it is on disk: its folder and the Markdown files there */
   let info = $state<ProjectInfo | null>(null);
@@ -18,7 +19,7 @@
   let short = $state("");
   let journal = $state("");
   let manuscript = $state("");
-  let due = $state("");
+  let due = $state<string | null>(null);
   /** the name of the review file to make, unless a Markdown file of the folder is chosen */
   let file = $state("review.md");
   /** the Markdown file chosen (its path); empty: a new file */
@@ -51,7 +52,7 @@
       short: blank(Array.from(short.trim()).slice(0, SHORT).join("")),
       journal: blank(journal),
       manuscript: blank(manuscript),
-      due: due || null,
+      due,
     };
     busy = true;
     try {
@@ -103,8 +104,7 @@
 
       <label for="new-due">Due</label>
       <div class="row">
-        <input id="new-due" type="date" bind:value={due} />
-        {#if due}<button type="button" class="plain" onclick={() => (due = "")}>Clear</button>{/if}
+        <DateField id="new-due" bind:value={due} {format} />
       </div>
 
       <label for="new-review">Review file</label>
@@ -191,9 +191,6 @@
   input.short {
     width: 80px;
   }
-  input[type="date"] {
-    width: 150px;
-  }
   select {
     width: 100%;
   }
@@ -213,11 +210,6 @@
   }
   button:disabled {
     opacity: 0.5;
-  }
-  button.plain {
-    padding: 0 6px;
-    border: none;
-    color: var(--muted);
   }
   .row {
     display: flex;
