@@ -616,7 +616,7 @@
 {/snippet}
 
 {#if card}
-  <InfoCard onclose={closeCard} />
+  <InfoCard format={settings?.date_format ?? "ymd"} onclose={closeCard} />
 {/if}
 
 <!-- the entries of an outline, each nested ones indented below it -->

@@ -12,9 +12,10 @@
   import { addFiles } from "./add";
   import { SHORT, initials } from "./bar";
   import { COLOURS } from "./colour";
-  import type { Colour, InfoEdit, ProjectInfo } from "./types";
+  import DateField from "./DateField.svelte";
+  import type { Colour, DateFormat, InfoEdit, ProjectInfo } from "./types";
 
-  let { onclose }: { onclose: () => void } = $props();
+  let { format, onclose }: { /** how dates are written (the settings) */ format: DateFormat; onclose: () => void } = $props();
 
   /** the project as it is on disk */
   let info = $state<ProjectInfo | null>(null);
@@ -23,7 +24,7 @@
   let short = $state("");
   let journal = $state("");
   let manuscript = $state("");
-  let due = $state("");
+  let due = $state<string | null>(null);
   let colour = $state<Colour>("none");
   let review = $state("");
   let error = $state("");
@@ -51,7 +52,7 @@
       short = next.short ?? "";
       journal = next.journal ?? "";
       manuscript = next.manuscript ?? "";
-      due = next.due ?? "";
+      due = next.due;
       colour = next.colour;
       review = next.review;
     } catch (e) {
@@ -66,7 +67,7 @@
       short: blank(Array.from(short.trim()).slice(0, SHORT).join("")),
       journal: blank(journal),
       manuscript: blank(manuscript),
-      due: due || null,
+      due,
     };
     try {
       if ((Object.keys(edit) as (keyof InfoEdit)[]).some((key) => edit[key] !== info![key])) await invoke("set_project_info", { info: edit });
@@ -134,10 +135,7 @@
       <input id="info-manuscript" bind:value={manuscript} autocomplete="off" spellcheck="false" />
 
       <label for="info-due">Due</label>
-      <div class="row">
-        <input id="info-due" type="date" bind:value={due} />
-        {#if due}<button type="button" class="plain" onclick={() => (due = "")}>Clear</button>{/if}
-      </div>
+      <div class="row"><DateField id="info-due" bind:value={due} {format} /></div>
 
       <span class="label">Colour</span>
       <div class="row swatches">
@@ -254,9 +252,6 @@
   }
   input.short {
     width: 80px;
-  }
-  input[type="date"] {
-    width: 150px;
   }
   select {
     width: 100%;
