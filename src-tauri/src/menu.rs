@@ -207,18 +207,19 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
 }
 
 /// Undo and Redo: the review's own history when its pane has the keys (the
-/// editor keeps it, not WebKit), else the field in focus of the page.
+/// editor keeps it, not WebKit), else the page of a project's window, which
+/// gives it to the file edited in focus or the field in focus.
 fn undo_redo(app: &AppHandle, name: &str) {
     let Some(window) = front(app) else {
         return;
     };
     let label = window.label();
-    if app.state::<AppState>().panes.lock().unwrap().focused.contains(label) {
-        let _ = app.emit_to(EventTarget::webview(pane::label(label)), "edit", name);
-        return;
-    }
-    // a window of one web view (start, settings), or a project's page
-    if let Some(webview) = app.get_webview(label).or_else(|| app.get_webview(&windows::page(label))) {
+    if let Some(page) = app.get_webview(&windows::page(label)) {
+        let pane_has_keys = app.state::<AppState>().panes.lock().unwrap().focused.contains(label);
+        let target = if pane_has_keys { pane::label(label) } else { page.label().to_string() };
+        let _ = app.emit_to(EventTarget::webview(target), "edit", name);
+    } else if let Some(webview) = app.get_webview(label) {
+        // a window of one web view (start, settings)
         let _ = webview.eval(format!("document.execCommand('{name}')"));
     }
 }
