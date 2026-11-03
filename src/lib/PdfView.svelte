@@ -42,6 +42,11 @@
     send(() => pdfkit.cover(path, false));
   }
 
+  /** Hidden while the page shows a card over it (the view lies above all of the page), shown again when done. */
+  export function cover(covered: boolean) {
+    send(() => pdfkit.cover(path, covered));
+  }
+
   /** To an entry of the outline, by its `target`. */
   export function go(target: number[]) {
     send(() => pdfkit.go(target));
