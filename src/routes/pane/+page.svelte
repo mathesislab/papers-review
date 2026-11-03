@@ -21,7 +21,7 @@
   import "$lib/theme.css";
   import { insertQuote, setEditorFont, showSection, wordsOf } from "$lib/editor";
   import { formatDate } from "$lib/due";
-  import { exportName, pdfDocument, section, toHtml, toPlainText } from "$lib/export";
+  import { exportName, pdfDocument, section, textDocument, toHtml, toPlainText, type Frame } from "$lib/export";
   import FileEditor, { type Status } from "$lib/FileEditor.svelte";
   import { sections, type Section } from "$lib/sections";
   import type { ProjectInfo, Settings } from "$lib/types";
@@ -94,19 +94,19 @@
       const markdown = section(all, active);
       if (!markdown.trim()) throw "There is nothing to export";
       const name = exportName(path, active === null ? null : (sections(all)[active]?.title ?? null));
+      const [info, settings] = await Promise.all([invoke<ProjectInfo>("project_info"), invoke<Settings>("settings")]);
+      const frame: Frame = {
+        heading: info.heading ?? "",
+        details: settings.header_details ? [info.journal, info.manuscript, formatDate(today(), settings.date_format)] : [],
+        signature: settings.sign ? settings.reviewer_name : null,
+      };
       if (kind === "text") {
-        await invoke("export_text", { name, text: toPlainText(markdown) });
+        await invoke("export_text", { name, text: textDocument({ ...frame, body: toPlainText(markdown) }) });
         note = "copied";
         noteTimer = setTimeout(() => (note = ""), 3000);
         return;
       }
-      const [info, settings] = await Promise.all([invoke<ProjectInfo>("project_info"), invoke<Settings>("settings")]);
-      const html = pdfDocument({
-        heading: info.heading ?? "",
-        details: settings.header_details ? [info.journal, info.manuscript, formatDate(today(), settings.date_format)] : [],
-        body: toHtml(markdown),
-        signature: settings.sign ? settings.reviewer_name : null,
-      });
+      const html = pdfDocument({ ...frame, body: toHtml(markdown) });
       await revealItemInDir(await invoke<string>("export_pdf", { name, html }));
     } catch (e) {
       exportError = String(e);

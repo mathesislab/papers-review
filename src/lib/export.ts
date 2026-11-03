@@ -374,25 +374,31 @@ export function exportName(reviewFile: string, title: string | null): string {
   return slug ? `${stem}-${slug}` : stem;
 }
 
-/** The page of the PDF: a header (the heading, and below it the details, as far as there are any, joined by " · "),
- *  the body (HTML, from `toHtml`) and the reviewer's name at the end, if signed. */
-export function pdfDocument({
-  heading,
-  details,
-  body,
-  signature,
-}: {
+/** What an export is headed and signed with: the heading, the details below it (journal, manuscript, date, as far
+ *  as there are any), and the reviewer's name at the end, if signed. */
+export type Frame = {
   heading: string;
   details: (string | null | undefined)[];
-  body: string;
   signature: string | null;
-}): string {
-  const line = details.map((d) => d?.trim()).filter(Boolean).join(" · ");
-  const name = signature?.trim();
+};
+
+/** The parts of a frame as they are written: the heading (the default without one), the details joined by " · ",
+ *  the name. */
+function framed({ heading, details, signature }: Frame) {
+  return {
+    title: heading.trim() || DEFAULT_HEADING,
+    line: details.map((d) => d?.trim()).filter(Boolean).join(" · "),
+    name: signature?.trim() ?? "",
+  };
+}
+
+/** The page of the PDF: the header, the body (HTML, from `toHtml`), the name at the end. */
+export function pdfDocument({ body, ...frame }: Frame & { body: string }): string {
+  const { title, line, name } = framed(frame);
   return [
     '<article class="page">',
     "<header>",
-    `<h1 class="title">${escape(heading.trim() || DEFAULT_HEADING)}</h1>`,
+    `<h1 class="title">${escape(title)}</h1>`,
     ...(line ? [`<p class="details">${escape(line)}</p>`] : []),
     "</header>",
     '<section class="review">',
@@ -401,4 +407,11 @@ export function pdfDocument({
     ...(name ? ['<footer>', `<p class="signature">${escape(name)}</p>`, "</footer>"] : []),
     "</article>",
   ].join("\n");
+}
+
+/** The text for a journal's form, headed and signed as the PDF: the heading, the details, the body (from
+ *  `toPlainText`), the name. */
+export function textDocument({ body, ...frame }: Frame & { body: string }): string {
+  const { title, line, name } = framed(frame);
+  return [[title, line].filter(Boolean).join("\n"), body.trim(), name].filter(Boolean).join("\n\n") + "\n";
 }

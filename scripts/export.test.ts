@@ -3,7 +3,7 @@
 
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { exportName, pdfDocument, section, toHtml, toPlainText } from "../src/lib/export.ts";
+import { exportName, pdfDocument, section, textDocument, toHtml, toPlainText } from "../src/lib/export.ts";
 
 test("plain text: the marks dropped, the headings lines of their own", () => {
   const md = "# Review\nIntro with *emphasis*, **strong**, _under_ and `code`.\n## Round 1\nText.";
@@ -117,4 +117,13 @@ test("the page: the default heading, no details line, a signature", () => {
   assert.match(page, /<h1 class="title">Manuscript review<\/h1>/);
   assert.doesNotMatch(page, /details/);
   assert.match(page, /<p class="signature">A\. Reviewer<\/p>/);
+});
+
+test("the text headed and signed as the PDF", () => {
+  const body = "## Round 1\n\nGood.";
+  assert.equal(
+    textDocument({ heading: "", details: ["The Cryosphere", null, "2026-11-14"], body, signature: " A. Reviewer " }),
+    "Manuscript review\nThe Cryosphere · 2026-11-14\n\n## Round 1\n\nGood.\n\nA. Reviewer\n",
+  );
+  assert.equal(textDocument({ heading: "Report", details: [], body, signature: null }), "Report\n\n## Round 1\n\nGood.\n");
 });
