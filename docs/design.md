@@ -153,14 +153,23 @@ NSVisualEffectView under it.
 
 ## Export
 
-- The review (or its section shown in the pane) as PDF or text, from the
-  File menu (`⌘E`, `⇧⌘E`), into `export/` of the project (`export_pdf`,
-  `export_text`). The pane turns the Markdown into HTML and the text with
-  the marks dropped (the symbols kept); the text is also copied.
-- The header is the project's heading (`heading` in `review.toml`, "Manuscript
-  review" without), with journal, manuscript, title and date only when the
-  setting says so. The review is anonymous unless the settings give a
-  reviewer's name and sign it.
+- What the review pane shows: the round of its tab, or on All the whole file.
+  A round holds just its section (nothing from before the first one). From
+  the button in the pane's header, or File > Export as PDF (⌘E) and Copy as
+  Plain Text (⇧⌘E); the labels name the section ("Export Round 2 as PDF").
+  The files are named from the review and the section (`review-round-2`).
+- As PDF: the Markdown to HTML (`export.ts`, from the editor's own parser),
+  laid out as an A4 page by a hidden window (`/export`) and printed by
+  WebKit. A header with the project's PDF heading (info card; default
+  "Manuscript review") and, if Settings > Export asks, the journal,
+  manuscript ID and date below it. Locations (`p5, l136:`) are set in a
+  muted colour. Anonymous unless Settings > Export has "Sign the reviews"
+  on, then the reviewer's name closes the page. Saved in `export/` of the
+  project and shown in the Finder.
+- As plain text, for a journal's web form: the Markdown marks dropped
+  (headings are lines of their own, list items keep "- ", links become
+  "text (url)"), the symbols and the locations kept. On the clipboard and
+  saved in `export/`; the pane says "copied".
 - PDF printing: a hidden window (`export-<n>`, the route `/export`) asks for
   the HTML (`export_html`), renders it and says so (`export_rendered`); its
   WKWebView is printed with AppKit, A4, margins of 2 cm, to a file saved
