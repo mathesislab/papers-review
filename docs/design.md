@@ -51,28 +51,31 @@ share its colour.
   name (`colour = "orange"` in `review.toml`). Right-click it: the colour, or
   none. A new project takes the next colour not in use among those open.
 - **Project bar** (Settings; on by default): a column at the left with a tile
-  per project, in its colour with its short name or initials, the current one marked, a
-  badge with the days left when the due date is within a week (`!` once
-  past); `+` opens another. A click switches the window to the project (its
+  per project, in its colour with its short name (ten letters at most, on two
+  lines when long) or initials, the due date under it with a dot (green, yellow
+  within a week, orange within three days, red when due or past), the current
+  one marked; `+` opens another. A click switches the window to the project (its
   page loads again, the review pane follows, writing what was typed to the
   old review first); right-click: Open in New Window, Remove from Bar. Open
   Project adds to the bar and switches the window in front, or brings
   forward the window that shows the project. The bar is kept in `state.json`
   and listed in the Window menu (`⌘1` to `⌘9`); removing the project of a
   window switches it to a neighbour, or closes it when none is left.
-- **Files** (sidebar, `⌘⌥S`, or the button at the left of the tabs): the
-  project's folder at the top and its files as a tree, a line along what
-  each open folder holds; the linked files apart, with where they lie; the
-  due date. Hidden, the viewer takes the whole window. Right-click: the
-  project's row and its folders make a Markdown file (named in a row of its
+- **Files** (sidebar, `⌘⌥S`, or the button at the left of the tabs): a box at
+  the top with the project's name, journal and manuscript ID, and due date
+  with the days left (a click on it, or its ⓘ, opens the project's info);
+  under Folder, the project's folder and its files as a tree, a line along
+  what each open folder holds; under Linked, the linked files, with where
+  they lie. The review file carries a `review` pill. Hidden, the viewer takes
+  the whole window. Right-click: the project's folder and its folders make a Markdown file (named in a row of its
   own, `untitled.md`), or take files and folders in, linked from where they are
   or copied in, as asked; a file or folder is shown in the Finder; a file
   opens in the default app; a linked one is removed (the file stays), one of
   the project is moved to the Trash after asking.
-- **Project info** (`⌘I`, File > Project Info…, a click on the project's row
+- **Project info** (`⌘I`, File > Project Info…, a click on the project's box
   in the files, or in the bar's tile menu): a card at the top of the window
   like a macOS sheet, open until Done or `Esc` (Cancel). Name (the folder's
-  name when empty), short name (four letters at most, for the tile of the
+  name when empty), short name (ten letters at most, for the tile of the
   bar), journal, manuscript ID, due date (typed in the format of Settings or
   picked from a calendar), colour, the review file (or a new
   `review.md`), the linked files and folders, and the project's folder with
@@ -96,7 +99,7 @@ share its colour.
   pane at a time.
 - **The review**: any Markdown file of the project (`review` in
   `review.toml`, `review.md` without; Edit in Review Pane on a Markdown
-  file), marked ✎ in the files. Written half a second after the typing
+  file), marked with a `review` pill in the files. Written half a second after the typing
   stops and as the pane loses the keys; read again when changed elsewhere,
   or, with changes typed not yet written, Reload or Keep mine.
 - **Tabs of the pane**: the headings at the shallowest level with two of
