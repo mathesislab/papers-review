@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 const FILE: &str = "state.json";
@@ -83,27 +84,35 @@ impl Default for Layout {
     }
 }
 
+/// What `dir` keeps in `file`; the default when it is missing or broken.
+pub fn read<T: DeserializeOwned + Default>(dir: &Path, file: &str) -> T {
+    fs::read_to_string(dir.join(file))
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default()
+}
+
+/// `value` written to `file` of `dir` atomically: a file beside it, renamed.
+pub fn write<T: Serialize>(dir: &Path, file: &str, value: &T) {
+    let written = fs::create_dir_all(dir).and_then(|()| {
+        let text = serde_json::to_string_pretty(value).map_err(std::io::Error::other)?;
+        let temporary = dir.join(format!(".{file}.tmp"));
+        fs::write(&temporary, text)?;
+        fs::rename(&temporary, dir.join(file))
+    });
+    if let Err(e) = written {
+        eprintln!("{}: {e}", dir.join(file).display());
+    }
+}
+
 impl Saved {
     /// What `dir` keeps; nothing when the file is missing or broken.
     pub fn load(dir: &Path) -> Saved {
-        fs::read_to_string(dir.join(FILE))
-            .ok()
-            .and_then(|text| serde_json::from_str(&text).ok())
-            .unwrap_or_default()
+        read(dir, FILE)
     }
 
-    /// Written atomically: a file beside it, renamed.
     pub fn save(&self, dir: &Path) {
-        let written = fs::create_dir_all(dir)
-            .and_then(|()| {
-                let text = serde_json::to_string_pretty(self).map_err(std::io::Error::other)?;
-                let temporary = dir.join(format!(".{FILE}.tmp"));
-                fs::write(&temporary, text)?;
-                fs::rename(&temporary, dir.join(FILE))
-            });
-        if let Err(e) = written {
-            eprintln!("{}: {e}", dir.join(FILE).display());
-        }
+        write(dir, FILE, self);
     }
 
     /// A project opened: first of the recent ones, and open.
