@@ -74,20 +74,15 @@ pub fn reopen(app: &AppHandle) {
     }
 }
 
-/// Open the project of a folder in a window of its own, or bring forward the
-/// window that shows it. A project without a colour takes the next one not in
-/// use (written in its `review.toml`).
-pub fn open_project(app: &AppHandle, folder: &Path) -> Result<(), String> {
-    let root = folder
-        .canonicalize()
-        .map_err(|e| format!("{}: {e}", folder.display()))?;
+/// The project of `root` loaded, if it is not: opened, given a colour if it
+/// has none (the next one not in use, written in its `review.toml`), its
+/// review watched.
+pub fn load(app: &AppHandle, root: &Path) -> Result<(), String> {
     let state = app.state::<AppState>();
-    if let Some(window) = window_of(app, &root) {
-        let _ = window.unminimize();
-        let _ = window.set_focus();
+    if state.projects.lock().unwrap().contains_key(root) {
         return Ok(());
     }
-    let mut project = Project::open(&root).map_err(|e| e.to_string())?;
+    let mut project = Project::open(root).map_err(|e| e.to_string())?;
     if project.manifest.colour.is_none() {
         let in_use: Vec<Colour> = state
             .projects
@@ -100,17 +95,52 @@ pub fn open_project(app: &AppHandle, folder: &Path) -> Result<(), String> {
             .set_colour(Colour::next(&in_use))
             .map_err(|e| e.to_string())?;
     }
+    state.projects.lock().unwrap().insert(root.to_path_buf(), project);
+    review::watch(app, root);
+    Ok(())
+}
+
+/// The project of `root` unloaded, when no window shows it.
+fn release(app: &AppHandle, root: &Path) {
+    let state = app.state::<AppState>();
+    if state.windows.lock().unwrap().values().any(|r| r == root) {
+        return;
+    }
+    state.projects.lock().unwrap().remove(root);
+    review::unwatch(app, root);
+}
+
+/// Open the project of a folder in a window of its own, or bring forward the
+/// window that shows it.
+pub fn open_project(app: &AppHandle, folder: &Path) -> Result<(), String> {
+    let root = canonical(folder)?;
+    if let Some(window) = window_of(app, &root) {
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+        return Ok(());
+    }
+    new_window(app, &root)
+}
+
+fn canonical(folder: &Path) -> Result<PathBuf, String> {
+    folder
+        .canonicalize()
+        .map_err(|e| format!("{}: {e}", folder.display()))
+}
+
+/// A window for the project of `root`, loaded.
+fn new_window(app: &AppHandle, root: &Path) -> Result<(), String> {
+    let state = app.state::<AppState>();
+    load(app, root)?;
     let label = format!("project-{}", state.next.fetch_add(1, Ordering::Relaxed));
-    let title = project.name();
-    state.projects.lock().unwrap().insert(root.clone(), project);
-    state.windows.lock().unwrap().insert(label.clone(), root.clone());
+    let title = state.projects.lock().unwrap()[root].name();
+    state.windows.lock().unwrap().insert(label.clone(), root.to_path_buf());
     if let Err(e) = make(app, &label, &title) {
         state.windows.lock().unwrap().remove(&label);
-        state.projects.lock().unwrap().remove(&root);
+        release(app, root);
         return Err(e.to_string());
     }
-    review::watch(app, &root);
-    state.saved.lock().unwrap().opened(&root);
+    state.saved.lock().unwrap().opened(root);
     state.save();
     menu::update(app);
     if let Some(start) = app.get_webview_window(START) {
@@ -168,14 +198,9 @@ pub fn closing(app: &AppHandle, window: &str) {
 /// when no other window shows it.
 pub fn closed(app: &AppHandle, window: &str) {
     pane::closed(app, window);
-    let state = app.state::<AppState>();
-    let mut windows = state.windows.lock().unwrap();
-    if let Some(root) = windows.remove(window)
-        && !windows.values().any(|r| *r == root)
-    {
-        state.projects.lock().unwrap().remove(&root);
-        drop(windows);
-        review::unwatch(app, &root);
+    let root = app.state::<AppState>().windows.lock().unwrap().remove(window);
+    if let Some(root) = root {
+        release(app, &root);
     }
 }
 
