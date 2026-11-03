@@ -113,8 +113,8 @@ share its colour.
 - **Review pane** (`⌘J`): a Markdown editor over the viewer, at the bottom
   or on the right (`⌘⇧J`), its inner edge dragged for its size; its side,
   sizes and whether shown kept per project (the app's `state.json`). `⌘J`
-  hides it when it has the keys (they go back to the PDF), else shows it
-  with them. Hidden, nothing remains. A click on its header (not on a
+  hides it when it is open, wherever the keys are (they go back to the PDF),
+  else shows it with them. Hidden, nothing remains. A click on its header (not on a
   button or tab), or its arrow, collapses it to that header (a strip on the
   right), the keys back to the PDF, and brings it back; `⌘J` expands it too. One window of a project holds its
   pane at a time.

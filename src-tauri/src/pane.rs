@@ -165,16 +165,15 @@ pub fn set_area(app: &AppHandle, window: &str, area: Area) {
     }
 }
 
-/// ⌘J: the pane shown in this window with the keys (expanded if collapsed), or
-/// hidden when it has them.
+/// ⌘J: the pane hidden when it is open in this window, wherever the keys are;
+/// else shown with them (expanded if collapsed).
 pub fn toggle(app: &AppHandle, window: &str) {
     let Some((root, layout)) = layout_of(app, window) else {
         return;
     };
     let state = app.state::<AppState>();
-    let focused = state.panes.lock().unwrap().focused.contains(window);
     let held = state.panes.lock().unwrap().holder.get(&root).is_some_and(|w| w == window);
-    if layout.shown && held && focused && !layout.collapsed {
+    if layout.shown && held && !layout.collapsed {
         hide(app, window);
     } else {
         show(app, window);
