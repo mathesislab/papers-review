@@ -126,10 +126,18 @@ NSVisualEffectView under it.
   whole, ligatures undone. The numbers of a two-column layout are not read
   yet: PDFKit glues them to the line's text. `⌘;` quotes it the same way
   without the quotation marks. `⌃L` inserts the location in view.
-- Typed sequences become symbols: `->` →, `<-` ←, `<->` ↔, `=>` ⇒, `>=` ≥,
-  `<=` ≤, `!=` ≠, `~=` ≈, `+-` ±, LaTeX names (`\Delta` Δ, `\times` ×,
-  `\deg` °), straight quotes to curly ones, `--` –, `...` …. `⌘Z` right
-  after keeps what was typed; `⌘/` lists them; the list is editable.
+- Symbols, in the Markdown editors (the review, a Markdown tab; not in code
+  spans or blocks): typed sequences become one as the last character is
+  typed (`->` →, `<-` ←, `<->` ↔, `=>` ⇒, `<=>` ⇔, `>=` ≥, `<=` ≤, `!=` ≠,
+  `~=` ≈, `+-` ±, `--` –, `---` — (not in a line of dashes alone: Markdown's
+  rules and tables), `...` …, powers after a letter, a digit or
+  `)`: `^2` ², `^-1` ⁻¹; indices after a letter: `CO_2` CO₂); `Tab` after a
+  LaTeX name as in the Julia REPL (`\alpha` α, `\Delta` Δ, `\deg` °,
+  `\times` ×, `\^2` ², `\_2` ₂). `⌘Z` right after gives back what was typed.
+  `⌘/` (Edit > Symbols…) lists both, filtered as typed; Enter or a click puts
+  one in. In Settings each default can be turned off and sequences of one's
+  own added (`settings.json`). Quotes stay straight: the review is pasted
+  into plain forms.
 - Saved as typed.
 
 ## Export
