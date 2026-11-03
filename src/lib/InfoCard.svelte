@@ -46,7 +46,8 @@
   /** Nothing but spaces: not set. */
   const blank = (text: string) => text.trim() || null;
 
-  /** A field shown filled with what stands in for it when unset (the folder's name, the default heading): unset
+  /** A field shown filled with what stands in for it when unset (the folder's name, the initials, the default
+   *  heading): unset
    *  still, unless changed. */
   const unless = (text: string, standIn: string, was: string | null) =>
     was === null && text.trim() === standIn ? null : blank(text);
@@ -57,7 +58,7 @@
       info = next;
       if (!first) return;
       title = next.title ?? base(next.root);
-      short = next.short ?? "";
+      short = next.short ?? initials(next.name);
       journal = next.journal ?? "";
       manuscript = next.manuscript ?? "";
       heading = next.heading ?? DEFAULT_HEADING;
@@ -73,7 +74,7 @@
     if (!info) return;
     const edit: InfoEdit = {
       title: unless(title, base(info.root), info.title),
-      short: blank(Array.from(short.trim()).slice(0, SHORT).join("")),
+      short: unless(Array.from(short.trim()).slice(0, SHORT).join(""), initials(info.name), info.short),
       journal: blank(journal),
       manuscript: blank(manuscript),
       heading: unless(heading, DEFAULT_HEADING, info.heading),
