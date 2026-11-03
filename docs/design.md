@@ -186,9 +186,21 @@ NSVisualEffectView under it.
 
 A `.bib` in the project, or a papers library (a `.papers/config.json` in
 the folder or above it, or papers' default library), is searched as in
-Papers Desktop: words, field filters, a citation key, or a reference
-selected in the PDF. `↵` opens the paper's PDF in a tab of the same
-project, `⌘↵` in a new window; `⌘.` copies `[@key]`, `⌘L` `\cite{key}`.
+Papers Desktop: words from their start, field filters, a citation key. `⇧⌘R`
+(Edit > References…) lists them over the review pane (RefList), which is
+shown; with a reference selected in the PDF, the list is the papers closest
+to its text until something is typed. The key on the paper marked:
+
+- `↵` puts a citation in at the cursor: "Feldmann and Levermann (2015)",
+  "Robinson et al. (2012)"; `⇧↵` the full reference, as Copernicus sets it;
+- `⌘.` puts in `[@key]`, `⌘L` `\cite{key}`;
+- `⌘↵` opens its PDF in a tab of the project (without a PDF, nothing);
+- `Esc` closes the list.
+
+The list shows the sources (the `.bib` files) and these keys at its foot. The
+pane has no PDF to open a tab with: the page does it (`open_reference_pdf`
+tells it), so a paper outside the project opens as a tab too, not kept with
+the layout.
 
 Sources (`refs.rs`): the `.bib` files of the project (its folder and the
 linked files), and the `.bib` of the papers library, which papers-rs finds
