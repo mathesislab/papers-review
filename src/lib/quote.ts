@@ -78,10 +78,11 @@ export function quoteText(selection: Selection): string {
   return clean(out);
 }
 
-/** The selection as a line of a review, plain text: where it lies, then its text in quotation marks. */
-export function quote(selection: Selection): string {
+/** The selection as a line of a review, plain text: where it lies, then its text, in quotation marks unless not
+ *  `marks`. */
+export function quote(selection: Selection, marks = true): string {
   const where = location(selection);
-  const text = `"${quoteText(selection)}"`;
+  const text = marks ? `"${quoteText(selection)}"` : quoteText(selection);
   return where ? `${where}: ${text}` : text;
 }
 

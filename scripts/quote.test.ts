@@ -107,6 +107,7 @@ test("the quote", () => {
   const lines = numbered(5, 136, ["the ice re-", "cently lost"]);
   assert.equal(quote(sel(lines)), 'p5, l136–137: "the ice recently lost"');
   assert.equal(quote(sel([line(5, "a")])), 'p5: "a"');
+  assert.equal(quote(sel(lines), false), "p5, l136–137: the ice recently lost");
 });
 
 test("the location a line of a review starts with, up to its colon", () => {

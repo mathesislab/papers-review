@@ -443,11 +443,10 @@ fn pane_release(app: AppHandle, webview: Webview) {
     pane::release(&app, webview.window().label());
 }
 
-/// ⌘' and ⌘;: a quote of the PDF into the review, at the pane's cursor, as a
-/// `paragraph` of its own or within the text.
+/// ⌘' and ⌘;: a quote of the PDF into the review, at the pane's cursor.
 #[tauri::command]
-fn quote(app: AppHandle, webview: Webview, text: String, paragraph: bool) {
-    pane::insert(&app, webview.window().label(), &text, paragraph);
+fn quote(app: AppHandle, webview: Webview, text: String) {
+    pane::insert(&app, webview.window().label(), &text);
 }
 
 /// A card of the page shown or gone: the pane, above the page, hides meanwhile.

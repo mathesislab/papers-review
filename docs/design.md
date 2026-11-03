@@ -124,8 +124,8 @@ NSVisualEffectView under it.
   nearest each line, left of it first, and keeps the page alone when the
   numbers do not fit the lines selected. Words split at a line end are made
   whole, ligatures undone. The numbers of a two-column layout are not read
-  yet: PDFKit glues them to the line's text. `⌘;` puts the selection's text
-  alone at the cursor, within the line. `⌃L` inserts the location in view.
+  yet: PDFKit glues them to the line's text. `⌘;` quotes it the same way
+  without the quotation marks. `⌃L` inserts the location in view.
 - Typed sequences become symbols: `->` →, `<-` ←, `<->` ↔, `=>` ⇒, `>=` ≥,
   `<=` ≤, `!=` ≠, `~=` ≈, `+-` ±, LaTeX names (`\Delta` Δ, `\times` ×,
   `\deg` °), straight quotes to curly ones, `--` –, `...` …. `⌘Z` right
