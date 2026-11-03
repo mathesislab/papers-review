@@ -157,14 +157,14 @@ pub fn linked(path: &Path) -> Node {
     }
 }
 
-/// The Markdown files of `nodes` and the folders in them, added to `found`; a linked file that is not
-/// there is left out.
-pub fn markdown(nodes: &[Node], found: &mut Vec<PathBuf>) {
+/// The files of `kind` among `nodes` and the folders in them, added to `found`; a linked file that is
+/// not there is left out.
+pub fn of_kind(nodes: &[Node], kind: Kind, found: &mut Vec<PathBuf>) {
     for node in nodes {
-        if node.kind == Kind::Markdown && !node.missing {
+        if node.kind == kind && !node.missing {
             found.push(node.path.clone());
         }
-        markdown(&node.children, found);
+        of_kind(&node.children, kind, found);
     }
 }
 

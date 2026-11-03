@@ -358,13 +358,22 @@ impl Project {
     /// The Markdown files of the project: those of the folder, then the linked ones (and those in linked
     /// folders).
     pub fn markdown_files(&self) -> Vec<PathBuf> {
+        self.files_of(files::Kind::Markdown)
+    }
+
+    /// The `.bib` files of the project, as `markdown_files` lists the Markdown ones.
+    pub fn bib_files(&self) -> Vec<PathBuf> {
+        self.files_of(files::Kind::Bib)
+    }
+
+    fn files_of(&self, kind: files::Kind) -> Vec<PathBuf> {
         let mut found = Vec::new();
-        files::markdown(&self.files(), &mut found);
+        files::of_kind(&self.files(), kind, &mut found);
         for node in self.linked() {
             if node.kind == files::Kind::Folder {
-                files::markdown(&files::tree(&node.path), &mut found);
+                files::of_kind(&files::tree(&node.path), kind, &mut found);
             } else {
-                files::markdown(&[node], &mut found);
+                files::of_kind(&[node], kind, &mut found);
             }
         }
         found
@@ -953,6 +962,36 @@ mod tests {
                 dir.path().join("review.md"),
                 elsewhere.path().join("notes.md"),
                 elsewhere.path().join("code/README.md"),
+            ]
+        );
+    }
+
+    #[test]
+    fn the_bib_files_are_those_of_the_folder_and_the_linked_ones() {
+        let (dir, elsewhere) = two_folders();
+        fs::write(dir.path().join("refs.bib"), "").unwrap();
+        fs::write(dir.path().join("round-1/more.BIB"), "").unwrap();
+        fs::write(dir.path().join("review.md"), "").unwrap();
+        fs::write(
+            dir.path().join(MANIFEST),
+            format!(
+                "linked = [{:?}, {:?}, {:?}]\n",
+                elsewhere.path().join("mine.bib"),
+                elsewhere.path().join("code"),
+                elsewhere.path().join("gone.bib"),
+            ),
+        )
+        .unwrap();
+        fs::write(elsewhere.path().join("mine.bib"), "").unwrap();
+        fs::write(elsewhere.path().join("code/code.bib"), "").unwrap();
+        let project = Project::open(dir.path()).unwrap();
+        assert_eq!(
+            project.bib_files(),
+            [
+                dir.path().join("round-1/more.BIB"),
+                dir.path().join("refs.bib"),
+                elsewhere.path().join("mine.bib"),
+                elsewhere.path().join("code/code.bib"),
             ]
         );
     }
