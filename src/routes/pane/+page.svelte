@@ -4,18 +4,17 @@
   // by its arrow, it is its header bar alone: along the bottom, or a strip down the right side with the name written
   // upright along it.
   //
-  // The review, a Markdown file of the project, is written a moment after the typing stops, and as the pane loses
-  // the keys. Changed elsewhere (an editor, a sync client), it is read again; with changes of its own not yet
-  // written, the pane asks which to keep.
+  // The review, a Markdown file of the project, is edited in a FileEditor: written a moment after the typing stops,
+  // and as the pane loses the keys; read again when changed elsewhere (an editor, a sync client), the pane asking
+  // which to keep when changes of its own are not yet written.
 
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
-  import type { EditorView } from "@codemirror/view";
+  import { keymap } from "@codemirror/view";
   import { onMount } from "svelte";
   import "$lib/theme.css";
-  import { redo, undo } from "@codemirror/commands";
-  import { keymap } from "@codemirror/view";
-  import { insertQuote, makeEditor, replaceText, showSection, wordsOf } from "$lib/editor";
+  import { insertQuote, showSection, wordsOf } from "$lib/editor";
+  import FileEditor, { type Status } from "$lib/FileEditor.svelte";
   import { sections, type Section } from "$lib/sections";
 
   type Side = "bottom" | "right";
@@ -28,17 +27,13 @@
   /** only its header bar shown */
   let collapsed = $state(false);
 
-  let host: HTMLElement;
-  let view: EditorView | undefined;
-  /** the file read, and its text as last read or written */
+  let editor = $state<FileEditor>();
+  /** the file read */
   let path = $state("");
-  let name = $state("");
-  let written = "";
+  const name = $derived(path.split("/").pop() ?? "");
   let words = $state(0);
-  let status = $state<"saved" | "editing" | "error">("saved");
+  let status = $state<Status>("saved");
   let error = $state("");
-  /** changed elsewhere while changes of its own were not written */
-  let conflict = $state(false);
   /** the sections, as tabs, and the one shown alone (null: all of the text) */
   let tabs = $state<Section[]>([]);
   let active = $state<number | null>(null);
@@ -53,6 +48,7 @@
 
   function show(index: number | null) {
     active = index;
+    const view = editor?.view();
     if (view) showSection(view, index);
     count(text());
   }
@@ -83,58 +79,16 @@
     if (collapsed && !(e.target as Element).closest("button")) invoke("pane_collapse", { collapsed: false });
   }
 
-  const text = () => view?.state.doc.toString() ?? "";
+  const text = () => editor?.view()?.state.doc.toString() ?? "";
 
-  /** The review read: into the editor, made the first time. */
-  async function load() {
-    try {
-      const review = await invoke<Review>("review");
-      [path, name, written, conflict] = [review.path, review.name, review.text, false];
-      if (view) replaceText(view, review.text);
-      else view = makeEditor(host, review.text, typed, [release]);
-      count(review.text);
-      status = "saved";
-    } catch (e) {
-      [status, error] = ["error", String(e)];
-    }
-  }
+  const load = () => invoke<Review>("review");
+  const save = (path: string, text: string) => invoke<void>("save_review", { path, text });
 
   /** Escape: the keys back to the PDF, the pane left as it is. */
   const release = keymap.of([{ key: "Escape", run: () => (invoke("pane_release"), true) }]);
-
-  let timer: ReturnType<typeof setTimeout> | undefined;
-
-  function typed(now: string) {
-    count(now);
-    status = "editing";
-    clearTimeout(timer);
-    timer = setTimeout(save, 500);
-  }
-
-  /** What was typed, written to the file it was read from. */
-  async function save() {
-    clearTimeout(timer);
-    const now = text();
-    if (!view || now === written || conflict) return;
-    try {
-      await invoke("save_review", { path, text: now });
-      written = now;
-      if (text() === now) status = "saved";
-    } catch (e) {
-      [status, error] = ["error", String(e)];
-    }
-  }
-
-  /** The file changed on disk: read again, unless it is what was written, or changes typed are not written yet. */
-  async function changedOnDisk() {
-    const review = await invoke<Review>("review");
-    if (review.path !== path || review.text === written) return;
-    if (text() === written) await load();
-    else conflict = true;
-  }
+  const more = [release];
 
   onMount(() => {
-    load();
     // placed before this page listened, maybe
     invoke<Placed | null>("pane_placement").then((placed) => {
       if (placed) [side, size, collapsed] = [placed.side, placed.size, placed.collapsed];
@@ -145,30 +99,29 @@
         size = e.payload.size;
         collapsed = e.payload.collapsed;
       }),
-      listen("review-changed", changedOnDisk),
+      listen("review-changed", () => editor?.changedOnDisk()),
       // Undo and Redo of the menu: the editor's own history
-      listen<string>("edit", (e) => {
-        if (view) (e.payload === "redo" ? redo : undo)(view);
-      }),
+      listen<string>("edit", (e) => (e.payload === "redo" ? editor?.redo() : editor?.undo())),
       // ⌘' in the page: a quote of the PDF at the cursor
       listen<string>("review-insert", (e) => {
+        const view = editor?.view();
         if (view) insertQuote(view, e.payload);
       }),
       // another file as the review: what was typed goes to the one before, then the new one is read
       listen("review-switched", async () => {
-        await save();
+        await editor?.flush();
         show(null);
-        await load();
+        await editor?.reload();
       }),
     ];
     // ⌘J hides the pane when it has the keys, else brings it forward with them
     const focused = () => {
       invoke("pane_focus", { focused: true });
-      view?.focus();
+      editor?.focus();
     };
     const blurred = () => {
       invoke("pane_focus", { focused: false });
-      save();
+      editor?.flush();
     };
     window.addEventListener("focus", focused);
     window.addEventListener("blur", blurred);
@@ -176,7 +129,6 @@
       for (const u of unlisteners) u.then((f) => f());
       window.removeEventListener("focus", focused);
       window.removeEventListener("blur", blurred);
-      view?.destroy();
     };
   });
 </script>
@@ -223,19 +175,9 @@
       {@render arrow()}
     {/if}
   </header>
-  {#if conflict && !collapsed}
-    <div class="conflict">
-      <span>{name} changed on disk.</span>
-      <button onclick={load}>Reload</button>
-      <button
-        onclick={() => {
-          conflict = false;
-          save();
-        }}>Keep mine</button
-      >
-    </div>
-  {/if}
-  <main bind:this={host}></main>
+  <main>
+    <FileEditor bind:this={editor} {load} {save} extensions={more} onchange={count} bind:status bind:error bind:path />
+  </main>
 </div>
 
 <style>
@@ -360,19 +302,6 @@
   }
   .arrow .left {
     transform: rotate(90deg);
-  }
-  .conflict {
-    flex: none;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 5px 14px;
-    background: var(--chip);
-    border-bottom: 1px solid var(--line);
-  }
-  .conflict button {
-    color: var(--fg);
-    border: 1px solid var(--border);
   }
   main {
     flex: 1;
