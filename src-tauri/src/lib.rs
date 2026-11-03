@@ -190,6 +190,18 @@ fn pane_collapse(app: AppHandle, webview: Webview, collapsed: bool) {
     pane::collapse(&app, webview.window().label(), collapsed);
 }
 
+/// Escape in the pane: the keys back to the PDF, the pane left as it is.
+#[tauri::command]
+fn pane_release(app: AppHandle, webview: Webview) {
+    pane::release(&app, webview.window().label());
+}
+
+/// ⌘': a quote of the PDF into the review, at the pane's cursor.
+#[tauri::command]
+fn quote(app: AppHandle, webview: Webview, text: String) {
+    pane::insert(&app, webview.window().label(), &text);
+}
+
 /// The pane's edge dragged to `size` (points); `done` when let go.
 #[tauri::command]
 fn pane_size(app: AppHandle, webview: Webview, size: f64, done: bool) {
@@ -268,6 +280,8 @@ pub fn run() {
             pane_hide,
             pane_side,
             pane_collapse,
+            pane_release,
+            quote,
             pane_size,
             pane_focus,
             pane_placement,

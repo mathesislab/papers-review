@@ -205,6 +205,18 @@ pub fn hide(app: &AppHandle, window: &str) {
     keys_to_page(app, window);
 }
 
+/// Escape in the pane: the keys back to the page, the pane left shown.
+pub fn release(app: &AppHandle, window: &str) {
+    keys_to_page(app, window);
+}
+
+/// A quote into the review at the pane's cursor: the pane shown and expanded
+/// in this window, with the keys, to write what it is about.
+pub fn insert(app: &AppHandle, window: &str, text: &str) {
+    show(app, window);
+    let _ = app.emit_to(EventTarget::webview(label(window)), "review-insert", text);
+}
+
 /// The keys from the pane back to the page (and its PDF).
 fn keys_to_page(app: &AppHandle, window: &str) {
     app.state::<AppState>().panes.lock().unwrap().focused.remove(window);

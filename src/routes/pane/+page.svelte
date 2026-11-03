@@ -13,7 +13,8 @@
   import type { EditorView } from "@codemirror/view";
   import { onMount } from "svelte";
   import "$lib/theme.css";
-  import { makeEditor, replaceText, showSection, wordsOf } from "$lib/editor";
+  import { keymap } from "@codemirror/view";
+  import { insertQuote, makeEditor, replaceText, showSection, wordsOf } from "$lib/editor";
   import { sections, type Section } from "$lib/sections";
 
   type Side = "bottom" | "right";
@@ -89,13 +90,16 @@
       const review = await invoke<Review>("review");
       [path, name, written, conflict] = [review.path, review.name, review.text, false];
       if (view) replaceText(view, review.text);
-      else view = makeEditor(host, review.text, typed);
+      else view = makeEditor(host, review.text, typed, [release]);
       count(review.text);
       status = "saved";
     } catch (e) {
       [status, error] = ["error", String(e)];
     }
   }
+
+  /** Escape: the keys back to the PDF, the pane left as it is. */
+  const release = keymap.of([{ key: "Escape", run: () => (invoke("pane_release"), true) }]);
 
   let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -141,6 +145,10 @@
         collapsed = e.payload.collapsed;
       }),
       listen("review-changed", changedOnDisk),
+      // ⌘' in the page: a quote of the PDF at the cursor
+      listen<string>("review-insert", (e) => {
+        if (view) insertQuote(view, e.payload);
+      }),
       // another file as the review: what was typed goes to the one before, then the new one is read
       listen("review-switched", async () => {
         await save();

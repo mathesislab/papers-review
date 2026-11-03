@@ -47,6 +47,11 @@
     send(() => pdfkit.go(target));
   }
 
+  /** The text selected in the PDF, line by line, with what lies in the margin beside each line; null if none. */
+  export function selection(): Promise<pdfkit.Selection | null> {
+    return send(() => pdfkit.selection());
+  }
+
   /** Find `text`: the first place, or `again` the next (the one before, `backwards`); an empty text clears. */
   export function find(text: string, again = false, backwards = false): Promise<boolean> {
     return send(() => pdfkit.find(text, again, backwards));

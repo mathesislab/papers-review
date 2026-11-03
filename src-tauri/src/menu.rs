@@ -20,6 +20,7 @@ const PAGE: &[&str] = &[
     "find",
     "find-next",
     "find-previous",
+    "quote",
 ];
 
 pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
@@ -86,6 +87,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             &item("find", "Find…", Some("CmdOrCtrl+F"))?,
             &item("find-next", "Find Next", Some("CmdOrCtrl+G"))?,
             &item("find-previous", "Find Previous", Some("Shift+CmdOrCtrl+G"))?,
+            &separator()?,
+            &item("quote", "Quote Selection", Some("CmdOrCtrl+'"))?,
         ],
     )?;
     let view = Submenu::with_items(

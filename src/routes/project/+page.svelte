@@ -14,6 +14,7 @@
   import { COLOURS, cssOf } from "$lib/colour";
   import Files from "$lib/Files.svelte";
   import PdfView from "$lib/PdfView.svelte";
+  import { quote } from "$lib/quote";
   import type { Colour, Layout, Node, Project } from "$lib/types";
 
   let project = $state<Project | null>(null);
@@ -153,6 +154,17 @@
     }
   }
 
+  /** ⌘': the selection of the PDF as a quote, into the review at its cursor. */
+  async function quoteSelection() {
+    const selection = await pdf?.selection();
+    if (!selection) return;
+    try {
+      await invoke("quote", { text: quote(selection) });
+    } catch (e) {
+      error = String(e);
+    }
+  }
+
   /** A command of the menu bar. */
   function command(id: string) {
     switch (id) {
@@ -181,6 +193,9 @@
         break;
       case "find-previous":
         search(true, true);
+        break;
+      case "quote":
+        quoteSelection();
         break;
     }
   }
