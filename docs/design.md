@@ -73,7 +73,8 @@ share its colour.
   in the files, or in the bar's tile menu): a card at the top of the window
   like a macOS sheet, open until Done or `Esc` (Cancel). Name (the folder's
   name when empty), short name (four letters at most, for the tile of the
-  bar), journal, manuscript ID, due date, colour, the review file (or a new
+  bar), journal, manuscript ID, due date (typed in the format of Settings or
+  picked from a calendar), colour, the review file (or a new
   `review.md`), the linked files and folders, and the project's folder with
   Show in Finder (to rename it there). Written on Done; the PDF hides
   while the card shows.
@@ -111,7 +112,9 @@ NSVisualEffectView under it.
 
 ## Writing the review
 
-- CodeMirror 6, Markdown.
+- CodeMirror 6, Markdown. Its font (system, serif or monospace) and size
+  are set in Settings, as is the format of dates (2026-11-14, 14.11.2026 or
+  11/14/2026); text files take the size, in monospace.
 - A line that starts with a location (`p5, l136–138:`, `p5–6:`, `l153:`,
   `p. iii:`) has it coloured, as the headings are.
 - `⌘'` quotes the selection of the PDF at the cursor, as a paragraph of its

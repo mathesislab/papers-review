@@ -19,6 +19,7 @@
   import { badge, chip } from "$lib/bar";
   import { COLOURS, cssOf } from "$lib/colour";
   import { dueText } from "$lib/due";
+  import { setEditorFont } from "$lib/editor";
   import FileEditor, { type Status } from "$lib/FileEditor.svelte";
   import Files from "$lib/Files.svelte";
   import InfoCard from "$lib/InfoCard.svelte";
@@ -150,6 +151,7 @@
 
   async function loadSettings() {
     settings = await invoke<Settings>("settings");
+    setEditorFont(settings.editor_font, settings.editor_size);
   }
 
   async function loadBar() {

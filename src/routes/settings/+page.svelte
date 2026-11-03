@@ -1,6 +1,6 @@
 <script lang="ts">
   // The Settings window (⌘,): whether the projects open in one window, with a bar to switch between them, or each in
-  // a window of its own; and the sequences typed in the review that become symbols: the defaults, each turned off if
+  // a window of its own; how dates are written; the font and size of the editors; and the sequences typed in the review that become symbols: the defaults, each turned off if
   // not wanted, and the user's own. Kept in the app's data folder (settings.json); the project windows are told as it
   // changes.
 
@@ -9,7 +9,18 @@
   import { onMount } from "svelte";
   import "$lib/theme.css";
   import { DEFAULTS } from "$lib/symbols";
-  import type { Settings } from "$lib/types";
+  import type { DateFormat, EditorFont, Settings } from "$lib/types";
+
+  const FORMATS: [DateFormat, string][] = [
+    ["ymd", "2026-11-14"],
+    ["dmy", "14.11.2026"],
+    ["mdy", "11/14/2026"],
+  ];
+  const FONTS: [EditorFont, string][] = [
+    ["system", "System"],
+    ["serif", "Serif"],
+    ["mono", "Monospace"],
+  ];
 
   let settings = $state<Settings | null>(null);
   /** the sequence and the replacement of a pair being added */
@@ -68,6 +79,28 @@
       <span>Open projects in one window, with a bar to switch between them</span>
     </label>
     <p class="note">Off: each project opens in a window of its own.</p>
+
+    <h2>Dates</h2>
+    <div class="field">
+      <label for="date-format">Date format</label>
+      <select id="date-format" bind:value={settings.date_format} onchange={save}>
+        {#each FORMATS as [format, example] (format)}<option value={format}>{example}</option>{/each}
+      </select>
+    </div>
+
+    <h2>Editor</h2>
+    <div class="field">
+      <label for="editor-font">Font</label>
+      <select id="editor-font" bind:value={settings.editor_font} onchange={save}>
+        {#each FONTS as [font, name] (font)}<option value={font}>{name}</option>{/each}
+      </select>
+    </div>
+    <div class="field">
+      <label for="editor-size">Size</label>
+      <input id="editor-size" type="range" min="11" max="20" step="0.5" bind:value={settings.editor_size} onchange={save} />
+      <span class="size">{settings.editor_size} pt</span>
+    </div>
+    <p class="note first">The review and the text files of a project.</p>
 
     <h2>Typed symbols</h2>
     <p class="note first">
@@ -142,6 +175,32 @@
     margin: 26px 0 0;
     padding-top: 14px;
     border-top: 1px solid var(--line);
+  }
+  .field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .field label {
+    width: 80px;
+    color: var(--muted);
+  }
+  select {
+    font: inherit;
+    color: var(--fg);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 1px 4px;
+  }
+  input[type="range"] {
+    width: 160px;
+    margin: 0;
+  }
+  .size {
+    min-width: 42px;
+    font-variant-numeric: tabular-nums;
   }
   h3 {
     font-size: 12px;

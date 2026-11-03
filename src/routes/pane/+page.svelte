@@ -13,7 +13,7 @@
   import { keymap } from "@codemirror/view";
   import { onMount } from "svelte";
   import "$lib/theme.css";
-  import { insertQuote, showSection, wordsOf } from "$lib/editor";
+  import { insertQuote, setEditorFont, showSection, wordsOf } from "$lib/editor";
   import FileEditor, { type Status } from "$lib/FileEditor.svelte";
   import { sections, type Section } from "$lib/sections";
   import type { Settings } from "$lib/types";
@@ -91,7 +91,11 @@
   const release = keymap.of([{ key: "Escape", run: () => (invoke("pane_release"), true) }]);
   const more = [release];
 
-  const loadSettings = () => invoke<Settings>("settings").then((s) => (symbols = s.symbols));
+  const loadSettings = () =>
+    invoke<Settings>("settings").then((s) => {
+      symbols = s.symbols;
+      setEditorFont(s.editor_font, s.editor_size);
+    });
 
   onMount(() => {
     // placed before this page listened, maybe
