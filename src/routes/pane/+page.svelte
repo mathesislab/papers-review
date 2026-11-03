@@ -13,6 +13,7 @@
   import type { EditorView } from "@codemirror/view";
   import { onMount } from "svelte";
   import "$lib/theme.css";
+  import { redo, undo } from "@codemirror/commands";
   import { keymap } from "@codemirror/view";
   import { insertQuote, makeEditor, replaceText, showSection, wordsOf } from "$lib/editor";
   import { sections, type Section } from "$lib/sections";
@@ -145,6 +146,10 @@
         collapsed = e.payload.collapsed;
       }),
       listen("review-changed", changedOnDisk),
+      // Undo and Redo of the menu: the editor's own history
+      listen<string>("edit", (e) => {
+        if (view) (e.payload === "redo" ? redo : undo)(view);
+      }),
       // ⌘' in the page: a quote of the PDF at the cursor
       listen<string>("review-insert", (e) => {
         if (view) insertQuote(view, e.payload);

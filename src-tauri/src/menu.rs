@@ -79,8 +79,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         "Edit",
         true,
         &[
-            &PredefinedMenuItem::undo(app, None)?,
-            &PredefinedMenuItem::redo(app, None)?,
+            &item("undo", "Undo", Some("CmdOrCtrl+Z"))?,
+            &item("redo", "Redo", Some("Shift+CmdOrCtrl+Z"))?,
             &separator()?,
             &PredefinedMenuItem::cut(app, None)?,
             &PredefinedMenuItem::copy(app, None)?,
@@ -154,6 +154,7 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
             state.save();
             update(app);
         }
+        "undo" | "redo" => undo_redo(app, id),
         "review" | "review-side" => {
             if let Some(window) = front(app).filter(|w| w.label() != windows::START) {
                 if id == "review" {
@@ -202,6 +203,23 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
             None => {}
         },
         _ => {}
+    }
+}
+
+/// Undo and Redo: the review's own history when its pane has the keys (the
+/// editor keeps it, not WebKit), else the field in focus of the page.
+fn undo_redo(app: &AppHandle, name: &str) {
+    let Some(window) = front(app) else {
+        return;
+    };
+    let label = window.label();
+    if app.state::<AppState>().panes.lock().unwrap().focused.contains(label) {
+        let _ = app.emit_to(EventTarget::webview(pane::label(label)), "edit", name);
+        return;
+    }
+    // a window of one web view (start, settings), or a project's page
+    if let Some(webview) = app.get_webview(label).or_else(|| app.get_webview(&windows::page(label))) {
+        let _ = webview.eval(format!("document.execCommand('{name}')"));
     }
 }
 
