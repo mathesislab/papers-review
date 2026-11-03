@@ -737,7 +737,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 10px;
+    font-size: 11.5px;
     font-weight: 600;
     line-height: 1;
     white-space: nowrap;
