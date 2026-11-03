@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Papers Review</title>
+<meta name="description" content="Review a manuscript beside its PDF. The review is plain Markdown files in the project folder; the PDF shows as Preview shows it.">
+<link rel="icon" href="images/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#"><img src="images/logo.svg" alt="" width="28" height="28">Papers Review</a>
+  <nav>
+    <a href="#project">Project</a>
+    <a href="#review">Review</a>
+    <a href="#quotes">Quotes</a>
+    <a href="#references">References</a>
+    <a href="#download">Download</a>
+    <a href="https://github.com/mathesislab/papers-review">Source</a>
+  </nav>
+</header>
+
+<main>
+<section class="hero">
+  <h1>Review a manuscript beside its PDF</h1>
+  <p class="lead">Papers Review shows the PDF as Preview shows it, and a Markdown review over it when you call
+    for it. The review is plain files in the project folder: no account, no database, nothing sent.</p>
+  <p class="actions">
+    <a class="button primary" href="https://github.com/mathesislab/papers-review/releases/latest/download/Papers-Review-macos-aarch64.dmg">Download for Mac</a>
+    <a class="button" href="https://github.com/mathesislab/papers-review">View source</a>
+  </p>
+  <p class="more">macOS, Apple silicon. <a href="https://github.com/mathesislab/papers-review/releases">All releases</a></p>
+
+  <!-- <img src="images/main.png" alt="The review pane beside the manuscript" width="2400" height="1500"> -->
+  <figure class="placeholder">
+    <div class="box">Screenshot: the review pane beside the manuscript</div>
+    <figcaption>images/main.png</figcaption>
+  </figure>
+</section>
+
+<section class="features">
+  <article id="project" class="feature wide">
+    <div>
+      <h2>A project is a folder</h2>
+      <p>The manuscript and its versions, the supplement, code and data, the editor's letter, and the review. Files
+        that live elsewhere are linked, not copied. The one file of the app is <code>review.toml</code>: the
+        journal, the manuscript ID, the due date, the colour.</p>
+      <p>Put the folder in Google Drive, Dropbox or iCloud if you like. Files are written whole, and read again when
+        they change on disk.</p>
+    </div>
+    <!-- <img src="images/project.png" alt="A project: its files in the sidebar, tabs for the manuscript and the supplement" loading="lazy" width="2400" height="1500"> -->
+    <figure class="placeholder">
+      <div class="box">Screenshot: a project, its files in the sidebar and tabs open</div>
+      <figcaption>images/project.png</figcaption>
+    </figure>
+  </article>
+
+  <article id="review" class="feature wide reverse">
+    <div>
+      <h2>The review pane</h2>
+      <p><kbd>⌘J</kbd> brings up a Markdown editor over the PDF, at the bottom or on the right, and takes it away
+        again. The PDF keeps its size.</p>
+      <p>Headings make tabs: <code>## Round 1</code>, <code>## Round 2</code>. Each shows its section alone, and the
+        review stays one file. It is saved as you type.</p>
+    </div>
+    <!-- <img src="images/review.png" alt="The review pane over the PDF, with a tab for each round" loading="lazy" width="2400" height="1500"> -->
+    <figure class="placeholder">
+      <div class="box">Screenshot: the review pane with its section tabs</div>
+      <figcaption>images/review.png</figcaption>
+    </figure>
+  </article>
+
+  <article id="quotes" class="feature wide">
+    <div>
+      <h2>Quotes with page and line</h2>
+      <p>Select text in the PDF and press <kbd>⌘'</kbd>: it goes into the review as a quote, with its page and the
+        line numbers of the manuscript, <code>p. 5, ll. 136–138</code>. <kbd>⌘;</kbd> does the same without the
+        quotation marks.</p>
+      <p>Everything stays plain text, so it pastes into a journal's web form as it is.</p>
+    </div>
+    <!-- <img src="images/quote.png" alt="A passage selected in the PDF and its quote in the review" loading="lazy" width="2400" height="1500"> -->
+    <figure class="placeholder">
+      <div class="box">Screenshot: a quote in the review, with its page and lines</div>
+      <figcaption>images/quote.png</figcaption>
+    </figure>
+  </article>
+
+  <article id="references" class="feature wide reverse">
+    <div>
+      <h2>References</h2>
+      <p><kbd>⇧⌘R</kbd> searches the <code>.bib</code> files of the project, or your
+        <a href="https://github.com/perrette/papers">papers</a> library. <kbd>↵</kbd> puts in the citation,
+        “Robinson et al. (2012)”; <kbd>⇧↵</kbd> the full reference; <kbd>⌘.</kbd> the key as
+        <code>[@key]</code>; <kbd>⌘↵</kbd> opens the paper's PDF in a tab.</p>
+      <p>With a reference selected in the PDF, the list starts with the papers closest to it.</p>
+    </div>
+    <!-- <img src="images/references.png" alt="The reference list over the review pane" loading="lazy" width="2400" height="1500"> -->
+    <figure class="placeholder">
+      <div class="box">Screenshot: the reference list over the review pane</div>
+      <figcaption>images/references.png</figcaption>
+    </figure>
+  </article>
+
+  <div class="grid">
+    <article class="feature">
+      <h3>Typed symbols</h3>
+      <p><code>-&gt;</code> becomes →, <code>&lt;=</code> ≤, <code>CO_2</code> CO₂, <code>^-1</code> ⁻¹. After a
+        LaTeX name, <kbd>Tab</kbd> as in the Julia REPL: <code>\alpha</code> α, <code>\Delta</code> Δ,
+        <code>\times</code> ×. <kbd>⌘Z</kbd> gives back what you typed.</p>
+    </article>
+    <article class="feature">
+      <h3>Export</h3>
+      <p>As a PDF on an A4 page, kept in the project's <code>export/</code> folder, or as plain text on the
+        clipboard for a journal form. A round alone, or the whole review. Anonymous unless you sign it.</p>
+    </article>
+    <article class="feature">
+      <h3>Several reviews at once</h3>
+      <p>The project bar has a tile for each review, with its due date and a bar for how near it is. Windows take
+        the project's colour, to tell them apart.</p>
+    </article>
+    <article class="feature">
+      <h3>New from a PDF</h3>
+      <p>Drop a manuscript on the app: the folder is made, named after the manuscript ID, and its title, journal
+        and ID are filled in from the DOI.</p>
+    </article>
+    <article class="feature">
+      <h3>Updates built in</h3>
+      <p>The app looks for new versions and installs one when you ask. Signed updates, nothing in the
+        background.</p>
+    </article>
+    <article class="feature">
+      <h3>Open source</h3>
+      <p>Free software under the MIT license, written in Rust with <a href="https://tauri.app">Tauri</a>.</p>
+    </article>
+  </div>
+</section>
+
+<aside class="also" id="desktop">
+  <h2>Also: Papers Desktop</h2>
+  <p>The companion app for the library. Papers Desktop follows the journals of your field, searches all of
+    science, keeps papers in your <code>.bib</code> files with their PDFs, reads them in tabs and cites any of them
+    in a keystroke.</p>
+  <p>Papers Review searches the same library. <a href="https://mathesislab.github.io/papers-desktop/">Papers
+    Desktop</a></p>
+</aside>
+
+<section id="download" class="download">
+  <h2>Download</h2>
+  <div class="platforms">
+    <article class="platform">
+      <h3>macOS</h3>
+      <p>For Macs with Apple silicon.</p>
+      <a class="button primary" href="https://github.com/mathesislab/papers-review/releases/latest/download/Papers-Review-macos-aarch64.dmg">Download for Mac</a>
+      <details>
+        <summary>First start</summary>
+        <p>Papers Review is not notarized by Apple yet, so macOS blocks it the first time. Drag it to Applications
+          and open it; then open System Settings → Privacy &amp; Security and click Open Anyway. Or, in Terminal:</p>
+        <pre><code>xattr -dr com.apple.quarantine "/Applications/Papers Review.app"</code></pre>
+      </details>
+    </article>
+  </div>
+  <p class="more">Once installed, the app updates itself (Settings → Updates). All versions are on the
+    <a href="https://github.com/mathesislab/papers-review/releases">releases page</a>. To build it yourself, see the
+    <a href="https://github.com/mathesislab/papers-review#readme">README</a>.</p>
+</section>
+</main>
+
+<footer>
+  <p>Papers Review is free software under the <a href="https://github.com/mathesislab/papers-review/blob/main/LICENSE">MIT
+    license</a>, by Alexander Robinson. <a href="https://github.com/mathesislab/papers-review">GitHub</a></p>
+</footer>
+</body>
+</html>
