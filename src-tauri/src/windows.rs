@@ -15,7 +15,7 @@ use tauri::{
     WebviewUrl, WebviewWindowBuilder, Window,
 };
 
-use crate::{AppState, menu, pane, review};
+use crate::{AppState, files, menu, pane, review};
 
 /// The start window: the projects opened last, and Open.
 pub const START: &str = "start";
@@ -212,6 +212,7 @@ pub fn switch(app: &AppHandle, window: &str, root: &Path) -> Result<(), String> 
     state.saved.lock().unwrap().switched(&old, root);
     state.save();
     retitle(app, window);
+    files::unwatch_all(app, window);
     pane::switched(app, window, &old);
     // the pane writes what was typed to the file it read, then reads the new review; the page loads again
     let _ = app.emit_to(EventTarget::webview(pane::label(window)), "review-switched", ());
@@ -359,6 +360,7 @@ pub fn closing(app: &AppHandle, window: &str) {
 /// when no other window shows it.
 pub fn closed(app: &AppHandle, window: &str) {
     pane::closed(app, window);
+    files::unwatch_all(app, window);
     let root = app.state::<AppState>().windows.lock().unwrap().remove(window);
     if let Some(root) = root {
         release(app, &root);

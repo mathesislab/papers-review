@@ -2,6 +2,7 @@
 //! bar to switch between projects (a setting), a start window and a Settings
 //! window. The project of a window is found by its label (`windows`).
 
+mod files;
 mod menu;
 mod pane;
 mod review;
@@ -36,6 +37,8 @@ pub struct AppState {
     pub panes: Mutex<pane::Panes>,
     /// the review of each project open, watched
     pub watchers: Mutex<HashMap<PathBuf, notify::RecommendedWatcher>>,
+    /// the files open in the tabs of each window, watched
+    pub file_watchers: Mutex<files::Watched>,
 }
 
 impl AppState {
@@ -346,6 +349,30 @@ fn new_file(
     Ok(path)
 }
 
+/// The text of a file of the project.
+#[tauri::command]
+fn read_file(app: AppHandle, webview: Webview, path: PathBuf) -> Result<String, String> {
+    files::read(&app, webview.window().label(), &path)
+}
+
+/// A file of the project written, atomically.
+#[tauri::command]
+fn write_file(app: AppHandle, webview: Webview, path: PathBuf, text: String) -> Result<(), String> {
+    files::write(&app, webview.window().label(), &path, &text)
+}
+
+/// A file of the project open in a tab: a change made to it elsewhere comes to the page as `file-changed`.
+#[tauri::command]
+fn watch_file(app: AppHandle, webview: Webview, path: PathBuf) -> Result<(), String> {
+    files::watch(&app, webview.window().label(), &path)
+}
+
+/// The tab of a file closed.
+#[tauri::command]
+fn unwatch_file(app: AppHandle, webview: Webview, path: PathBuf) {
+    files::unwatch(&app, webview.window().label(), &path);
+}
+
 /// How the window of the project looked.
 #[tauri::command]
 fn layout(webview: Webview, state: State<'_, AppState>) -> Result<Layout, String> {
@@ -477,6 +504,7 @@ pub fn run() {
                 next: AtomicUsize::new(1),
                 panes: Mutex::new(pane::Panes::default()),
                 watchers: Mutex::new(HashMap::new()),
+                file_watchers: Mutex::new(HashMap::new()),
             });
             app.set_menu(menu::build(app.handle())?)?;
             app.on_menu_event(menu::on_event);
@@ -504,6 +532,10 @@ pub fn run() {
             add_files,
             unlink,
             new_file,
+            read_file,
+            write_file,
+            watch_file,
+            unwatch_file,
             layout,
             set_layout,
             set_colour,
