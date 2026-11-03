@@ -1,8 +1,9 @@
 <script lang="ts">
   // The Settings window (⌘,): whether the projects open in one window, with a bar to switch between them, or each in
-  // a window of its own; how dates are written; the font and size of the editors; and the sequences typed in the review that become symbols: the defaults, each turned off if
-  // not wanted, and the user's own. Kept in the app's data folder (settings.json); the project windows are told as it
-  // changes.
+  // a window of its own; how dates are written; the font and size of the editors; the exports of the review (the
+  // reviewer's name, whether the PDF is signed with it, whether its header has the journal, the manuscript ID and the
+  // date); and the sequences typed in the review that become symbols: the defaults, each turned off if not wanted,
+  // and the user's own. Kept in the app's data folder (settings.json); the project windows are told as it changes.
 
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
@@ -102,6 +103,22 @@
     </div>
     <p class="note first">The review and the text files of a project.</p>
 
+    <h2>Export</h2>
+    <div class="field">
+      <label for="reviewer-name">Reviewer</label>
+      <input id="reviewer-name" class="name" bind:value={settings.reviewer_name} onchange={save} placeholder="Your name" autocomplete="off" spellcheck="false" />
+    </div>
+    <label class="option">
+      <input type="checkbox" bind:checked={settings.sign} onchange={save} />
+      <span>Sign the reviews with my name</span>
+    </label>
+    <p class="note">Off: the PDF is anonymous.</p>
+    <label class="option">
+      <input type="checkbox" bind:checked={settings.header_details} onchange={save} />
+      <span>Header with journal, manuscript ID and date</span>
+    </label>
+    <p class="note">Off: the PDF is headed by the project's heading alone.</p>
+
     <h2>Typed symbols</h2>
     <p class="note first">
       In the review, a sequence typed becomes its symbol as its last character is typed; ⌘Z gives back what was typed.
@@ -158,6 +175,10 @@
     display: flex;
     align-items: baseline;
     gap: 8px;
+  }
+  .field + .option,
+  .note + .option {
+    margin-top: 10px;
   }
   input[type="checkbox"] {
     margin: 0;
@@ -238,6 +259,11 @@
     align-items: baseline;
     gap: 8px;
     margin-top: 6px;
+  }
+  .field .name {
+    width: 220px;
+    -webkit-user-select: text;
+    user-select: text;
   }
   form input {
     width: 90px;

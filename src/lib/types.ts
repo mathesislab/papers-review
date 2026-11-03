@@ -46,11 +46,11 @@ export type Settings = {
   /** the font of the editors and its size (points) */
   editor_font: EditorFont;
   editor_size: number;
-  /** the reviewer's name, for the header of the PDF export */
+  /** the reviewer's name, to sign the exports with */
   reviewer_name: string;
-  /** the review signed with that name; off: anonymous */
+  /** sign the PDF with it; off: anonymous */
   sign: boolean;
-  /** the header of the PDF has the journal, manuscript, title and date; off: the heading alone */
+  /** the PDF's header holds the journal, the manuscript ID and the date as well as the heading */
   header_details: boolean;
 };
 
