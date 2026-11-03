@@ -15,7 +15,7 @@ use tauri::{
     WebviewUrl, WebviewWindowBuilder, Window,
 };
 
-use crate::{AppState, files, menu, pane, review};
+use crate::{AppState, files, menu, pane, refs, review};
 
 /// The start window: the projects opened last, and Open.
 pub const START: &str = "start";
@@ -117,6 +117,7 @@ fn release(app: &AppHandle, root: &Path) {
     }
     state.projects.lock().unwrap().remove(root);
     review::unwatch(app, root);
+    refs::unload(app, root);
 }
 
 /// Whether the projects share a window, with a bar to switch between them.
@@ -430,6 +431,7 @@ pub fn changed(app: &AppHandle, root: &Path) {
     for label in of_project(app, root) {
         let _ = app.emit_to(EventTarget::webview(page(&label)), "project-changed", ());
     }
+    refs::refresh(app, root);
 }
 
 #[cfg(test)]

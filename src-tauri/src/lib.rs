@@ -6,6 +6,7 @@ pub mod export;
 mod files;
 mod menu;
 mod pane;
+mod refs;
 mod review;
 mod settings;
 mod state;
@@ -17,6 +18,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::atomic::AtomicUsize;
 
+use papers_core::Found;
 use review_core::{Colour, Datetime, Node, Project, ReviewFile};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State, Webview, WindowEvent};
@@ -43,6 +45,8 @@ pub struct AppState {
     pub file_watchers: Mutex<files::Watched>,
     /// the PDF exports waiting for their hidden window, by its label
     pub exports: Mutex<HashMap<String, export::Pending>>,
+    /// the references of each project open, once asked for
+    pub references: Mutex<refs::Loaded>,
 }
 
 impl AppState {
@@ -590,6 +594,35 @@ fn export_text(app: AppHandle, webview: Webview, name: String, text: String) -> 
     export::text(&app, &root, &name, &text)
 }
 
+/// The references of the project (its `.bib` files and its papers library) that match `query`: the first
+/// `limit` of them, with the words that matched marked.
+#[tauri::command]
+async fn references(app: AppHandle, webview: Webview, query: String, limit: usize) -> Result<Found, String> {
+    let root = root_of(&webview)?;
+    let library = refs::library(&app, &root)?;
+    Ok(refs::search(&library, &query, limit))
+}
+
+/// The references closest to a reference as it is written (one selected in the PDF), the best first.
+#[tauri::command]
+async fn closest_references(app: AppHandle, webview: Webview, text: String, limit: usize) -> Result<Found, String> {
+    let root = root_of(&webview)?;
+    Ok(refs::library(&app, &root)?.closest(&text, limit))
+}
+
+/// The `.bib` files the references of the project are read from.
+#[tauri::command]
+async fn reference_sources(app: AppHandle, webview: Webview) -> Result<Vec<PathBuf>, String> {
+    let root = root_of(&webview)?;
+    Ok(refs::sources_of(&app, &root))
+}
+
+/// The PDF of a reference opened in a tab of the page of the calling window (`open-file`, the path).
+#[tauri::command]
+fn open_reference_pdf(app: AppHandle, webview: Webview, path: PathBuf) -> Result<(), String> {
+    refs::open_pdf(&app, webview.window().label(), &path)
+}
+
 /// A file or folder of the project (not a linked one) moved to the Trash.
 #[tauri::command]
 fn trash(app: AppHandle, webview: Webview, path: PathBuf) -> Result<(), String> {
@@ -628,6 +661,7 @@ pub fn run() {
                 watchers: Mutex::new(HashMap::new()),
                 file_watchers: Mutex::new(HashMap::new()),
                 exports: Mutex::new(HashMap::new()),
+                references: Mutex::new(HashMap::new()),
             });
             app.set_menu(menu::build(app.handle())?)?;
             app.on_menu_event(menu::on_event);
@@ -682,6 +716,10 @@ pub fn run() {
             export_html,
             export_rendered,
             export_text,
+            references,
+            closest_references,
+            reference_sources,
+            open_reference_pdf,
             trash
         ])
         .build(context())
