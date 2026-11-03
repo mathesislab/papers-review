@@ -52,6 +52,8 @@ pub struct Manifest {
     pub journal: Option<String>,
     /// the manuscript's identifier, as the journal gives it
     pub manuscript: Option<String>,
+    /// the heading of the review's PDF (the app says "Manuscript review" without)
+    pub heading: Option<String>,
     pub due: Option<Datetime>,
     /// none yet: the app gives one when the project first opens
     pub colour: Option<Colour>,
@@ -213,6 +215,16 @@ impl Project {
         if manuscript != self.manifest.manuscript {
             self.write_text("manuscript", manuscript.as_deref())?;
             self.manifest.manuscript = manuscript;
+        }
+        Ok(())
+    }
+
+    /// The heading of the review's PDF, `review.toml` written.
+    pub fn set_heading(&mut self, heading: Option<String>) -> Result<(), Error> {
+        let heading = clean(heading);
+        if heading != self.manifest.heading {
+            self.write_text("heading", heading.as_deref())?;
+            self.manifest.heading = heading;
         }
         Ok(())
     }
@@ -612,7 +624,7 @@ mod tests {
     }
 
     #[test]
-    fn the_title_short_journal_manuscript_and_due_date_are_written_key_by_key() {
+    fn the_title_short_journal_manuscript_heading_and_due_date_are_written_key_by_key() {
         let dir = tempfile::tempdir().unwrap();
         fs::write(dir.path().join(MANIFEST), "# my notes\ntitle = \"T\"  # the short title\ncolour = \"blue\"\n").unwrap();
         let mut project = Project::open(dir.path()).unwrap();
@@ -620,6 +632,7 @@ mod tests {
         project.set_short(Some("OT".into())).unwrap();
         project.set_journal(Some("The Cryosphere".into())).unwrap();
         project.set_manuscript(Some("egusphere-2026-1234".into())).unwrap();
+        project.set_heading(Some("Referee report".into())).unwrap();
         project.set_due(Some("2026-11-14".parse().unwrap())).unwrap();
         let written = fs::read_to_string(dir.path().join(MANIFEST)).unwrap();
         assert!(written.starts_with("# my notes\ntitle = \"Overshoot thresholds\""), "{written}");
@@ -627,6 +640,7 @@ mod tests {
         let reopened = Project::open(dir.path()).unwrap();
         assert_eq!(reopened.manifest, project.manifest);
         assert_eq!(reopened.manifest.short.as_deref(), Some("OT"));
+        assert_eq!(reopened.manifest.heading.as_deref(), Some("Referee report"));
         assert_eq!(reopened.manifest.due.unwrap().to_string(), "2026-11-14");
         assert_eq!(reopened.name(), "Overshoot thresholds");
     }
@@ -636,7 +650,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         fs::write(
             dir.path().join(MANIFEST),
-            "title = \"T\"\nshort = \"T\"\njournal = \"J\"\nmanuscript = \"M\"\ndue = 2026-11-14\n",
+            "title = \"T\"\nshort = \"T\"\njournal = \"J\"\nmanuscript = \"M\"\nheading = \"H\"\ndue = 2026-11-14\n",
         )
         .unwrap();
         let mut project = Project::open(dir.path()).unwrap();
@@ -644,6 +658,7 @@ mod tests {
         project.set_short(None).unwrap();
         project.set_journal(Some(String::new())).unwrap();
         project.set_manuscript(None).unwrap();
+        project.set_heading(Some(" ".into())).unwrap();
         project.set_due(None).unwrap();
         assert_eq!(fs::read_to_string(dir.path().join(MANIFEST)).unwrap(), "");
         assert_eq!(project.manifest, Manifest::default());
