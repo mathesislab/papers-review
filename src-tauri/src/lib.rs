@@ -2,6 +2,7 @@
 //! bar to switch between projects (a setting), a start window and a Settings
 //! window. The project of a window is found by its label (`windows`).
 
+pub mod export;
 mod files;
 mod menu;
 mod pane;
@@ -40,6 +41,8 @@ pub struct AppState {
     pub watchers: Mutex<HashMap<PathBuf, notify::RecommendedWatcher>>,
     /// the files open in the tabs of each window, watched
     pub file_watchers: Mutex<files::Watched>,
+    /// the PDF exports waiting for their hidden window, by its label
+    pub exports: Mutex<HashMap<String, export::Pending>>,
 }
 
 impl AppState {
@@ -560,6 +563,33 @@ fn pane_focus(app: AppHandle, webview: Webview, focused: bool) {
     pane::set_focused(&app, webview.window().label(), focused);
 }
 
+/// The review as a PDF in the project's `export/` folder, `name` the stem of the file; `html` is the
+/// document. The path written.
+#[tauri::command]
+async fn export_pdf(app: AppHandle, webview: Webview, name: String, html: String) -> Result<PathBuf, String> {
+    let root = root_of(&webview)?;
+    export::pdf(&app, &root, &name, html).await
+}
+
+/// The HTML of the export for the page of its hidden window.
+#[tauri::command]
+fn export_html(app: AppHandle, webview: Webview) -> Result<String, String> {
+    export::html(&app, webview.window().label())
+}
+
+/// The page of the hidden window rendered the HTML: its web view is printed to the PDF.
+#[tauri::command]
+fn export_rendered(webview: Webview) -> Result<(), String> {
+    export::rendered(&webview)
+}
+
+/// The review as text in the project's `export/` folder and on the pasteboard. The path written.
+#[tauri::command]
+fn export_text(app: AppHandle, webview: Webview, name: String, text: String) -> Result<PathBuf, String> {
+    let root = root_of(&webview)?;
+    export::text(&app, &root, &name, &text)
+}
+
 /// A file or folder of the project (not a linked one) moved to the Trash.
 #[tauri::command]
 fn trash(app: AppHandle, webview: Webview, path: PathBuf) -> Result<(), String> {
@@ -571,6 +601,12 @@ fn trash(app: AppHandle, webview: Webview, path: PathBuf) -> Result<(), String> 
     trash::trash(&path)?;
     windows::changed(&app, &root);
     Ok(())
+}
+
+/// The app's configuration, assets and permissions. Made once: the example that checks the PDF export
+/// builds an app of its own with it.
+pub fn context() -> tauri::Context {
+    tauri::generate_context!()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -591,6 +627,7 @@ pub fn run() {
                 panes: Mutex::new(pane::Panes::default()),
                 watchers: Mutex::new(HashMap::new()),
                 file_watchers: Mutex::new(HashMap::new()),
+                exports: Mutex::new(HashMap::new()),
             });
             app.set_menu(menu::build(app.handle())?)?;
             app.on_menu_event(menu::on_event);
@@ -641,9 +678,13 @@ pub fn run() {
             save_review,
             create_review,
             set_review,
+            export_pdf,
+            export_html,
+            export_rendered,
+            export_text,
             trash
         ])
-        .build(tauri::generate_context!())
+        .build(context())
         .expect("error while building papers-review")
         .run(|app, event| match event {
             // the Dock icon clicked, no window open

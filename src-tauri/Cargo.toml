@@ -25,6 +25,9 @@ notify = "8"
 tauri-plugin-pdfkit = { git = "https://github.com/mathesislab/tauri-plugin-pdfkit", tag = "v0.3.0" }
 papers-review-core = { version = "0.1.0", path = "../crates/core" }
 
-# the Trash, for a file of a project moved to it
+# the Trash, for a file of a project moved to it; the export: a web view printed to a PDF, the review as text
+# on the pasteboard
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSFileManager", "NSURL", "NSString", "NSError"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSFileManager", "NSURL", "NSString", "NSError", "NSDictionary", "NSGeometry"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSPrintInfo", "NSPrintOperation", "NSPasteboard", "NSView", "NSResponder"] }
+objc2-web-kit = { version = "0.3", default-features = false, features = ["std", "WKWebView"] }
