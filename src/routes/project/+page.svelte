@@ -596,7 +596,7 @@
             <div class="tab" class:front={path === layout.front}>
               <button class="label" onclick={() => (layout.front = path)} title={path}>{nodeOf(path)?.name ?? path}</button>
               {#if path in outside}
-                <button class="add" onclick={() => addOutside(path)} title="Add to the Project…" aria-label="Add to the Project">+</button>
+                <button class="adopt" onclick={() => addOutside(path)} title="Add to the Project…" aria-label="Add to the Project">+</button>
               {/if}
               <button class="close" onclick={() => close(path)} title="Close Tab (⌘W)">✕</button>
             </div>
@@ -1003,21 +1003,22 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  /* the tab's ✕, and the + of a paper from outside the project (not `.add`: that is the bar's + tile) */
   .close,
-  .add {
+  .adopt {
     color: var(--muted);
     font-size: 10px;
     padding: 0 8px;
     visibility: hidden;
   }
-  .add {
+  .adopt {
     padding-right: 0;
     font-size: 14px;
   }
   .tab:hover .close,
   .tab.front .close,
-  .tab:hover .add,
-  .tab.front .add {
+  .tab:hover .adopt,
+  .tab.front .adopt {
     visibility: visible;
   }
   .viewer {
