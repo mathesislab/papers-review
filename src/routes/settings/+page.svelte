@@ -7,6 +7,7 @@
 
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
   import { open } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
   import "$lib/theme.css";
@@ -85,7 +86,17 @@
       unlisten.then((f) => f());
     };
   });
+
+  /** Esc with no field in focus: the window closes (a field gives up the focus first). */
+  function key(e: KeyboardEvent) {
+    if (e.key !== "Escape") return;
+    const field = document.activeElement;
+    if (field instanceof HTMLElement && field !== document.body) field.blur();
+    else getCurrentWindow().close();
+  }
 </script>
+
+<svelte:window onkeydown={key} />
 
 <main>
   {#if settings}
