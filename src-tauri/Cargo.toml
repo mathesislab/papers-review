@@ -24,7 +24,7 @@ tauri-plugin-updater = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 notify = "8"
-tauri-plugin-pdfkit = { git = "https://github.com/mathesislab/tauri-plugin-pdfkit", tag = "v0.3.0" }
+tauri-plugin-pdfkit = { git = "https://github.com/mathesislab/tauri-plugin-pdfkit", tag = "v0.4.0" }
 papers-review-core = { version = "0.1.0", path = "../crates/core" }
 # the references: the .bib files loaded and searched (papers-core, in papers-desktop), and where papers keeps its
 # library (papers-rs, at the commit papers-desktop builds with)
