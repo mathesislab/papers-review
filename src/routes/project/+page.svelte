@@ -1,8 +1,8 @@
 <script lang="ts">
   // The page of a project's window: the colour bar (right-click: its colour), the project bar at the left when the
   // setting is on (a tile per project to switch to; right-click: open in a new window, remove), the files (⌘⌥S hides
-  // them), the files open in tabs, the one in front: a PDF in PDFKit, with its outline, page, zoom and find. How the
-  // window looked is kept between sessions (the app's state.json); the commands of the menu bar come as `menu`. The
+  // them), the files open in tabs, the one in front: a PDF in PDFKit, with its outline, page, zoom and find; a
+  // Markdown, text or BibTeX file edited in place (FileEditor). How the window looked is kept between sessions (the app's state.json); the commands of the menu bar come as `menu`. The
   // window switched to another project loads this page again.
 
   import { invoke } from "@tauri-apps/api/core";
@@ -17,10 +17,11 @@
   import { badge, initials } from "$lib/bar";
   import { COLOURS, cssOf } from "$lib/colour";
   import { dueText } from "$lib/due";
+  import FileEditor, { type Status } from "$lib/FileEditor.svelte";
   import Files from "$lib/Files.svelte";
   import PdfView from "$lib/PdfView.svelte";
   import { quote } from "$lib/quote";
-  import type { BarItem, Colour, Layout, Node, Project, Settings } from "$lib/types";
+  import type { BarItem, Colour, Kind, Layout, Node, Project, Settings } from "$lib/types";
 
   let project = $state<Project | null>(null);
   let settings = $state<Settings | null>(null);
@@ -65,6 +66,29 @@
   });
   /** the find field, and its text */
   let findInput = $state<HTMLInputElement>();
+  /** The kinds of file edited in their tab. */
+  const EDITED: Kind[] = ["markdown", "text", "bib"];
+  /** the file in front, edited, and its editor */
+  let editor = $state<FileEditor>();
+  let status = $state<Status>("saved");
+  let writeError = $state("");
+  /** the files that could not be read (not UTF-8, say), by their path, with why: not edited */
+  let unreadable = $state<Record<string, string>>({});
+  const edited = $derived(front && EDITED.includes(front.kind) && !unreadable[front.path] ? front : undefined);
+  // the status of the file before is not this one's
+  $effect(() => {
+    layout.front;
+    [status, writeError] = ["saved", ""];
+  });
+  // the file in front watched for changes on disk while it is edited
+  $effect(() => {
+    const path = edited?.path;
+    if (!path) return;
+    invoke("watch_file", { path });
+    return () => {
+      invoke("unwatch_file", { path });
+    };
+  });
   /** the viewer: where it is tells the review pane where to lie */
   let viewer = $state<HTMLDivElement>();
 
@@ -129,10 +153,14 @@
     bar = await invoke<BarItem[]>("bar");
   }
 
-  /** The layout written now, to the project it is of: a switch or a close would lose the write waiting. */
+  /** The layout and the file in front written now, to the project they are of: a switch or a close would lose the
+   *  write waiting. */
   async function flush() {
     clearTimeout(timer);
-    if (ready) await invoke("set_layout", { root: layoutRoot, layout: $state.snapshot(layout) });
+    await Promise.all([
+      editor?.flush(),
+      ready ? invoke("set_layout", { root: layoutRoot, layout: $state.snapshot(layout) }) : undefined,
+    ]);
   }
 
   /** The window switched to the project of a tile; the page loads again as it is done. */
@@ -168,6 +196,7 @@
   function close(path: string) {
     const i = layout.tabs.indexOf(path);
     if (i < 0) return;
+    delete unreadable[path];
     layout.tabs.splice(i, 1);
     if (layout.front === path) layout.front = layout.tabs[Math.min(i, layout.tabs.length - 1)] ?? null;
   }
@@ -190,6 +219,24 @@
     };
     edge.addEventListener("pointermove", move);
     edge.addEventListener("pointerup", up);
+  }
+
+  /** A file read for its editor; one that cannot be read is shown as the others are, by its name. */
+  async function read(path: string) {
+    try {
+      return { path, text: await invoke<string>("read_file", { path }) };
+    } catch (e) {
+      unreadable[path] = String(e);
+      throw e;
+    }
+  }
+
+  const write = (path: string, text: string) => invoke<void>("write_file", { path, text });
+
+  /** Undo and Redo of the menu: the history of the editor in focus, else the field of the page. */
+  function edit(what: string) {
+    if (editor?.hasFocus()) (what === "redo" ? editor.redo : editor.undo)();
+    else document.execCommand(what);
   }
 
   /** A Markdown file as the review, in the pane. */
@@ -272,10 +319,16 @@
       location.reload();
     });
     const unlistenBar = listen("bar-changed", () => loadBar());
+    const unlistenEdit = listen<string>("edit", (e) => edit(e.payload));
+    const unlistenFile = listen<string>("file-changed", (e) => {
+      if (e.payload === edited?.path) editor?.changedOnDisk();
+    });
     const unlistenSettings = listen("settings-changed", () => loadSettings());
     return () => {
       unlistenSwitched.then((f) => f());
       unlistenBar.then((f) => f());
+      unlistenEdit.then((f) => f());
+      unlistenFile.then((f) => f());
       unlistenSettings.then((f) => f());
       unlisten.then((f) => f());
       unlistenChanged.then((f) => f());
@@ -400,6 +453,16 @@
           <button class="icon" onclick={() => openPath(front.path)} title="Open in Default App" aria-label="Open in Default App">↗</button>
         </div>
       {/if}
+      {#if edited}
+        <!-- the file in front, edited: its name, whether it is written -->
+        <div class="tools">
+          <span class="name" title={edited.path}>{edited.name}</span>
+          <span class="state">
+            {#if status === "error"}<span class="error" title={writeError}>not saved</span>{:else}{status === "saved" ? "saved" : "editing"}{/if}
+          </span>
+          {@render actions(edited)}
+        </div>
+      {/if}
       <div class="body">
         <!-- the outline beside the viewer, not over it: the PDF is native and lies over the viewer alone -->
         {#if front?.kind === "pdf" && showOutline && outline.length}
@@ -420,15 +483,25 @@
                 }}
               />
             {/key}
+          {:else if edited}
+            {#key edited.path}
+              {@const path = edited.path}
+              <div class="editor">
+                <FileEditor
+                  bind:this={editor}
+                  load={() => read(path)}
+                  save={write}
+                  mono={edited.kind !== "markdown"}
+                  bind:status
+                  bind:error={writeError}
+                />
+              </div>
+            {/key}
           {:else if front}
             <div class="other">
               <p>{front.name}</p>
-              <div class="actions">
-                {#if front.kind === "markdown" && front.path !== project.review}
-                  <button onclick={() => editReview(front.path)}>Edit in Review Pane</button>
-                {/if}
-                <button onclick={() => openPath(front.path)}>Open in Default App</button>
-              </div>
+              {#if unreadable[front.path]}<p class="muted" title={unreadable[front.path]}>{unreadable[front.path]}</p>{/if}
+              <div class="actions">{@render actions(front)}</div>
             </div>
           {:else}
             <div class="other">
@@ -443,6 +516,14 @@
 {:else if error}
   <p class="error">{error}</p>
 {/if}
+
+<!-- the buttons of a file that is not a PDF -->
+{#snippet actions(file: Node)}
+  {#if file.kind === "markdown" && file.path !== project?.review}
+    <button onclick={() => editReview(file.path)}>Edit in Review Pane</button>
+  {/if}
+  <button onclick={() => openPath(file.path)}>Open in Default App</button>
+{/snippet}
 
 <!-- the entries of an outline, each nested ones indented below it -->
 {#snippet entries(list: Entry[], depth: number)}
@@ -615,6 +696,14 @@
     background: var(--bg);
     border-bottom: 1px solid var(--line);
   }
+  .tools .name {
+    font-weight: 600;
+  }
+  .tools .state {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 12px;
+  }
   .tools .page {
     color: var(--muted);
     font-size: 12px;
@@ -725,6 +814,11 @@
     min-width: 0;
     min-height: 0;
     background: var(--viewer);
+  }
+  .editor {
+    position: absolute;
+    inset: 0;
+    background: var(--bg);
   }
   .other {
     height: 100%;
