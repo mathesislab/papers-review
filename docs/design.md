@@ -66,8 +66,12 @@ share its colour.
   due date. Hidden, the viewer takes the whole window.
 - **Viewer**: a PDF in PDFKit (tauri-plugin-pdfkit), its tools in a bar
   under the tabs as in Papers Desktop (the outline, beside the PDF; find;
-  the page; zoom; open in the default app); a text file rendered or as source (`⌘R`: Markdown, READMEs, code
-  and data descriptions). Tabs for the files open.
+  the page; zoom; open in the default app). A Markdown, text or BibTeX
+  file is edited in its tab, filling the viewer (the same editor as the
+  review pane, monospace unless Markdown): written half a second after the
+  typing stops and as it loses the keys, read again when changed on disk
+  (Reload or Keep mine with changes not yet written); a file that is not
+  UTF-8 keeps its name and Open in Default App. Tabs for the files open.
 - **Review pane** (`⌘J`): a Markdown editor over the viewer, at the bottom
   or on the right (`⌘⇧J`), its inner edge dragged for its size; its side,
   sizes and whether shown kept per project (the app's `state.json`). `⌘J`
@@ -95,6 +99,8 @@ NSVisualEffectView under it.
 ## Writing the review
 
 - CodeMirror 6, Markdown.
+- A line that starts with a location (`p5, l136–138:`, `p5–6:`, `l153:`,
+  `p. iii:`) has it coloured, as the headings are.
 - `⌘'` quotes the selection of the PDF at the cursor, as a paragraph of its
   own, with its page (the printed label, else the number) and its lines
   where the manuscript has line numbers: `**p. 5, l. 136:** "…"`,
