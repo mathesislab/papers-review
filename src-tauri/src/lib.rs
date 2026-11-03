@@ -282,6 +282,70 @@ fn set_project_info(app: AppHandle, webview: Webview, state: State<'_, AppState>
     Ok(())
 }
 
+/// Files from elsewhere added to the project: linked, or copied into `folder` (the project's folder
+/// without).
+#[tauri::command]
+fn add_files(
+    app: AppHandle,
+    webview: Webview,
+    state: State<'_, AppState>,
+    paths: Vec<PathBuf>,
+    copy: bool,
+    folder: Option<PathBuf>,
+) -> Result<(), String> {
+    let root = root_of(&webview)?;
+    {
+        let mut projects = state.projects.lock().unwrap();
+        let project = projects.get_mut(&root).ok_or("the project is not open")?;
+        if copy {
+            project.copy_in(&paths, &folder.unwrap_or_else(|| root.clone()))
+        } else {
+            project.link(&paths)
+        }
+        .map_err(|e| e.to_string())?;
+    }
+    windows::changed(&app, &root);
+    Ok(())
+}
+
+/// A file linked from elsewhere no longer linked; the file itself stays where it is.
+#[tauri::command]
+fn unlink(app: AppHandle, webview: Webview, state: State<'_, AppState>, path: PathBuf) -> Result<(), String> {
+    let root = root_of(&webview)?;
+    state
+        .projects
+        .lock()
+        .unwrap()
+        .get_mut(&root)
+        .ok_or("the project is not open")?
+        .unlink(&path)
+        .map_err(|e| e.to_string())?;
+    windows::changed(&app, &root);
+    Ok(())
+}
+
+/// An empty file `name` in `folder` of the project: its path.
+#[tauri::command]
+fn new_file(
+    app: AppHandle,
+    webview: Webview,
+    state: State<'_, AppState>,
+    folder: PathBuf,
+    name: String,
+) -> Result<PathBuf, String> {
+    let root = root_of(&webview)?;
+    let path = state
+        .projects
+        .lock()
+        .unwrap()
+        .get(&root)
+        .ok_or("the project is not open")?
+        .new_file(&folder, &name)
+        .map_err(|e| e.to_string())?;
+    windows::changed(&app, &root);
+    Ok(path)
+}
+
 /// How the window of the project looked.
 #[tauri::command]
 fn layout(webview: Webview, state: State<'_, AppState>) -> Result<Layout, String> {
@@ -437,6 +501,9 @@ pub fn run() {
             project,
             project_info,
             set_project_info,
+            add_files,
+            unlink,
+            new_file,
             layout,
             set_layout,
             set_colour,
