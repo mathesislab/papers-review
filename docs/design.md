@@ -235,6 +235,20 @@ tells the page of the calling window to open the PDF in a tab (`open-file`).
 Edit ▸ References… (⇧⌘R) goes to the page of the window in front, as the
 other page commands.
 
+## Updates
+
+The app looks for a new version a while after the start and twice a day
+(Settings ▸ Updates, `check_updates`; Papers Review ▸ Check for Updates…
+looks now and tells the result in a dialog), and installs it, then
+restarts, only when asked (`update.rs`, as in Papers Desktop). The updates
+are signed with the updater key: the public key is `plugins.updater.pubkey`
+in `tauri.conf.json`, the private one the secret `TAURI_SIGNING_PRIVATE_KEY`
+of the repository (no password). A release is made by tagging `vX.Y.Z`
+(the version of `tauri.conf.json` and the Cargo manifest): the workflow
+`release.yml` builds the app and dmg and uploads them, with the signed
+`.app.tar.gz` and `latest.json` the apps read, to a draft release, which is
+reviewed and published. The apps are not code-signed or notarized.
+
 ## Crates
 
 - [papers-rs](https://github.com/mathesislab/papers-rs): the PDF's title and
