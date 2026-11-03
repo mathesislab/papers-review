@@ -504,6 +504,12 @@ fn pane_collapse(app: AppHandle, webview: Webview, collapsed: bool) {
     pane::collapse(&app, webview.window().label(), collapsed);
 }
 
+/// The pane shown and expanded in this window, with the keys (the page's References…).
+#[tauri::command]
+fn pane_show(app: AppHandle, webview: Webview) {
+    pane::show(&app, webview.window().label());
+}
+
 /// Escape in the pane: the keys back to the PDF, the pane left as it is.
 #[tauri::command]
 fn pane_release(app: AppHandle, webview: Webview) {
@@ -703,6 +709,7 @@ pub fn run() {
             pane_side,
             pane_collapse,
             pane_release,
+            pane_show,
             quote,
             page_covered,
             pane_size,
