@@ -232,6 +232,7 @@
     {#if layout.files}
       <div class="files">
         <Files
+          name={project.name}
           files={project.files}
           linked={project.linked}
           due={project.due}
