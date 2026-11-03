@@ -7,7 +7,7 @@
 //! window of a project holds its pane at a time.
 
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, EventTarget, LogicalPosition, LogicalSize, Manager, Rect};
@@ -280,6 +280,17 @@ pub fn set_focused(app: &AppHandle, window: &str, focused: bool) {
     } else {
         panes.focused.remove(window);
     }
+}
+
+/// A window switched from the project `old` to another: it holds no pane of the
+/// old one any more, the old project's other windows are placed again (one may
+/// hold its pane now), and the pane of the new project is placed in this one.
+pub fn switched(app: &AppHandle, window: &str, old: &Path) {
+    app.state::<AppState>().panes.lock().unwrap().holder.retain(|_, w| w != window);
+    for other in windows::of_project(app, old) {
+        place(app, &other);
+    }
+    place(app, window);
 }
 
 /// A window gone: what was known of its pane goes.

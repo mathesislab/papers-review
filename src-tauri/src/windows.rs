@@ -1,6 +1,9 @@
 //! The windows: the start window, the Settings window, and the windows of the
 //! projects, which hold web views (the page, the review pane over it). A
-//! window's label names its project in `AppState::windows`.
+//! window's label names its project in `AppState::windows`. With the project
+//! bar on (a setting) the projects share a window: opening one switches the
+//! window in front to it, and the bar lists the projects to switch between;
+//! off, each project has a window of its own.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
@@ -54,12 +57,13 @@ pub fn show_settings(app: &AppHandle) {
         .build();
 }
 
-/// The windows open as the app last quit, else the start window.
+/// The windows open as the app last quit (each shows the project it was
+/// switched to), else the start window.
 pub fn reopen(app: &AppHandle) {
     let open = app.state::<AppState>().saved.lock().unwrap().open.clone();
     let mut any = false;
     for root in open {
-        match open_project(app, &root) {
+        match open_in_new_window(app, &root) {
             Ok(()) => any = true,
             Err(e) => {
                 eprintln!("{e}");
@@ -110,8 +114,28 @@ fn release(app: &AppHandle, root: &Path) {
     review::unwatch(app, root);
 }
 
-/// Open the project of a folder in a window of its own, or bring forward the
-/// window that shows it.
+/// Whether the projects share a window, with a bar to switch between them.
+fn bar_on(app: &AppHandle) -> bool {
+    app.state::<AppState>().settings.lock().unwrap().project_bar
+}
+
+/// The window of a project to switch: the one in front, else the first opened.
+pub fn project_window(app: &AppHandle) -> Option<String> {
+    let state = app.state::<AppState>();
+    let labels: Vec<String> = state.windows.lock().unwrap().keys().cloned().collect();
+    let front = app
+        .windows()
+        .into_values()
+        .find(|w| w.is_focused().unwrap_or(false) && labels.iter().any(|l| l == w.label()));
+    match front {
+        Some(window) => Some(window.label().to_string()),
+        None => labels.into_iter().min_by_key(|l| (l.len(), l.clone())),
+    }
+}
+
+/// Open the project of a folder: in the window in front when the project bar
+/// is on (and added to the bar), else in a window of its own. Or bring forward
+/// the window that shows it.
 pub fn open_project(app: &AppHandle, folder: &Path) -> Result<(), String> {
     let root = canonical(folder)?;
     if let Some(window) = window_of(app, &root) {
@@ -119,7 +143,19 @@ pub fn open_project(app: &AppHandle, folder: &Path) -> Result<(), String> {
         let _ = window.set_focus();
         return Ok(());
     }
+    if bar_on(app)
+        && let Some(window) = project_window(app)
+    {
+        load(app, &root)?;
+        app.state::<AppState>().saved.lock().unwrap().barred(&root);
+        return switch(app, &window, &root);
+    }
     new_window(app, &root)
+}
+
+/// The project of a folder in a window of its own, though another window shows it.
+pub fn open_in_new_window(app: &AppHandle, folder: &Path) -> Result<(), String> {
+    new_window(app, &canonical(folder)?)
 }
 
 fn canonical(folder: &Path) -> Result<PathBuf, String> {
@@ -140,13 +176,119 @@ fn new_window(app: &AppHandle, root: &Path) -> Result<(), String> {
         release(app, root);
         return Err(e.to_string());
     }
-    state.saved.lock().unwrap().opened(root);
+    {
+        let mut saved = state.saved.lock().unwrap();
+        saved.opened(root);
+        if bar_on(app) {
+            saved.barred(root);
+        }
+    }
     state.save();
     menu::update(app);
+    tell_bar(app);
     if let Some(start) = app.get_webview_window(START) {
         let _ = start.close();
     }
     Ok(())
+}
+
+/// The window `window` switched to the project of `root`: loaded, the old
+/// project unloaded when no other window shows it; the title, the pane and
+/// the page follow. Where another window shows `root`, that one comes forward.
+pub fn switch(app: &AppHandle, window: &str, root: &Path) -> Result<(), String> {
+    let old = root_of(app, window).ok_or("no project in this window")?;
+    if old == root {
+        return Ok(());
+    }
+    if let Some(other) = window_of(app, root) {
+        let _ = other.unminimize();
+        let _ = other.set_focus();
+        return Ok(());
+    }
+    load(app, root)?;
+    let state = app.state::<AppState>();
+    state.windows.lock().unwrap().insert(window.to_string(), root.to_path_buf());
+    release(app, &old);
+    state.saved.lock().unwrap().switched(&old, root);
+    state.save();
+    let title = state.projects.lock().unwrap().get(root).map(|p| p.name());
+    if let (Some(w), Some(title)) = (app.get_window(window), title) {
+        let _ = w.set_title(&title);
+    }
+    pane::switched(app, window, &old);
+    // the pane writes what was typed to the file it read, then reads the new review; the page loads again
+    let _ = app.emit_to(EventTarget::webview(pane::label(window)), "review-switched", ());
+    let _ = app.emit_to(EventTarget::webview(page(window)), "project-switched", ());
+    menu::update(app);
+    tell_bar(app);
+    Ok(())
+}
+
+/// The project of `root` taken out of the bar. Its window, with the bar on,
+/// switches to a neighbour in the bar, or closes when none is left.
+pub fn remove_from_bar(app: &AppHandle, root: &Path) {
+    let state = app.state::<AppState>();
+    let bar = state.saved.lock().unwrap().bar.clone();
+    if !bar.iter().any(|b| b == root) {
+        return;
+    }
+    state.saved.lock().unwrap().bar.retain(|b| b != root);
+    state.save();
+    if bar_on(app) {
+        for window in of_project(app, root) {
+            match neighbour(&bar, root, |p| window_of(app, p).is_none()) {
+                Some(next) => {
+                    if let Err(e) = switch(app, &window, &next) {
+                        eprintln!("{e}");
+                    }
+                }
+                None => {
+                    if let Some(window) = app.get_window(&window) {
+                        let _ = window.close();
+                    }
+                }
+            }
+        }
+    }
+    menu::update(app);
+    tell_bar(app);
+}
+
+/// The project of `bar` to switch to when `root` leaves it: the next one that
+/// `free` allows, else the nearest before it.
+fn neighbour(bar: &[PathBuf], root: &Path, free: impl Fn(&Path) -> bool) -> Option<PathBuf> {
+    let at = bar.iter().position(|b| b == root)?;
+    bar[at + 1..]
+        .iter()
+        .chain(bar[..at].iter().rev())
+        .find(|b| free(b))
+        .cloned()
+}
+
+/// The settings changed: with the bar on, the projects open in windows are
+/// in it; the menu follows.
+pub fn settings_changed(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    if bar_on(app) {
+        let mut labels: Vec<(String, PathBuf)> = state.windows.lock().unwrap().clone().into_iter().collect();
+        labels.sort_by_key(|(label, _)| (label.len(), label.clone()));
+        let mut saved = state.saved.lock().unwrap();
+        for (_, root) in labels {
+            saved.barred(&root);
+        }
+        drop(saved);
+        state.save();
+    }
+    menu::update(app);
+    tell_bar(app);
+}
+
+/// The project pages told that the bar changed: what it lists, or which is current.
+fn tell_bar(app: &AppHandle) {
+    let labels: Vec<String> = app.state::<AppState>().windows.lock().unwrap().keys().cloned().collect();
+    for label in labels {
+        let _ = app.emit_to(EventTarget::webview(page(&label)), "bar-changed", ());
+    }
 }
 
 fn make(app: &AppHandle, label: &str, title: &str) -> tauri::Result<()> {
@@ -220,5 +362,36 @@ pub fn of_project(app: &AppHandle, root: &Path) -> Vec<String> {
 pub fn changed(app: &AppHandle, root: &Path) {
     for label in of_project(app, root) {
         let _ = app.emit_to(EventTarget::webview(page(&label)), "project-changed", ());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bar() -> Vec<PathBuf> {
+        ["/a", "/b", "/c", "/d"].map(PathBuf::from).to_vec()
+    }
+
+    #[test]
+    fn a_project_leaving_the_bar_gives_its_window_to_the_next_one_else_the_one_before() {
+        let (b, d) = (Path::new("/b"), Path::new("/d"));
+        assert_eq!(neighbour(&bar(), b, |_| true), Some(PathBuf::from("/c")));
+        assert_eq!(neighbour(&bar(), d, |_| true), Some(PathBuf::from("/c")));
+    }
+
+    #[test]
+    fn a_project_shown_in_another_window_is_passed_over() {
+        let shown = [Path::new("/c"), Path::new("/d")];
+        let neighbour = neighbour(&bar(), Path::new("/b"), |p| !shown.contains(&p));
+        assert_eq!(neighbour, Some(PathBuf::from("/a")));
+    }
+
+    #[test]
+    fn nothing_is_left_when_the_bar_has_no_other_project_or_none_free() {
+        let alone = [PathBuf::from("/a")];
+        assert_eq!(neighbour(&alone, Path::new("/a"), |_| true), None);
+        assert_eq!(neighbour(&bar(), Path::new("/b"), |_| false), None);
+        assert_eq!(neighbour(&bar(), Path::new("/x"), |_| true), None);
     }
 }

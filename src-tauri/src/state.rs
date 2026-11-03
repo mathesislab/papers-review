@@ -1,6 +1,6 @@
 //! What the app keeps between sessions, in its data folder (`state.json`):
-//! the projects opened last, the windows open as it quit, and how each
-//! project's window looked. Not in `review.toml`: how the app looked is not
+//! the projects opened last, the windows open as it quit, the projects in the
+//! project bar, and how each project's window looked. Not in `review.toml`: how the app looked is not
 //! the project's.
 
 use std::collections::HashMap;
@@ -21,6 +21,8 @@ pub struct Saved {
     pub recent: Vec<PathBuf>,
     /// the projects whose window was open as the app quit
     pub open: Vec<PathBuf>,
+    /// the projects in the project bar, in order
+    pub bar: Vec<PathBuf>,
     pub layouts: HashMap<PathBuf, Layout>,
     /// the review pane of each project
     pub panes: HashMap<PathBuf, PaneLayout>,
@@ -129,6 +131,24 @@ impl Saved {
     pub fn closed(&mut self, root: &Path) {
         self.open.retain(|o| o != root);
     }
+
+    /// A window switched from the project `old` to `new`: `new` is open where
+    /// `old` was, and first of the recent ones.
+    pub fn switched(&mut self, old: &Path, new: &Path) {
+        self.open.retain(|o| o != new);
+        match self.open.iter_mut().find(|o| *o == old) {
+            Some(slot) => *slot = new.to_path_buf(),
+            None => self.open.push(new.to_path_buf()),
+        }
+        self.opened(new);
+    }
+
+    /// A project put in the project bar, at the end, unless it is there.
+    pub fn barred(&mut self, root: &Path) {
+        if !self.bar.iter().any(|b| b == root) {
+            self.bar.push(root.to_path_buf());
+        }
+    }
 }
 
 #[cfg(test)]
@@ -147,6 +167,36 @@ mod tests {
         saved.closed(a);
         assert_eq!(saved.open, [b]);
         assert_eq!(saved.recent, [a, b]);
+    }
+
+    #[test]
+    fn a_switched_window_keeps_its_place_among_the_open_projects() {
+        let mut saved = Saved::default();
+        let (a, b, c) = (Path::new("/a"), Path::new("/b"), Path::new("/c"));
+        saved.opened(a);
+        saved.opened(b);
+        saved.switched(a, c);
+        assert_eq!(saved.open, [c, b]);
+        assert_eq!(saved.recent, [c, b, a]);
+        saved.switched(c, b);
+        assert_eq!(saved.open, [b]);
+    }
+
+    #[test]
+    fn the_bar_takes_a_project_once_at_the_end() {
+        let mut saved = Saved::default();
+        let (a, b) = (Path::new("/a"), Path::new("/b"));
+        saved.barred(a);
+        saved.barred(b);
+        saved.barred(a);
+        assert_eq!(saved.bar, [a, b]);
+    }
+
+    #[test]
+    fn a_state_file_from_before_the_bar_has_an_empty_one() {
+        let saved: Saved = serde_json::from_str(r#"{"recent": ["/a"], "open": ["/a"]}"#).unwrap();
+        assert!(saved.bar.is_empty());
+        assert_eq!(saved.open, [Path::new("/a")]);
     }
 
     #[test]

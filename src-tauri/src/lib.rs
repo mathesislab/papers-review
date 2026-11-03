@@ -70,6 +70,43 @@ struct Recent {
     missing: bool,
 }
 
+/// A project of the project bar, as its tile shows it.
+#[derive(Serialize)]
+pub struct BarItem {
+    pub root: PathBuf,
+    pub name: String,
+    pub colour: Colour,
+    pub due: Option<String>,
+    /// gone, or no longer readable
+    pub missing: bool,
+}
+
+/// The projects of `roots` as their tiles and menu lines show them, read from their folders.
+pub fn bar_items(roots: &[PathBuf]) -> Vec<BarItem> {
+    roots
+        .iter()
+        .map(|root| match Project::open(root) {
+            Ok(project) => BarItem {
+                name: project.name(),
+                colour: project.manifest.colour.unwrap_or(Colour::None),
+                due: project.manifest.due.map(|d| d.to_string()),
+                root: root.clone(),
+                missing: false,
+            },
+            Err(_) => BarItem {
+                name: root
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default(),
+                colour: Colour::None,
+                due: None,
+                root: root.clone(),
+                missing: true,
+            },
+        })
+        .collect()
+}
+
 /// The project of the window of a page.
 fn root_of(webview: &Webview) -> Result<PathBuf, String> {
     windows::root_of(webview.app_handle(), webview.window().label())
@@ -87,6 +124,7 @@ fn settings(state: State<'_, AppState>) -> Settings {
 fn set_settings(app: AppHandle, state: State<'_, AppState>, settings: Settings) {
     *state.settings.lock().unwrap() = settings.clone();
     settings.save(&state.data);
+    windows::settings_changed(&app);
     let _ = app.emit("settings-changed", settings);
 }
 
@@ -97,32 +135,44 @@ fn open_project(app: AppHandle, path: PathBuf) -> Result<(), String> {
 
 #[tauri::command]
 fn choose_project(app: AppHandle) {
-    menu::choose_project(&app);
+    menu::choose_project(&app, false);
 }
 
 #[tauri::command]
 fn recent(state: State<'_, AppState>) -> Vec<Recent> {
     let recent = state.saved.lock().unwrap().recent.clone();
-    recent
+    bar_items(&recent)
         .into_iter()
-        .map(|root| match Project::open(&root) {
-            Ok(project) => Recent {
-                name: project.name(),
-                colour: project.manifest.colour.unwrap_or(Colour::None),
-                root,
-                missing: false,
-            },
-            Err(_) => Recent {
-                name: root
-                    .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_default(),
-                colour: Colour::None,
-                root,
-                missing: true,
-            },
+        .map(|item| Recent {
+            root: item.root,
+            name: item.name,
+            colour: item.colour,
+            missing: item.missing,
         })
         .collect()
+}
+
+/// The projects of the project bar, in order.
+#[tauri::command]
+fn bar(state: State<'_, AppState>) -> Vec<BarItem> {
+    let bar = state.saved.lock().unwrap().bar.clone();
+    bar_items(&bar)
+}
+
+/// The window of the calling page switched to the project of `root`.
+#[tauri::command]
+fn switch_project(app: AppHandle, webview: Webview, root: PathBuf) -> Result<(), String> {
+    windows::switch(&app, webview.window().label(), &root)
+}
+
+#[tauri::command]
+fn remove_from_bar(app: AppHandle, root: PathBuf) {
+    windows::remove_from_bar(&app, &root);
+}
+
+#[tauri::command]
+fn open_in_new_window(app: AppHandle, root: PathBuf) -> Result<(), String> {
+    windows::open_in_new_window(&app, &root)
 }
 
 #[tauri::command]
@@ -293,6 +343,10 @@ pub fn run() {
             open_project,
             choose_project,
             recent,
+            bar,
+            switch_project,
+            remove_from_bar,
+            open_in_new_window,
             project,
             layout,
             set_layout,

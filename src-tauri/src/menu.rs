@@ -67,6 +67,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         true,
         &[
             &item("open", "Open Project…", Some("CmdOrCtrl+O"))?,
+            &item("open-new", "Open Project in New Window…", Some("Shift+CmdOrCtrl+O"))?,
             &open_recent,
             &separator()?,
             &item("close-tab", "Close Tab", Some("CmdOrCtrl+W"))?,
@@ -118,10 +119,20 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             &PredefinedMenuItem::maximize(app, None)?,
         ],
     )?;
+    // the projects of the bar, ⌘1 to ⌘9 for the first nine
+    let state = app.state::<AppState>();
+    let bar = state.saved.lock().unwrap().bar.clone();
+    if state.settings.lock().unwrap().project_bar && !bar.is_empty() {
+        window.append(&separator()?)?;
+        for (i, project) in crate::bar_items(&bar).iter().enumerate() {
+            let keys = (i < 9).then(|| format!("CmdOrCtrl+{}", i + 1));
+            window.append(&item(&format!("bar:{i}"), &project.name, keys.as_deref())?)?;
+        }
+    }
     Menu::with_items(app, &[&app_menu, &file, &edit, &view, &window])
 }
 
-/// The menu made again: Open Recent changed.
+/// The menu made again: Open Recent or the bar changed.
 pub fn update(app: &AppHandle) {
     match build(app) {
         Ok(menu) => {
@@ -134,7 +145,8 @@ pub fn update(app: &AppHandle) {
 pub fn on_event(app: &AppHandle, event: MenuEvent) {
     let id = event.id().as_ref();
     match id {
-        "open" => choose_project(app),
+        "open" => choose_project(app, false),
+        "open-new" => choose_project(app, true),
         "settings" => windows::show_settings(app),
         "clear-recent" => {
             let state = app.state::<AppState>();
@@ -166,6 +178,18 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
                 app.dialog().message(e).title("Open Recent").show(|_| {});
             }
         }
+        _ if id.starts_with("bar:") => {
+            let root: Option<PathBuf> = id["bar:".len()..]
+                .parse::<usize>()
+                .ok()
+                .and_then(|i| app.state::<AppState>().saved.lock().unwrap().bar.get(i).cloned());
+            let window = windows::project_window(app);
+            if let (Some(root), Some(window)) = (root, window)
+                && let Err(e) = windows::switch(app, &window, &root)
+            {
+                app.dialog().message(e).title("Switch Project").show(|_| {});
+            }
+        }
         _ if PAGE.contains(&id) => match front(app) {
             Some(window) if window.label() == windows::START || window.label() == windows::SETTINGS => {
                 if id == "close-tab" {
@@ -188,16 +212,22 @@ fn front(app: &AppHandle) -> Option<tauri::Window> {
         .find(|w| w.is_focused().unwrap_or(false))
 }
 
-/// Open Project…: a folder to choose.
-pub fn choose_project(app: &AppHandle) {
+/// Open Project…: a folder to choose; in a window of its own for Open Project in New Window….
+pub fn choose_project(app: &AppHandle, new_window: bool) {
     let handle = app.clone();
     app.dialog()
         .file()
         .set_title("Open a project folder")
         .pick_folder(move |folder| {
-            if let Some(path) = folder.and_then(|f| f.into_path().ok())
-                && let Err(e) = windows::open_project(&handle, &path)
-            {
+            let Some(path) = folder.and_then(|f| f.into_path().ok()) else {
+                return;
+            };
+            let opened = if new_window {
+                windows::open_in_new_window(&handle, &path)
+            } else {
+                windows::open_project(&handle, &path)
+            };
+            if let Err(e) = opened {
                 handle.dialog().message(e).title("Open Project").show(|_| {});
             }
         });
