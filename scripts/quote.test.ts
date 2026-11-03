@@ -38,45 +38,45 @@ test("words that are not whole numbers are no line numbers", () => {
 });
 
 test("no numbers: the page only", () => {
-  assert.equal(location(sel([line(5, "a"), line(5, "b")])), "p. 5");
+  assert.equal(location(sel([line(5, "a"), line(5, "b")])), "p5");
 });
 
 test("one line, many lines", () => {
-  assert.equal(location(sel(numbered(5, 136, ["a"]))), "p. 5, l. 136");
-  assert.equal(location(sel(numbered(5, 136, ["a", "b", "c"]))), "p. 5, ll. 136–138");
+  assert.equal(location(sel(numbered(5, 136, ["a"]))), "p5, l136");
+  assert.equal(location(sel(numbered(5, 136, ["a", "b", "c"]))), "p5, l136–138");
 });
 
 test("two columns with numbers in both margins", () => {
   const lines = [0, 1, 2].map((i) => line(5, "x", [[String(20 + i), 80], [String(70 + i), 320]]));
-  assert.equal(location(sel(lines)), "p. 5, ll. 20–22");
+  assert.equal(location(sel(lines)), "p5, l20–22");
 });
 
 test("across pages, numbering that goes on", () => {
   const lines = [...numbered(5, 227, ["a", "b", "c"]), ...numbered(6, 230, ["d", "e"])];
-  assert.equal(location(sel(lines)), "pp. 5–6, ll. 227–231");
+  assert.equal(location(sel(lines)), "p5–6, l227–231");
 });
 
 test("across pages, numbering that starts again", () => {
   const lines = [...numbered(5, 38, ["a", "b", "c"]), ...numbered(6, 1, ["d", "e", "f", "g"])];
-  assert.equal(location(sel(lines)), "p. 5, l. 38 – p. 6, l. 4");
+  assert.equal(location(sel(lines)), "p5, l38 – p6, l4");
 });
 
 test("inconsistent numbers: the page only", () => {
-  assert.equal(location(sel([line(5, "a", [["136", 80]]), line(5, "b", [["130", 80]])])), "p. 5");
-  assert.equal(location(sel([line(5, "a", [["10", 80]]), line(5, "b", [["90", 80]])])), "p. 5");
-  assert.equal(location(sel([line(5, "a", [["10", 80]]), line(5, "b")])), "p. 5");
-  assert.equal(location(sel([line(5, "a", [["40", 80]]), line(6, "b", [["90", 80]])])), "pp. 5–6");
+  assert.equal(location(sel([line(5, "a", [["136", 80]]), line(5, "b", [["130", 80]])])), "p5");
+  assert.equal(location(sel([line(5, "a", [["10", 80]]), line(5, "b", [["90", 80]])])), "p5");
+  assert.equal(location(sel([line(5, "a", [["10", 80]]), line(5, "b")])), "p5");
+  assert.equal(location(sel([line(5, "a", [["40", 80]]), line(6, "b", [["90", 80]])])), "p5–6");
 });
 
 test("a line or two without a number is fine", () => {
   const lines = [line(5, "a", [["10", 80]]), line(5, "b"), line(5, "c", [["12", 80]])];
-  assert.equal(location(sel(lines)), "p. 5, ll. 10–12");
+  assert.equal(location(sel(lines)), "p5, l10–12");
 });
 
 test("the page label before the page number", () => {
   assert.equal(location(sel([line(3, "a", [], "iii")])), "p. iii");
-  assert.equal(location(sel([line(3, "a", [], "iii"), line(4, "b", [], "iv")])), "pp. iii–iv");
-  assert.equal(location(sel([line(3, "a", [], ""), line(4, "b", [], "4")])), "pp. 3–4");
+  assert.equal(location(sel([line(3, "a", [], "iii"), line(4, "b", [], "iv")])), "p. iii–iv");
+  assert.equal(location(sel([line(3, "a", [], ""), line(4, "b", [], "4")])), "p3–4");
 });
 
 test("the words of a line split by a hyphen are joined", () => {
@@ -105,6 +105,6 @@ test("whitespace is collapsed, and the text of the selection used without lines"
 
 test("the quote", () => {
   const lines = numbered(5, 136, ["the ice re-", "cently lost"]);
-  assert.equal(quote(sel(lines)), '**p. 5, ll. 136–137:** "the ice recently lost"');
-  assert.equal(quote(sel([line(5, "a")])), '**p. 5:** "a"');
+  assert.equal(quote(sel(lines)), 'p5, l136–137: "the ice recently lost"');
+  assert.equal(quote(sel([line(5, "a")])), 'p5: "a"');
 });

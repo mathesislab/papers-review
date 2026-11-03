@@ -31,22 +31,24 @@ export function lineNumber(line: Line): number | null {
 }
 
 const pageOf = (line: Line) => line.label || String(line.page);
+/** "p5", or "p. iii" for a page labelled in letters. */
+const p = (page: string) => (/^\d/.test(page) ? `p${page}` : `p. ${page}`);
 
-/** Where a selection lies: "p. 5", "p. 5, l. 136", "p. 5, ll. 136–138", "pp. 5–6", "pp. 5–6, ll. 210–228", or
- *  "p. 5, l. 38 – p. 6, l. 4" where each page is numbered from 1. */
+/** Where a selection lies, in plain text for a journal's form: "p5", "p5, l136", "p5, l136–138", "p5–6",
+ *  "p5–6, l210–228", or "p5, l38 – p6, l4" where each page is numbered from 1. */
 export function location(selection: Selection): string {
   const { lines } = selection;
   if (lines.length === 0) return "";
   const first = lines[0];
   const last = lines[lines.length - 1];
   const samePage = first.page === last.page;
-  const pages = samePage ? `p. ${pageOf(first)}` : `pp. ${pageOf(first)}–${pageOf(last)}`;
+  const pages = p(samePage ? pageOf(first) : `${pageOf(first)}–${pageOf(last)}`);
   const a = lineNumber(first);
   const b = lineNumber(last);
   if (a === null || b === null || !consistent(lines, a, b, samePage)) return pages;
   // numbered again from the next page: each end with its page
-  if (b < a) return `p. ${pageOf(first)}, l. ${a} – p. ${pageOf(last)}, l. ${b}`;
-  return a === b ? `${pages}, l. ${a}` : `${pages}, ll. ${a}–${b}`;
+  if (b < a) return `${p(pageOf(first))}, l${a} – ${p(pageOf(last))}, l${b}`;
+  return a === b ? `${pages}, l${a}` : `${pages}, l${a}–${b}`;
 }
 
 // Whether the numbers of the first and the last line fit the lines between them (a line or two may have none).
@@ -76,11 +78,11 @@ export function quoteText(selection: Selection): string {
   return clean(out);
 }
 
-/** The selection as a line of a review: where it lies, then its text in quotation marks. */
+/** The selection as a line of a review, plain text: where it lies, then its text in quotation marks. */
 export function quote(selection: Selection): string {
   const where = location(selection);
   const text = `"${quoteText(selection)}"`;
-  return where ? `**${where}:** ${text}` : text;
+  return where ? `${where}: ${text}` : text;
 }
 
 const clean = (text: string) => text.normalize("NFKC").replace(/\s+/g, " ").trim();
