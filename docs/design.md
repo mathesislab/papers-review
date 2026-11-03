@@ -86,7 +86,8 @@ share its colour.
   they lie. The review file carries a `review` pill. Hidden, the viewer takes
   the whole window. Right-click: the project's folder and its folders make a Markdown file (named in a row of its
   own, `untitled.md`), or take files and folders in, linked from where they are
-  or copied in, as asked; a file or folder is shown in the Finder; a file
+  or copied in, as asked (files dropped on the window from the Finder, the
+  project's own excepted, are added the same way); a file or folder is shown in the Finder; a file
   opens in the default app; a linked one is removed (the file stays), one of
   the project is moved to the Trash after asking.
 - **Project info** (`⌘I`, File > Project Info…, a click on the project's box
@@ -105,7 +106,9 @@ share its colour.
   review pane, monospace unless Markdown): written half a second after the
   typing stops and as it loses the keys, read again when changed on disk
   (Reload or Keep mine with changes not yet written); a file that is not
-  UTF-8 keeps its name and Open in Default App. Tabs for the files open.
+  UTF-8 keeps its name and Open in Default App. Tabs for the files open; that
+  of a paper outside the project has a `+` before its `✕`, Add to the
+  Project…: linked, or copied, and the tab then shows the copy, at its page.
 - **Review pane** (`⌘J`): a Markdown editor over the viewer, at the bottom
   or on the right (`⌘⇧J`), its inner edge dragged for its size; its side,
   sizes and whether shown kept per project (the app's `state.json`). `⌘J`
