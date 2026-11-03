@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <!-- a folder dropped on the Dock icon opens as a project -->
+  <!-- a folder dropped on the Dock icon opens as a project, a PDF starts a review of it -->
   <key>CFBundleDocumentTypes</key>
   <array>
     <dict>
@@ -15,6 +15,18 @@
       <key>LSItemContentTypes</key>
       <array>
         <string>public.folder</string>
+      </array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>PDF Document</string>
+      <key>CFBundleTypeRole</key>
+      <string>Viewer</string>
+      <key>LSHandlerRank</key>
+      <string>Alternate</string>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>com.adobe.pdf</string>
       </array>
     </dict>
   </array>

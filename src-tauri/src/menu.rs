@@ -8,7 +8,7 @@ use tauri::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Emitter, EventTarget, Manager, Wry};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::{AppState, pane, windows};
+use crate::{AppState, manuscript, pane, windows};
 
 /// The commands of the page, by the id of their item.
 const PAGE: &[&str] = &[
@@ -69,6 +69,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         "File",
         true,
         &[
+            &item("new-review", "New Review from Manuscript…", Some("CmdOrCtrl+N"))?,
             &item("open", "Open Project…", Some("CmdOrCtrl+O"))?,
             &item("open-new", "Open Project in New Window…", Some("Shift+CmdOrCtrl+O"))?,
             &open_recent,
@@ -157,6 +158,7 @@ pub fn update(app: &AppHandle) {
 pub fn on_event(app: &AppHandle, event: MenuEvent) {
     let id = event.id().as_ref();
     match id {
+        "new-review" => choose_manuscript(app),
         "open" => choose_project(app, false),
         "open-new" => choose_project(app, true),
         "settings" => windows::show_settings(app),
@@ -270,6 +272,20 @@ pub fn choose_project(app: &AppHandle, new_window: bool) {
             };
             if let Err(e) = opened {
                 handle.dialog().message(e).title("Open Project").show(|_| {});
+            }
+        });
+}
+
+/// New Review from Manuscript…: a PDF to choose.
+pub fn choose_manuscript(app: &AppHandle) {
+    let handle = app.clone();
+    app.dialog()
+        .file()
+        .set_title("Choose the manuscript to review")
+        .add_filter("PDF", &["pdf"])
+        .pick_file(move |file| {
+            if let Some(path) = file.and_then(|f| f.into_path().ok()) {
+                manuscript::begin(&handle, path);
             }
         });
 }

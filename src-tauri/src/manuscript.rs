@@ -234,6 +234,16 @@ pub fn start(app: &AppHandle, pdf: &Path) -> Result<(), String> {
     })
 }
 
+/// A review of `pdf` started in the background (from the menu, or a file opened with the app): a failure is shown.
+pub fn begin(app: &AppHandle, pdf: PathBuf) {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Err(e) = start(&app, &pdf) {
+            app.dialog().message(e).title("New Review").show(|_| {});
+        }
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

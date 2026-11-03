@@ -1,9 +1,10 @@
 <script lang="ts">
-  // The start window: Open a project folder (or drop one here), and the projects opened last. It closes as a project
-  // opens.
+  // The start window: a new review from a manuscript (drop its PDF here, or choose it), Open a project folder (or drop
+  // one here), and the projects opened last. It closes as a project opens.
 
   import { invoke } from "@tauri-apps/api/core";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
+  import { open as choose } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
   import "$lib/theme.css";
   import { cssOf } from "$lib/colour";
@@ -11,6 +12,10 @@
 
   let recent = $state<Recent[]>([]);
   let error = $state("");
+  /** a manuscript being read: the review's folder is made once the app has its title, journal and ID */
+  let reading = $state(false);
+  /** files held over the window */
+  let over = $state(false);
 
   async function open(root: string) {
     error = "";
@@ -21,10 +26,34 @@
     }
   }
 
+  /** A review of the manuscript at `pdf`; the app reads it (and asks Crossref), then opens the new project. */
+  async function review(pdf: string) {
+    error = "";
+    reading = true;
+    try {
+      await invoke("new_review", { pdf });
+    } catch (e) {
+      error = String(e);
+    } finally {
+      reading = false;
+    }
+  }
+
+  async function chooseManuscript() {
+    const pdf = await choose({ title: "Choose the manuscript to review", filters: [{ name: "PDF", extensions: ["pdf"] }] });
+    if (pdf) review(pdf);
+  }
+
   onMount(() => {
     invoke<Recent[]>("recent").then((r) => (recent = r));
     const unlisten = getCurrentWebview().onDragDropEvent((e) => {
-      if (e.payload.type === "drop") for (const path of e.payload.paths) open(path);
+      const { type } = e.payload;
+      over = type === "enter" || type === "over";
+      if (type !== "drop" || reading) return;
+      for (const path of e.payload.paths) {
+        if (path.toLowerCase().endsWith(".pdf")) review(path);
+        else open(path);
+      }
     });
     return () => {
       unlisten.then((f) => f());
@@ -35,6 +64,15 @@
 <main>
   <h1>Papers Review</h1>
   <p class="lede">A review is a folder: the manuscript, what comes with it, and your review.</p>
+  <div class="drop" class:over aria-busy={reading}>
+    {#if reading}
+      <span class="hint">Reading the manuscript…</span>
+    {:else}
+      <button class="primary" onclick={chooseManuscript}>New Review from Manuscript…</button>
+      <kbd>⌘N</kbd>
+      <span class="hint">or drop a manuscript here</span>
+    {/if}
+  </div>
   <div class="open">
     <button class="primary" onclick={() => invoke("choose_project")}>Open a Project Folder…</button>
     <kbd>⌘O</kbd>
@@ -71,6 +109,20 @@
   .lede {
     color: var(--muted);
     margin: 0 0 20px;
+  }
+  .drop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    height: 76px;
+    margin: 0 0 14px;
+    border: 1.5px dashed var(--border);
+    border-radius: 8px;
+  }
+  .drop.over {
+    border-color: var(--accent);
+    background: var(--selection);
   }
   .open {
     display: flex;

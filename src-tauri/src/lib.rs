@@ -755,13 +755,16 @@ pub fn run() {
                 has_visible_windows: false,
                 ..
             } => windows::show_start(app),
-            // folders dropped on the Dock icon, or opened with the app
+            // folders dropped on the Dock icon, or opened with the app, are projects; PDFs are manuscripts to review
             #[cfg(target_os = "macos")]
             RunEvent::Opened { urls } => {
                 for url in urls {
-                    if let Ok(path) = url.to_file_path()
-                        && let Err(e) = windows::open_project(app, &path)
-                    {
+                    let Ok(path) = url.to_file_path() else {
+                        continue;
+                    };
+                    if manuscript::is_pdf(&path) {
+                        manuscript::begin(app, path);
+                    } else if let Err(e) = windows::open_project(app, &path) {
                         eprintln!("{e}");
                     }
                 }

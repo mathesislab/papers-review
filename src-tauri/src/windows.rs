@@ -36,7 +36,7 @@ pub fn show_start(app: &AppHandle) {
     }
     let _ = WebviewWindowBuilder::new(app, START, WebviewUrl::App("/".into()))
         .title("Papers Review")
-        .inner_size(560.0, 460.0)
+        .inner_size(560.0, 540.0)
         .resizable(false)
         .center()
         .build();
