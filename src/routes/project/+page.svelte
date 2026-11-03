@@ -1,23 +1,32 @@
 <script lang="ts">
-  // The page of a project's window: the colour bar (right-click: its colour), the files (⌘⌥S hides them), the files
-  // open in tabs, the one in front: a PDF in PDFKit, with its outline, page, zoom and find. How the window looked is
-  // kept between sessions (the app's state.json); the commands of the menu bar come as `menu`.
+  // The page of a project's window: the colour bar (right-click: its colour), the project bar at the left when the
+  // setting is on (a tile per project to switch to; right-click: open in a new window, remove), the files (⌘⌥S hides
+  // them), the files open in tabs, the one in front: a PDF in PDFKit, with its outline, page, zoom and find. How the
+  // window looked is kept between sessions (the app's state.json); the commands of the menu bar come as `menu`. The
+  // window switched to another project loads this page again.
 
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
-  import { CheckMenuItem, Menu } from "@tauri-apps/api/menu";
+  import { CheckMenuItem, Menu, MenuItem } from "@tauri-apps/api/menu";
   import { getCurrentWindow } from "@tauri-apps/api/window";
+  import { message } from "@tauri-apps/plugin-dialog";
   import { openPath } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
   import type { Entry } from "tauri-plugin-pdfkit-api";
   import "$lib/theme.css";
+  import { badge, initials } from "$lib/bar";
   import { COLOURS, cssOf } from "$lib/colour";
+  import { dueText } from "$lib/due";
   import Files from "$lib/Files.svelte";
   import PdfView from "$lib/PdfView.svelte";
   import { quote } from "$lib/quote";
-  import type { Colour, Layout, Node, Project } from "$lib/types";
+  import type { BarItem, Colour, Layout, Node, Project, Settings } from "$lib/types";
 
   let project = $state<Project | null>(null);
+  let settings = $state<Settings | null>(null);
+  /** the projects of the project bar, in order */
+  let bar = $state<BarItem[]>([]);
+  const showBar = $derived(settings?.project_bar ?? false);
   let error = $state("");
   let layout = $state<Layout>({ files: true, files_width: 240, tabs: [], front: null, pages: {} });
   /** the layout read: written back only after, to the project it was read for */
@@ -112,6 +121,44 @@
     }
   }
 
+  async function loadSettings() {
+    settings = await invoke<Settings>("settings");
+  }
+
+  async function loadBar() {
+    bar = await invoke<BarItem[]>("bar");
+  }
+
+  /** The layout written now, to the project it is of: a switch or a close would lose the write waiting. */
+  async function flush() {
+    clearTimeout(timer);
+    if (ready) await invoke("set_layout", { root: layoutRoot, layout: $state.snapshot(layout) });
+  }
+
+  /** The window switched to the project of a tile; the page loads again as it is done. */
+  async function switchTo(root: string) {
+    if (root === project?.root) return;
+    try {
+      await flush();
+      await invoke("switch_project", { root });
+    } catch (e) {
+      await message(String(e), { title: "Switch Project", kind: "error" });
+    }
+  }
+
+  /** A right-click on a tile: the project in a window of its own, or out of the bar. */
+  async function tileMenu(e: MouseEvent, item: BarItem) {
+    e.preventDefault();
+    const items = await Promise.all([
+      MenuItem.new({ text: "Open in New Window", action: () => invoke("open_in_new_window", { root: item.root }) }),
+      MenuItem.new({ text: "Remove from Bar", action: () => invoke("remove_from_bar", { root: item.root }) }),
+    ]);
+    await (await Menu.new({ items })).popup();
+  }
+
+  /** The name of a tile and what is due, for its tooltip. */
+  const tooltip = (item: BarItem) => [item.name, item.missing ? "not found" : item.due ? dueText(item.due) : ""].filter(Boolean).join("\n");
+
   /** A file to the front, in a tab of its own. */
   function open(node: Node) {
     if (!layout.tabs.includes(node.path)) layout.tabs.push(node.path);
@@ -203,6 +250,7 @@
 
   onMount(() => {
     (async () => {
+      await Promise.all([loadSettings(), loadBar()]);
       await load();
       if (!project) return;
       const saved = await invoke<Layout>("layout");
@@ -218,7 +266,17 @@
     const unlistenChanged = listen("project-changed", () => load());
     // the review pane hidden: the keys back to the PDF
     const unlistenHidden = listen("pane-hidden", () => pdf?.focus());
+    // the window switched to another project: what is waiting to be written goes first
+    const unlistenSwitched = listen("project-switched", async () => {
+      await flush();
+      location.reload();
+    });
+    const unlistenBar = listen("bar-changed", () => loadBar());
+    const unlistenSettings = listen("settings-changed", () => loadSettings());
     return () => {
+      unlistenSwitched.then((f) => f());
+      unlistenBar.then((f) => f());
+      unlistenSettings.then((f) => f());
       unlisten.then((f) => f());
       unlistenChanged.then((f) => f());
       unlistenHidden.then((f) => f());
@@ -247,8 +305,31 @@
     class="window"
     class:nofiles={!layout.files}
     class:coloured={cssOf(project.colour)}
-    style:grid-template-columns={layout.files ? `${layout.files_width}px 1fr` : "1fr"}
+    style:grid-template-columns={`${showBar ? "56px " : ""}${layout.files ? `${layout.files_width}px ` : ""}1fr`}
   >
+    {#if showBar}
+      <!-- the project bar: a tile per project, the current one marked; the days left shown when few -->
+      <aside class="projects" aria-label="Projects">
+        {#each bar as item (item.root)}
+          {@const due = badge(item.due)}
+          <button
+            class="tile"
+            class:current={item.root === project.root}
+            class:missing={item.missing}
+            title={tooltip(item)}
+            aria-label={item.name}
+            onclick={() => switchTo(item.root)}
+            oncontextmenu={(e) => tileMenu(e, item)}
+          >
+            <span class="chip" style:background={cssOf(item.colour) ?? "var(--tile-none)"}>{initials(item.name)}</span>
+            {#if due}<span class="badge" class:urgent={due.urgent}>{due.text}</span>{/if}
+          </button>
+        {/each}
+        <button class="tile add" title="Open Project… (⌘O)" aria-label="Open Project" onclick={() => invoke("choose_project")}>
+          <span class="chip">+</span>
+        </button>
+      </aside>
+    {/if}
     {#if layout.files}
       <div class="files">
         <Files
@@ -391,6 +472,93 @@
   }
   .window.coloured {
     padding-top: 6px;
+  }
+  .projects {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    min-height: 0;
+    padding: 10px 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+    background: var(--sidebar);
+    border-right: 1px solid var(--line);
+  }
+  .tile {
+    position: relative;
+    flex: none;
+    display: flex;
+    justify-content: center;
+    padding: 0;
+    background: none;
+    border: none;
+    font: inherit;
+  }
+  /* the tile of the project in view: a mark at the bar's edge, a ring round the tile */
+  .tile.current::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--accent);
+  }
+  .tile.current .chip {
+    box-shadow:
+      0 0 0 2px var(--sidebar),
+      0 0 0 4px var(--accent);
+  }
+  .tile.missing {
+    opacity: 0.45;
+  }
+  .chip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  }
+  .tile:not(.current):hover .chip {
+    filter: brightness(0.94);
+  }
+  .tile.add .chip {
+    box-sizing: border-box;
+    border: 1px dashed var(--border);
+    color: var(--muted);
+    font-size: 18px;
+    font-weight: 400;
+    text-shadow: none;
+  }
+  .tile.add:hover .chip {
+    background: var(--chip);
+  }
+  .badge {
+    position: absolute;
+    top: -4px;
+    right: 3px;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 3px;
+    box-sizing: border-box;
+    border-radius: 8px;
+    box-shadow: 0 0 0 2px var(--sidebar);
+    background: #e8892b;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 15px;
+    text-align: center;
+  }
+  .badge.urgent {
+    background: #d63c2a;
   }
   .files {
     position: relative;

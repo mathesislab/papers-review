@@ -12,6 +12,8 @@
   --sidebar: #eeeef1;
   --chip: rgba(0, 0, 0, 0.05);
   --viewer: #e4e4e9;
+  /* a project without a colour, as a tile of the project bar */
+  --tile-none: #a3a3aa;
   --error: #c4321f;
   /* the review's Markdown */
   --md-heading: #2f6fde;
@@ -31,6 +33,7 @@
     --sidebar: #2c2c2f;
     --chip: rgba(255, 255, 255, 0.07);
     --viewer: #1e1e20;
+    --tile-none: #5b5b61;
     --error: #ff7a66;
     --md-heading: #7ea6f5;
     --md-quote: #b4b4bc;

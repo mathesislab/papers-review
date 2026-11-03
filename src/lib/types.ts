@@ -35,3 +35,6 @@ export type Settings = {
   /** the projects in one window, with a bar to switch between them; off: each in a window of its own */
   project_bar: boolean;
 };
+
+/** mirrors BarItem: a project of the project bar */
+export type BarItem = { root: string; name: string; colour: Colour; due: string | null; missing: boolean };
