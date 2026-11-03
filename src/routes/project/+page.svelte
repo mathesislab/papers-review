@@ -472,9 +472,12 @@
         <Files
           root={project.root}
           name={project.name}
+          journal={project.journal}
+          manuscript={project.manuscript}
+          due={project.due}
+          dateFormat={settings?.date_format ?? "ymd"}
           files={project.files}
           linked={project.linked}
-          due={project.due}
           front={layout.front}
           review={project.review}
           onopen={open}

@@ -1,20 +1,24 @@
 <script lang="ts">
-  // The files of the project, as a tree (folders first) under the project's name, then the files linked from elsewhere
-  // (each with the folder it is in), then the due date. A click opens a file in a tab; folders open and close. A Markdown file, right-clicked, can be the review (the
-  // pane's), marked ✎. A click on the project's row opens its info. Right-clicked, the project's row and its folders make a Markdown file (named in a row of
-  // their own) or take files in; a file or folder can be shown in the Finder, opened in the default app, removed
-  // from the project (a link) or moved to the Trash. What is done is reported to the page.
+  // The project in a box at the top (its name, journal and manuscript, due date; a click opens its info), then the files
+  // of the project's folder as a tree (folders first), then the files linked from elsewhere (each with the folder it
+  // is in). A click opens a file in a tab; folders open and close. A Markdown file, right-clicked, can be the review
+  // (the pane's), marked with a pill. Right-clicked, the project's folder and its folders make a Markdown file (named
+  // in a row of their own) or take files in; a file or folder can be shown in the Finder, opened in the default app,
+  // removed from the project (a link) or moved to the Trash. What is done is reported to the page.
 
   import { Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
-  import { dueText } from "./due";
-  import type { Kind, Node } from "./types";
+  import { daysLeft, daysText, formatDate, urgency } from "./due";
+  import type { DateFormat, Kind, Node } from "./types";
 
   let {
     root,
     name,
+    journal,
+    manuscript,
+    due,
+    dateFormat,
     files,
     linked,
-    due,
     front,
     review,
     onopen,
@@ -29,11 +33,15 @@
   }: {
     /** the path of the project folder */
     root: string;
-    /** the name of the project folder */
+    /** the name of the project: its title, else the name of its folder */
     name: string;
+    journal: string | null;
+    manuscript: string | null;
+    due: string | null;
+    /** how a date is written */
+    dateFormat: DateFormat;
     files: Node[];
     linked: Node[];
-    due: string | null;
     /** the file in front */
     front: string | null;
     /** the file of the review */
@@ -67,18 +75,24 @@
     item("Add Folder…", () => onadd(folder, true)),
   ];
 
-  /** A right-click on the project's row. */
-  async function projectMenu(e: MouseEvent) {
+  /** A right-click on the project's folder. */
+  async function folderMenu(e: MouseEvent) {
     e.preventDefault();
-    const items = await Promise.all([
-      ...folderItems(root),
-      separator(),
-      item("Reveal in Finder", () => onreveal(root)),
-      separator(),
-      item("Project Info…", oninfo),
-    ]);
+    const items = await Promise.all([...folderItems(root), separator(), item("Reveal in Finder", () => onreveal(root))]);
     await (await Menu.new({ items })).popup();
   }
+
+  /** A right-click on the project's box. */
+  async function boxMenu(e: MouseEvent) {
+    e.preventDefault();
+    await (await Menu.new({ items: [await item("Project Info…", oninfo)] })).popup();
+  }
+
+  /** the name of the project folder */
+  const folder = $derived(root.slice(root.lastIndexOf("/") + 1));
+
+  /** the journal and the manuscript ID, as far as they are set */
+  const where = $derived([journal, manuscript].filter(Boolean).join(" · "));
 
   /** A right-click on a file or folder; `outside`: of the linked ones, `top`: at the top of its list. */
   async function menu(e: MouseEvent, node: Node, outside: boolean, top: boolean) {
@@ -236,18 +250,37 @@
         {#if from}{@render linkIcon()}{/if}
         <span class="name">{node.name}</span>
         {#if from}<span class="from">{from}</span>{/if}
-        {#if node.path === review}<span class="review" title="The review (⌘J)">✎</span>{/if}
+        {#if node.path === review}<span class="review" title="The review (⌘J)">review</span>{/if}
       </button>
     {/if}
   {/each}
 {/snippet}
 
 <nav>
-  <div class="scroll">
-    <button class="project" title="{root}: Project Info (⌘I)" onclick={oninfo} oncontextmenu={projectMenu}>
-      {@render folderIcon()}
-      <span class="name">{name}</span>
+  <!-- the project: a click on the box, or on the button at its corner, shows its info -->
+  <div class="project" oncontextmenu={boxMenu} role="presentation">
+    <button class="summary" title="{root}: Project Info (⌘I)" onclick={oninfo}>
+      <span class="title">{name}</span>
+      {#if where}<span class="sub">{where}</span>{/if}
+      {#if due}
+        {@const days = daysLeft(due)}
+        <span class="sub due"><span class="dot {urgency(days)}"></span>{formatDate(due, dateFormat)} · {daysText(days)}</span>
+      {/if}
     </button>
+    <button class="info" title="Project Info (⌘I)" aria-label="Project Info" onclick={oninfo}>
+      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
+        <circle cx="8" cy="8" r="6.5" />
+        <line x1="8" y1="7.2" x2="8" y2="11.3" stroke-linecap="round" />
+        <circle cx="8" cy="4.9" r="0.4" fill="currentColor" />
+      </svg>
+    </button>
+  </div>
+  <div class="scroll">
+    <h4>Folder</h4>
+    <div class="root" title={root} oncontextmenu={folderMenu} role="presentation">
+      {@render folderIcon()}
+      <span class="name">{folder}</span>
+    </div>
     <div class="level" style:--depth={0}>
       {#if naming?.folder === root}{@render nameRow()}{/if}
       {@render tree(files, 0, false)}
@@ -259,7 +292,6 @@
       </div>
     {/if}
   </div>
-  {#if due}<footer>{dueText(due)}</footer>{/if}
 </nav>
 
 <style>
@@ -273,29 +305,95 @@
   .scroll {
     flex: 1;
     overflow: auto;
-    padding: 6px 6px 10px;
+    padding: 0 6px 10px;
   }
+  /* the project's box at the top */
   .project {
+    position: relative;
+    flex: none;
+    margin: 8px 6px 0;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .project:hover {
+    background: color-mix(in srgb, var(--bg) 94%, var(--fg));
+  }
+  .summary {
     display: flex;
-    align-items: center;
-    gap: 6px;
+    flex-direction: column;
+    gap: 2px;
     width: 100%;
     box-sizing: border-box;
-    margin: 2px 0 3px;
-    padding: 3px 8px;
+    padding: 8px 30px 8px 10px;
     font: inherit;
-    font-weight: 600;
     color: inherit;
     text-align: left;
     background: none;
     border: none;
-    border-radius: 5px;
+    border-radius: 8px;
+  }
+  .title {
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .project:hover {
-    background: var(--chip);
+  .sub {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .project .glyph {
+  .due {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .dot {
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+  }
+  .dot.far {
+    background: var(--due-far);
+  }
+  .dot.near {
+    background: var(--due-near);
+  }
+  .dot.close {
+    background: var(--due-close);
+  }
+  .dot.due {
+    background: var(--due-due);
+  }
+  .info {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    padding: 2px;
+    color: var(--muted);
+    background: none;
+    border: none;
+    border-radius: 50%;
+  }
+  .info:hover {
+    color: var(--fg);
+  }
+  /* the project's folder, above its tree */
+  .root {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 3px;
+    padding: 3px 8px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .root .glyph {
     color: var(--accent);
   }
   h4 {
@@ -397,9 +495,17 @@
     opacity: 0.75;
     font-size: 11px;
   }
+  /* the pill on the review file's row */
   .review {
+    flex: none;
     margin-left: auto;
-    color: var(--muted);
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: var(--selection);
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.4;
   }
   .kind {
     flex: none;
@@ -422,11 +528,5 @@
   }
   .kind.bib {
     background: #2f9e6e;
-  }
-  footer {
-    padding: 8px 14px;
-    border-top: 1px solid var(--line);
-    color: var(--muted);
-    white-space: nowrap;
   }
 </style>
