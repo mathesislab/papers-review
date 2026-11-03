@@ -35,6 +35,8 @@ pub enum Error {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Manifest {
     pub title: Option<String>,
+    /// a few letters for the project, where the name is too long (the project bar)
+    pub short: Option<String>,
     pub journal: Option<String>,
     /// the manuscript's identifier, as the journal gives it
     pub manuscript: Option<String>,
@@ -99,6 +101,72 @@ impl Project {
         Ok(())
     }
 
+    /// The title (none, or empty: the folder names the project), `review.toml` written.
+    pub fn set_title(&mut self, title: Option<String>) -> Result<(), Error> {
+        let title = clean(title);
+        if title != self.manifest.title {
+            self.write_text("title", title.as_deref())?;
+            self.manifest.title = title;
+        }
+        Ok(())
+    }
+
+    /// The short name, `review.toml` written.
+    pub fn set_short(&mut self, short: Option<String>) -> Result<(), Error> {
+        let short = clean(short);
+        if short != self.manifest.short {
+            self.write_text("short", short.as_deref())?;
+            self.manifest.short = short;
+        }
+        Ok(())
+    }
+
+    /// The journal, `review.toml` written.
+    pub fn set_journal(&mut self, journal: Option<String>) -> Result<(), Error> {
+        let journal = clean(journal);
+        if journal != self.manifest.journal {
+            self.write_text("journal", journal.as_deref())?;
+            self.manifest.journal = journal;
+        }
+        Ok(())
+    }
+
+    /// The manuscript's identifier, `review.toml` written.
+    pub fn set_manuscript(&mut self, manuscript: Option<String>) -> Result<(), Error> {
+        let manuscript = clean(manuscript);
+        if manuscript != self.manifest.manuscript {
+            self.write_text("manuscript", manuscript.as_deref())?;
+            self.manifest.manuscript = manuscript;
+        }
+        Ok(())
+    }
+
+    /// The due date, `review.toml` written.
+    pub fn set_due(&mut self, due: Option<Datetime>) -> Result<(), Error> {
+        if due != self.manifest.due {
+            match due {
+                Some(due) => self.document["due"] = value(due),
+                None => {
+                    self.document.remove("due");
+                }
+            }
+            self.save()?;
+            self.manifest.due = due;
+        }
+        Ok(())
+    }
+
+    /// A key of `review.toml` set to `text`, or removed when there is none.
+    fn write_text(&mut self, key: &str, text: Option<&str>) -> Result<(), Error> {
+        match text {
+            Some(text) => self.document[key] = value(text),
+            None => {
+                self.document.remove(key);
+            }
+        }
+        self.save()
+    }
+
     /// The files of the folder, as a tree.
     pub fn files(&self) -> Vec<Node> {
         files::tree(&self.root)
@@ -158,6 +226,11 @@ impl Project {
     fn save(&self) -> Result<(), Error> {
         write_atomically(&self.root.join(MANIFEST), &self.document.to_string())
     }
+}
+
+/// A text without the spaces round it; none when nothing is left.
+fn clean(text: Option<String>) -> Option<String> {
+    text.map(|t| t.trim().to_string()).filter(|t| !t.is_empty())
 }
 
 /// A file written whole, atomically: a hidden file beside it, renamed.
@@ -285,4 +358,53 @@ mod tests {
         assert_eq!(linked[0].path, dir.path().join("../elsewhere/a.pdf"));
         assert!(linked[0].missing);
     }
+
+    #[test]
+    fn the_title_short_journal_manuscript_and_due_date_are_written_key_by_key() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join(MANIFEST), "# my notes\ntitle = \"T\"  # the short title\ncolour = \"blue\"\n").unwrap();
+        let mut project = Project::open(dir.path()).unwrap();
+        project.set_title(Some("Overshoot thresholds".into())).unwrap();
+        project.set_short(Some("OT".into())).unwrap();
+        project.set_journal(Some("The Cryosphere".into())).unwrap();
+        project.set_manuscript(Some("egusphere-2026-1234".into())).unwrap();
+        project.set_due(Some("2026-11-14".parse().unwrap())).unwrap();
+        let written = fs::read_to_string(dir.path().join(MANIFEST)).unwrap();
+        assert!(written.starts_with("# my notes\ntitle = \"Overshoot thresholds\""), "{written}");
+        assert!(written.contains("colour = \"blue\""), "{written}");
+        let reopened = Project::open(dir.path()).unwrap();
+        assert_eq!(reopened.manifest, project.manifest);
+        assert_eq!(reopened.manifest.short.as_deref(), Some("OT"));
+        assert_eq!(reopened.manifest.due.unwrap().to_string(), "2026-11-14");
+        assert_eq!(reopened.name(), "Overshoot thresholds");
+    }
+
+    #[test]
+    fn nothing_or_an_empty_text_removes_the_key() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(
+            dir.path().join(MANIFEST),
+            "title = \"T\"\nshort = \"T\"\njournal = \"J\"\nmanuscript = \"M\"\ndue = 2026-11-14\n",
+        )
+        .unwrap();
+        let mut project = Project::open(dir.path()).unwrap();
+        project.set_title(Some("  ".into())).unwrap();
+        project.set_short(None).unwrap();
+        project.set_journal(Some(String::new())).unwrap();
+        project.set_manuscript(None).unwrap();
+        project.set_due(None).unwrap();
+        assert_eq!(fs::read_to_string(dir.path().join(MANIFEST)).unwrap(), "");
+        assert_eq!(project.manifest, Manifest::default());
+        assert_eq!(project.name(), dir.path().file_name().unwrap().to_string_lossy());
+    }
+
+    #[test]
+    fn a_value_unchanged_is_not_written() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut project = Project::open(dir.path()).unwrap();
+        project.set_journal(None).unwrap();
+        project.set_due(None).unwrap();
+        assert!(!dir.path().join(MANIFEST).exists());
+    }
+
 }

@@ -8,3 +8,4 @@ pub mod project;
 pub use colour::Colour;
 pub use files::{Kind, Node};
 pub use project::{Error, MANIFEST, Manifest, Project, REVIEW};
+pub use toml_edit::Datetime;
