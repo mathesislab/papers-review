@@ -14,7 +14,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { confirm, message } from "@tauri-apps/plugin-dialog";
   import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import type { Entry } from "tauri-plugin-pdfkit-api";
   import "$lib/theme.css";
   import { addFiles, addPaths } from "$lib/add";
@@ -68,6 +68,11 @@
   let pdf = $state<PdfView>();
   let count = $state(0);
   let current = $state(1);
+  /** whether it has a page to go back to (the one a link left) or forward */
+  let history = $state({ back: false, forward: false });
+  /** the page being typed in the field that replaces "Page X of N" (Go to Page…), null when it is not shown */
+  let typing = $state<string | null>(null);
+  let pageInput = $state<HTMLInputElement>();
   /** its outline (empty until it is open), and whether the panel for it is shown */
   let outline = $state<Entry[]>([]);
   let showOutline = $state(false);
@@ -121,6 +126,27 @@
   function turned(path: string, page: number) {
     layout.pages[path] = page;
     if (path === layout.front) current = page;
+  }
+
+  function recorded(path: string, h: { back: boolean; forward: boolean }) {
+    if (path === layout.front) history = h;
+  }
+
+  /** The field for a page shown, with the page in view selected. */
+  async function askPage() {
+    if (front?.kind !== "pdf" || !count) return;
+    typing = String(current);
+    await tick();
+    pageInput?.focus();
+    pageInput?.select();
+  }
+
+  /** The field for a page closed, at the page typed if `go`; the keys go back to the PDF. */
+  function answerPage(go: boolean) {
+    const page = Number.parseInt(typing ?? "", 10);
+    typing = null;
+    if (go && Number.isFinite(page)) pdf?.pageTo(Math.min(Math.max(page, 1), count));
+    pdf?.focus();
   }
 
   async function search(again: boolean, backwards = false) {
@@ -277,9 +303,14 @@
 
   const write = (path: string, text: string) => invoke<void>("write_file", { path, text });
 
-  /** Undo, Redo and Symbols… of the menu: the history or the symbols of the editor in focus, else the field of the page. */
+  /** Undo, Redo, Symbols…, Back and Forward of the menu: the history, the symbols or the indent of the editor in
+   *  focus, else the field of the page; Back and Forward, the PDF's. */
   function edit(what: string) {
-    if (what === "symbols") {
+    if (what === "back" || what === "forward") {
+      if (editor?.hasFocus()) (what === "back" ? editor.outdent : editor.indent)();
+      else if (what === "back") pdf?.back();
+      else pdf?.forward();
+    } else if (what === "symbols") {
       if (editor?.hasFocus()) editor.list();
     } else if (editor?.hasFocus()) (what === "redo" ? editor.redo : editor.undo)();
     else document.execCommand(what);
@@ -422,6 +453,21 @@
         break;
       case "zoom-fit":
         pdf?.zoom(0);
+        break;
+      case "previous-page":
+        pdf?.turn("previous");
+        break;
+      case "next-page":
+        pdf?.turn("next");
+        break;
+      case "first-page":
+        pdf?.turn("first");
+        break;
+      case "last-page":
+        pdf?.turn("last");
+        break;
+      case "go-to-page":
+        askPage();
         break;
       case "find":
         findInput?.focus();
@@ -606,6 +652,8 @@
       {#if front?.kind === "pdf"}
         <!-- the tools of the PDF in front, under the tabs -->
         <div class="tools">
+          <button class="icon" disabled={!history.back} onclick={() => pdf?.back()} title="Back (⌘[)" aria-label="Back">‹</button>
+          <button class="icon" disabled={!history.forward} onclick={() => pdf?.forward()} title="Forward (⌘])" aria-label="Forward">›</button>
           {#if outline.length}
             <button class:on={showOutline} onclick={() => (showOutline = !showOutline)}>Outline</button>
           {/if}
@@ -629,7 +677,27 @@
               }
             }}
           />
-          <span class="page">{count ? `Page ${current} of ${count}` : ""}</span>
+          {#if typing !== null}
+            <!-- a page typed: Enter goes, Esc and leaving the field give it up -->
+            <input
+              bind:this={pageInput}
+              bind:value={typing}
+              class="page"
+              inputmode="numeric"
+              autocomplete="off"
+              aria-label="Go to Page"
+              onkeydown={(e) => {
+                if (e.key === "Enter") answerPage(true);
+                if (e.key === "Escape") answerPage(false);
+              }}
+              onblur={() => (typing = null)}
+            />
+            <span class="page">of {count}</span>
+          {:else if count}
+            <button class="page" onclick={askPage} title="Go to Page… (⌥⌘G)">Page {current} of {count}</button>
+          {:else}
+            <span class="page"></span>
+          {/if}
           <button onclick={() => pdf?.zoom(-1)} title="Zoom Out (⌘-)">−</button>
           <button onclick={() => pdf?.zoom(0)} title="Fit Width (⌘0)">Fit</button>
           <button onclick={() => pdf?.zoom(1)} title="Zoom In (⌘=)">+</button>
@@ -660,10 +728,12 @@
                 page={layout.pages[front.path] ?? 1}
                 {covered}
                 onpage={turned}
+                onhistory={recorded}
                 onopen={(c, o) => {
                   count = c;
                   outline = o;
                   current = layout.pages[front.path] ?? 1;
+                  history = { back: false, forward: false };
                 }}
               />
             {/key}
@@ -924,6 +994,24 @@
     font: inherit;
     font-size: 12px;
     white-space: nowrap;
+  }
+  .tools button.page {
+    border-color: transparent;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .tools button.page:hover {
+    border-color: var(--border);
+  }
+  .tools input.page {
+    width: 56px;
+    height: 24px;
+    padding: 0 6px;
+    text-align: right;
+    color: var(--fg);
+  }
+  .tools button:disabled {
+    opacity: 0.4;
   }
   .tools button.icon {
     min-width: 28px;

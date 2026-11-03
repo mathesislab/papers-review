@@ -236,9 +236,11 @@
       listen("review-changed", () => editor?.changedOnDisk()),
       // Export as PDF and Copy as Plain Text of the File menu
       listen<"pdf" | "text">("export", (e) => exportAs(e.payload)),
-      // Undo, Redo and Symbols… of the menu: the editor's own history, its list of symbols
+      // Undo, Redo, Symbols…, Back and Forward of the menu: the editor's own history, its list of symbols, its indent
       listen<string>("edit", (e) => {
         if (e.payload === "symbols") editor?.list();
+        else if (e.payload === "back") editor?.outdent();
+        else if (e.payload === "forward") editor?.indent();
         else if (e.payload === "redo") editor?.redo();
         else editor?.undo();
       }),

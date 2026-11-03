@@ -24,6 +24,11 @@ const PAGE: &[&str] = &[
     "insert",
     "references",
     "info",
+    "previous-page",
+    "next-page",
+    "first-page",
+    "last-page",
+    "go-to-page",
 ];
 
 pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
@@ -124,6 +129,22 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             &PredefinedMenuItem::fullscreen(app, None)?,
         ],
     )?;
+    let go = Submenu::with_items(
+        app,
+        "Go",
+        true,
+        &[
+            &item("back", "Back", Some("CmdOrCtrl+["))?,
+            &item("forward", "Forward", Some("CmdOrCtrl+]"))?,
+            &separator()?,
+            &item("previous-page", "Previous Page", Some("Alt+CmdOrCtrl+Up"))?,
+            &item("next-page", "Next Page", Some("Alt+CmdOrCtrl+Down"))?,
+            &item("first-page", "First Page", None)?,
+            &item("last-page", "Last Page", None)?,
+            &separator()?,
+            &item("go-to-page", "Go to Page…", Some("Alt+CmdOrCtrl+G"))?,
+        ],
+    )?;
     let window = Submenu::with_items(
         app,
         "Window",
@@ -143,7 +164,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             window.append(&item(&format!("bar:{i}"), &project.name, keys.as_deref())?)?;
         }
     }
-    Menu::with_items(app, &[&app_menu, &file, &edit, &view, &window])
+    Menu::with_items(app, &[&app_menu, &file, &edit, &view, &go, &window])
 }
 
 /// The menu made again: Open Recent or the bar changed.
@@ -170,7 +191,7 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
             state.save();
             update(app);
         }
-        "undo" | "redo" | "symbols" => edit(app, id),
+        "undo" | "redo" | "symbols" | "back" | "forward" => edit(app, id),
         "review" | "review-side" => {
             if let Some(window) = front(app).filter(|w| w.label() != windows::START) {
                 if id == "review" {
@@ -229,10 +250,12 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
     }
 }
 
-/// Undo, Redo and Symbols…: the review's own history or list of symbols when
+/// Undo, Redo, Symbols…, Back and Forward: the review's own history, list of
+/// symbols or indent (⌘[ and ⌘] are indent less and more in the editor) when
 /// its pane has the keys (the editor keeps them, not WebKit), else the page of
 /// a project's window, which gives it to the file edited in focus or, for Undo
-/// and Redo, the field in focus.
+/// and Redo, the field in focus; Back and Forward go to the PDF if no file is
+/// edited in focus.
 fn edit(app: &AppHandle, name: &str) {
     let Some(window) = front(app) else {
         return;
@@ -242,7 +265,7 @@ fn edit(app: &AppHandle, name: &str) {
         let pane_has_keys = app.state::<AppState>().panes.lock().unwrap().focused.contains(label);
         let target = if pane_has_keys { pane::label(label) } else { page.label().to_string() };
         let _ = app.emit_to(EventTarget::webview(target), "edit", name);
-    } else if name != "symbols"
+    } else if matches!(name, "undo" | "redo")
         && let Some(webview) = app.get_webview(label)
     {
         // a window of one web view (start, settings)

@@ -1,17 +1,18 @@
 <script lang="ts">
   // A PDF in PDFKit, as Preview shows it (tauri-plugin-pdfkit): a native view over the area of this element, kept in
-  // place as the area changes; the page in view told back (`onpage`), the outline as the PDF opens. The commands go
+  // place as the area changes; the page in view and the history told back (`onpage`, `onhistory`), the outline as the PDF opens. The commands go
   // to the view in order: a search typed letter by letter must not land after the next one.
 
   import { onMount } from "svelte";
   import * as pdfkit from "tauri-plugin-pdfkit-api";
-  import type { Entry } from "tauri-plugin-pdfkit-api";
+  import type { Entry, History, Turn } from "tauri-plugin-pdfkit-api";
 
   let {
     path,
     page = 1,
     covered = false,
     onpage,
+    onhistory,
     onopen,
   }: {
     path: string;
@@ -21,6 +22,8 @@
     covered?: boolean;
     /** the page in view of the PDF of `path` */
     onpage: (path: string, page: number) => void;
+    /** whether there is a page to go back to or forward, in the PDF of `path` */
+    onhistory: (path: string, history: History) => void;
     /** the PDF open: its page count and outline */
     onopen: (count: number, outline: Entry[]) => void;
   } = $props();
@@ -48,6 +51,25 @@
   /** To an entry of the outline, by its `target`. */
   export function go(target: number[]) {
     send(() => pdfkit.go(target));
+  }
+
+  /** Back to the page the last link or jump left, and forward again. */
+  export function back() {
+    send(() => pdfkit.back());
+  }
+
+  export function forward() {
+    send(() => pdfkit.forward());
+  }
+
+  /** To a page (from 1). */
+  export function pageTo(page: number) {
+    send(() => pdfkit.pageTo(page));
+  }
+
+  /** To the first, previous, next or last page. */
+  export function turn(to: Turn) {
+    send(() => pdfkit.turn(to));
   }
 
   /** The text selected in the PDF, line by line, with what lies in the margin beside each line; null if none. */
@@ -78,6 +100,7 @@
     });
     resize.observe(area);
     const unlisten = pdfkit.onPage((p) => onpage(shown, p));
+    const unlistenHistory = pdfkit.onHistory((h) => onhistory(shown, h));
     send(() => pdfkit.open(shown, shown, page, pdfkit.frameOf(area), covered))
       .then(({ count, outline }) => {
         opened = true;
@@ -87,6 +110,7 @@
     return () => {
       resize.disconnect();
       unlisten.then((f) => f());
+      unlistenHistory.then((f) => f());
       send(() => pdfkit.close(shown));
     };
   });
