@@ -20,8 +20,9 @@
   let project = $state<Project | null>(null);
   let error = $state("");
   let layout = $state<Layout>({ files: true, files_width: 240, tabs: [], front: null, pages: {} });
-  /** the layout read: written back only after */
+  /** the layout read: written back only after, to the project it was read for */
   let ready = false;
+  let layoutRoot = "";
 
   /** every file of the project, by its path */
   const nodes = $derived.by(() => {
@@ -203,11 +204,13 @@
   onMount(() => {
     (async () => {
       await load();
+      if (!project) return;
       const saved = await invoke<Layout>("layout");
       // the files gone since are not opened again
       saved.tabs = saved.tabs.filter((t) => nodes.has(t));
       if (saved.front && !saved.tabs.includes(saved.front)) saved.front = saved.tabs[0] ?? null;
       layout = saved;
+      layoutRoot = project.root;
       ready = true;
     })();
     const unlisten = listen<string>("menu", (e) => command(e.payload));
@@ -228,7 +231,9 @@
     const snapshot = $state.snapshot(layout);
     if (!ready) return;
     clearTimeout(timer);
-    timer = setTimeout(() => invoke("set_layout", { layout: snapshot }), 300);
+    // the project named, as the window may show another by then
+    const root = layoutRoot;
+    timer = setTimeout(() => invoke("set_layout", { root, layout: snapshot }), 300);
   });
 </script>
 

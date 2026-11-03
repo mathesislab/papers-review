@@ -153,9 +153,10 @@ fn layout(webview: Webview, state: State<'_, AppState>) -> Result<Layout, String
     Ok(saved.layouts.get(&root).cloned().unwrap_or_default())
 }
 
+/// How the window of `root` looks, written. The page names its project: its write comes a moment after the change,
+/// when the window may show another project.
 #[tauri::command]
-fn set_layout(webview: Webview, state: State<'_, AppState>, layout: Layout) -> Result<(), String> {
-    let root = root_of(&webview)?;
+fn set_layout(state: State<'_, AppState>, root: PathBuf, layout: Layout) {
     let changed = {
         let mut saved = state.saved.lock().unwrap();
         let changed = saved.layouts.get(&root) != Some(&layout);
@@ -165,7 +166,6 @@ fn set_layout(webview: Webview, state: State<'_, AppState>, layout: Layout) -> R
     if changed {
         state.save();
     }
-    Ok(())
 }
 
 /// The colour of the project, for all its windows, written in its `review.toml`.
