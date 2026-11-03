@@ -173,9 +173,10 @@
     ]);
   }
 
-  /** The window switched to the project of a tile; the page loads again as it is done. */
+  /** The window switched to the project of a tile (the page loads again as it is done), or, for its own, the files
+   *  shown or hidden. */
   async function switchTo(root: string) {
-    if (root === project?.root) return;
+    if (root === project?.root) return command("files");
     try {
       await flush();
       await invoke("switch_project", { root });

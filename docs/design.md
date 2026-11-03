@@ -60,7 +60,8 @@ share its colour.
   lines when long) or initials, the due date under it, and down its left side
   a bar for how near that is (green, yellow within a week, orange within
   three days, red when due or past), the current
-  one marked; `+` opens another. A click switches the window to the project (its
+  one marked (a click on it shows or hides the files); `+` opens another. A
+  click switches the window to the project (its
   page loads again, the review pane follows, writing what was typed to the
   old review first); right-click: Open in New Window, Remove from Bar. Open
   Project adds to the bar and switches the window in front, or brings
