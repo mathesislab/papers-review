@@ -16,7 +16,7 @@
   import { onMount } from "svelte";
   import type { Entry } from "tauri-plugin-pdfkit-api";
   import "$lib/theme.css";
-  import { addFiles } from "$lib/add";
+  import { addFiles, addPaths } from "$lib/add";
   import { label } from "$lib/bar";
   import { COLOURS, cssOf } from "$lib/colour";
   import { daysLeft, formatDate, shortDate, urgency } from "$lib/due";
@@ -318,6 +318,25 @@
     }
   }
 
+  /** A paper opened from outside the project, added to it: linked, it stays where it is, and is a linked file of the
+   *  project once that is loaded; copied, its tab shows the copy, in the project's folder, at the same page. */
+  async function addOutside(path: string) {
+    try {
+      const done = await addPaths([path], null);
+      if (!done) return;
+      await load();
+      delete outside[path];
+      if (done === "link") return;
+      const copy = `${project?.root}/${path.split("/").pop()}`;
+      layout.tabs[layout.tabs.indexOf(path)] = copy;
+      if (layout.front === path) layout.front = copy;
+      if (path in layout.pages) layout.pages[copy] = layout.pages[path];
+      delete layout.pages[path];
+    } catch (e) {
+      await fail("Add to the Project", e);
+    }
+  }
+
   /** A path gone from the project: its tabs close. */
   function closeUnder(path: string) {
     for (const tab of [...layout.tabs]) if (tab === path || tab.startsWith(`${path}/`)) close(tab);
@@ -555,6 +574,9 @@
           {#each layout.tabs as path (path)}
             <div class="tab" class:front={path === layout.front}>
               <button class="label" onclick={() => (layout.front = path)} title={path}>{nodeOf(path)?.name ?? path}</button>
+              {#if path in outside}
+                <button class="add" onclick={() => addOutside(path)} title="Add to the Project…" aria-label="Add to the Project">+</button>
+              {/if}
               <button class="close" onclick={() => close(path)} title="Close Tab (⌘W)">✕</button>
             </div>
           {/each}
@@ -960,14 +982,21 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .close {
+  .close,
+  .add {
     color: var(--muted);
     font-size: 10px;
     padding: 0 8px;
     visibility: hidden;
   }
+  .add {
+    padding-right: 0;
+    font-size: 14px;
+  }
   .tab:hover .close,
-  .tab.front .close {
+  .tab.front .close,
+  .tab:hover .add,
+  .tab.front .add {
     visibility: visible;
   }
   .viewer {
