@@ -447,7 +447,7 @@
     class="window"
     class:nofiles={!layout.files}
     class:coloured={cssOf(project.colour)}
-    style:grid-template-columns={`${showBar ? "84px " : ""}${layout.files ? `${layout.files_width}px ` : ""}1fr`}
+    style:grid-template-columns={`${showBar ? "92px " : ""}${layout.files ? `${layout.files_width}px ` : ""}1fr`}
   >
     {#if showBar}
       <!-- the project bar: a tile per project, the current one marked, with its due date and a bar for how near it is -->
@@ -465,6 +465,7 @@
           >
             <span
               class="chip"
+              class:dated={item.due}
               style:background={cssOf(item.colour) ?? "var(--tile-none)"}
               style:--urgency={item.due ? `var(--due-${urgency(daysLeft(item.due))})` : null}
             >
@@ -715,15 +716,14 @@
     align-items: center;
     justify-content: center;
     gap: 3px;
-    width: 68px;
+    width: 76px;
     height: 52px;
     box-sizing: border-box;
     position: relative;
-    padding: 4px 4px 4px 10px;
+    padding: 4px 4px 4px 13px;
     overflow: hidden;
     border-radius: 10px;
-    color: #fff;
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+    color: rgba(0, 0, 0, 0.78);
   }
   /* a bar down its left side in the colour of how near the due date is */
   .chip::before {
@@ -732,8 +732,12 @@
     left: 0;
     top: 0;
     bottom: 0;
-    width: 6px;
+    width: 8px;
     background: var(--urgency, transparent);
+  }
+  /* a line between the bar and the tile's colour */
+  .chip.dated::before {
+    border-right: 1px solid rgba(0, 0, 0, 0.35);
   }
   /* the short name, on one line or two */
   .name {
@@ -748,7 +752,6 @@
   /* the due date: dark, small as it is, on the light colours of the tiles */
   .when {
     color: rgba(0, 0, 0, 0.68);
-    text-shadow: none;
     font-size: 13px;
     font-weight: 600;
     line-height: 1;
@@ -763,7 +766,6 @@
     color: var(--muted);
     font-size: 18px;
     font-weight: 400;
-    text-shadow: none;
   }
   .tile.add:hover .chip {
     background: var(--chip);
