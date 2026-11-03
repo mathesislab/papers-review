@@ -12,7 +12,8 @@
     html = await invoke<string>("export_html");
     await tick();
     await document.fonts.ready;
-    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+    // the layout done now: a window never shown may get no animation frames to wait for
+    void document.body.offsetHeight;
     await invoke("export_rendered");
   });
 </script>
