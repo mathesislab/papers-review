@@ -29,6 +29,14 @@ pub enum Error {
     Manifest(PathBuf, String),
     #[error("{0}: {1}")]
     Write(PathBuf, io::Error),
+    #[error("{0}: not in the project folder")]
+    Outside(PathBuf),
+    #[error("{0}: already there")]
+    Exists(PathBuf),
+    #[error("{0}: not a name for a file")]
+    Name(String),
+    #[error("{0}: a folder cannot be copied into itself")]
+    Itself(PathBuf),
 }
 
 /// What `review.toml` says; all of it optional.
@@ -214,6 +222,57 @@ impl Project {
 
     fn is_linked(&self, path: &Path) -> bool {
         self.manifest.linked.iter().any(|l| self.resolve(l) == path)
+    }
+
+    /// Files and folders (with all they hold) copied into `folder` of the project. Nothing is copied
+    /// when one of the names is there already.
+    pub fn copy_in(&self, paths: &[PathBuf], folder: &Path) -> Result<(), Error> {
+        self.check_folder(folder)?;
+        let mut targets: Vec<PathBuf> = Vec::new();
+        for path in paths {
+            let name = path.file_name().ok_or_else(|| Error::Name(path.display().to_string()))?;
+            let target = folder.join(name);
+            if target.symlink_metadata().is_ok() || targets.contains(&target) {
+                return Err(Error::Exists(target));
+            }
+            if path.is_dir() && canonical(folder).zip(canonical(path)).is_some_and(|(f, p)| f.starts_with(p)) {
+                return Err(Error::Itself(path.clone()));
+            }
+            targets.push(target);
+        }
+        for (path, target) in paths.iter().zip(&targets) {
+            files::copy(path, target).map_err(|e| Error::Write(target.clone(), e))?;
+        }
+        Ok(())
+    }
+
+    /// An empty file `name` in `folder` of the project.
+    pub fn new_file(&self, folder: &Path, name: &str) -> Result<PathBuf, Error> {
+        if name.is_empty() || name == "." || name == ".." || name.contains(std::path::is_separator) {
+            return Err(Error::Name(name.to_string()));
+        }
+        self.check_folder(folder)?;
+        let path = folder.join(name);
+        fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .map_err(|e| match e.kind() {
+                io::ErrorKind::AlreadyExists => Error::Exists(path.clone()),
+                _ => Error::Write(path.clone(), e),
+            })?;
+        Ok(path)
+    }
+
+    /// `folder` is a folder of the project.
+    fn check_folder(&self, folder: &Path) -> Result<(), Error> {
+        if !folder.is_dir() {
+            return Err(Error::NotAFolder(folder.to_path_buf()));
+        }
+        if !self.within(folder) {
+            return Err(Error::Outside(folder.to_path_buf()));
+        }
+        Ok(())
     }
 
     /// Whether a path is in the folder of the project, links and `..` resolved.
@@ -519,6 +578,73 @@ mod tests {
         bare.link(&[other.path().join("x.pdf")]).unwrap();
         bare.unlink(Path::new("/nowhere")).unwrap();
         assert!(!other.path().join(MANIFEST).exists());
+    }
+
+    #[test]
+    fn files_and_folders_are_copied_in() {
+        let (dir, elsewhere) = two_folders();
+        let project = Project::open(dir.path()).unwrap();
+        let folder = dir.path().join("round-1");
+        let paths = [elsewhere.path().join("guidelines.pdf"), elsewhere.path().join("code")];
+        project.copy_in(&paths, &folder).unwrap();
+        assert_eq!(fs::read_to_string(folder.join("guidelines.pdf")).unwrap(), "pdf");
+        assert_eq!(fs::read_to_string(folder.join("code/README.md")).unwrap(), "readme");
+        assert!(folder.join("code/run.jl").is_file());
+        assert!(elsewhere.path().join("code/run.jl").is_file());
+    }
+
+    #[test]
+    fn a_name_already_there_is_not_overwritten_and_nothing_is_copied() {
+        let (dir, elsewhere) = two_folders();
+        let project = Project::open(dir.path()).unwrap();
+        let folder = dir.path().join("round-1");
+        fs::write(folder.join("notes.md"), "mine").unwrap();
+        let paths = [elsewhere.path().join("guidelines.pdf"), elsewhere.path().join("notes.md")];
+        let error = project.copy_in(&paths, &folder).unwrap_err();
+        assert!(matches!(error, Error::Exists(_)));
+        assert!(error.to_string().contains("notes.md"), "{error}");
+        assert_eq!(fs::read_to_string(folder.join("notes.md")).unwrap(), "mine");
+        assert!(!folder.join("guidelines.pdf").exists());
+    }
+
+    #[test]
+    fn files_are_copied_into_a_folder_of_the_project_only_and_a_folder_not_into_itself() {
+        let (dir, elsewhere) = two_folders();
+        let project = Project::open(dir.path()).unwrap();
+        let paths = [elsewhere.path().join("notes.md")];
+        assert!(matches!(project.copy_in(&paths, elsewhere.path()), Err(Error::Outside(_))));
+        let dodging = dir.path().join("round-1/../../");
+        assert!(matches!(project.copy_in(&paths, &dodging), Err(Error::Outside(_))));
+        assert!(matches!(project.copy_in(&paths, &dir.path().join("nowhere")), Err(Error::NotAFolder(_))));
+        let root = [dir.path().to_path_buf()];
+        let error = project.copy_in(&root, &dir.path().join("round-1")).unwrap_err();
+        assert!(matches!(error, Error::Itself(_)), "{error}");
+    }
+
+    #[test]
+    fn a_new_file_is_empty_and_never_replaces_one() {
+        let (dir, _elsewhere) = two_folders();
+        let project = Project::open(dir.path()).unwrap();
+        let folder = dir.path().join("round-1");
+        let path = project.new_file(&folder, "notes.md").unwrap();
+        assert_eq!(path, folder.join("notes.md"));
+        assert_eq!(fs::read_to_string(&path).unwrap(), "");
+        fs::write(&path, "typed").unwrap();
+        assert!(matches!(project.new_file(&folder, "notes.md"), Err(Error::Exists(_))));
+        assert_eq!(fs::read_to_string(&path).unwrap(), "typed");
+    }
+
+    #[test]
+    fn a_new_file_has_a_plain_name_in_a_folder_of_the_project() {
+        let (dir, elsewhere) = two_folders();
+        let project = Project::open(dir.path()).unwrap();
+        let folder = dir.path().join("round-1");
+        for name in ["", ".", "..", "a/b.md", "../b.md"] {
+            assert!(matches!(project.new_file(&folder, name), Err(Error::Name(_))), "{name}");
+        }
+        assert!(matches!(project.new_file(elsewhere.path(), "a.md"), Err(Error::Outside(_))));
+        assert!(!elsewhere.path().join("a.md").exists());
+        assert!(matches!(project.new_file(&dir.path().join("none"), "a.md"), Err(Error::NotAFolder(_))));
     }
 
 }

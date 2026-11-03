@@ -3,6 +3,7 @@
 
 use std::cmp::Ordering;
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
@@ -153,6 +154,20 @@ pub fn linked(path: &Path) -> Node {
         kind: kind(path),
         children: Vec::new(),
         missing: !path.exists(),
+    }
+}
+
+/// A file or a folder (with all it holds) copied to `to`, which is not there yet.
+pub fn copy(from: &Path, to: &Path) -> io::Result<()> {
+    if from.is_dir() {
+        fs::create_dir(to)?;
+        for entry in fs::read_dir(from)? {
+            let entry = entry?;
+            copy(&entry.path(), &to.join(entry.file_name()))?;
+        }
+        Ok(())
+    } else {
+        fs::copy(from, to).map(|_| ())
     }
 }
 
