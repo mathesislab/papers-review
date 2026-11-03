@@ -9,6 +9,9 @@
   // which to keep when changes of its own are not yet written. A review file that is not there is not made as one
   // types: the pane says so, with a button to make it.
   //
+  // ⇧⌘R lists the references of the project over the editor (RefList), to cite one at the cursor; the page sends the
+  // text of a reference selected in the PDF, if there is one.
+  //
   // What is shown, a round (its tab) or all of the text, is exported from the button of the header or the File menu:
   // as a PDF, saved in the project and shown in the Finder, or as plain text, copied and saved (src/lib/export.ts).
 
@@ -19,10 +22,11 @@
   import { keymap } from "@codemirror/view";
   import { onMount } from "svelte";
   import "$lib/theme.css";
-  import { insertQuote, setEditorFont, showSection, wordsOf } from "$lib/editor";
+  import { insertQuote, insertSymbol, setEditorFont, showSection, wordsOf } from "$lib/editor";
   import { formatDate } from "$lib/due";
   import { exportName, pdfDocument, section, textDocument, toHtml, toPlainText, type Frame } from "$lib/export";
   import FileEditor, { type Status } from "$lib/FileEditor.svelte";
+  import RefList from "$lib/RefList.svelte";
   import { sections, type Section } from "$lib/sections";
   import type { ProjectInfo, Settings } from "$lib/types";
 
@@ -46,6 +50,12 @@
   /** the review file is not there (yet): said instead of the editor */
   let missing = $state(false);
   let createError = $state("");
+  /** the references listed over the editor; `opened` counts the times, to start the list afresh each time */
+  let listing = $state(false);
+  let opened = $state(0);
+  /** the reference selected in the PDF when it was opened */
+  let reference = $state("");
+  let refs = $state<RefList>();
   /** the user's own sequences typed that become symbols (the settings) */
   let symbols = $state<[string, string][]>([]);
   /** the sections, as tabs, and the one shown alone (null: all of the text) */
@@ -163,6 +173,35 @@
   const release = keymap.of([{ key: "Escape", run: () => (invoke("pane_release"), true) }]);
   const more = [release];
 
+  /** The references listed, closest to the text of a reference selected in the PDF if there is one. Asked again
+   *  without a text, the list that is open stays as it is. */
+  function references(text: string) {
+    if (listing && !text) return refs?.focus();
+    [reference, listing] = [text, true];
+    opened++;
+  }
+
+  /** A citation or reference chosen: at the cursor. */
+  function cited(text: string) {
+    const view = editor?.view();
+    if (!view) return;
+    listing = false;
+    insertSymbol(view, text);
+  }
+
+  /** The PDF of a paper chosen: in a tab of the project, the keys to the page. */
+  function openPdf(path: string) {
+    listing = false;
+    invoke("open_reference_pdf", { path });
+    invoke("pane_release");
+  }
+
+  /** The list closed: the keys to the editor. */
+  function closeList() {
+    listing = false;
+    editor?.focus();
+  }
+
   /** The review file made, empty, and read into the editor. */
   async function create() {
     createError = "";
@@ -208,6 +247,8 @@
         const view = editor?.view();
         if (view) insertQuote(view, e.payload);
       }),
+      // ⇧⌘R in the page: the references, with the text of the reference selected in the PDF
+      listen<{ text: string }>("references", (e) => references(e.payload.text)),
       // another file as the review: what was typed goes to the one before, then the new one is read
       listen("review-switched", async () => {
         await editor?.flush();
@@ -218,7 +259,8 @@
     // ⌘J hides the pane when it has the keys, else brings it forward with them
     const focused = () => {
       invoke("pane_focus", { focused: true });
-      editor?.focus();
+      if (listing) refs?.focus();
+      else editor?.focus();
     };
     const blurred = () => {
       invoke("pane_focus", { focused: false });
@@ -298,6 +340,11 @@
     <div class="editor" class:hidden={missing}>
       <FileEditor bind:this={editor} {load} {save} {symbols} extensions={more} onchange={count} bind:status bind:error bind:path />
     </div>
+    {#if listing}
+      {#key opened}
+        <RefList bind:this={refs} text={reference} oninsert={cited} onopen={openPdf} onclose={closeList} />
+      {/key}
+    {/if}
     {#if missing}
       <div class="missing">
         <p>No review file yet</p>
