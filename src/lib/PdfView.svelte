@@ -1,7 +1,8 @@
 <script lang="ts">
   // A PDF in PDFKit, as Preview shows it (tauri-plugin-pdfkit): a native view over the area of this element, kept in
-  // place as the area changes; the page in view and the history told back (`onpage`, `onhistory`), the outline as the PDF opens. The commands go
-  // to the view in order: a search typed letter by letter must not land after the next one.
+  // place as the area changes; the page in view and the history told back (`onpage`, `onhistory`), the outline as
+  // the PDF opens. The commands go to the view in order: a search typed letter by letter must not land after the
+  // next one.
 
   import { onMount } from "svelte";
   import * as pdfkit from "tauri-plugin-pdfkit-api";
