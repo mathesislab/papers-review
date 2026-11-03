@@ -6,7 +6,8 @@
   //
   // The review, a Markdown file of the project, is edited in a FileEditor: written a moment after the typing stops,
   // and as the pane loses the keys; read again when changed elsewhere (an editor, a sync client), the pane asking
-  // which to keep when changes of its own are not yet written.
+  // which to keep when changes of its own are not yet written. A review file that is not there is not made as one
+  // types: the pane says so, with a button to make it.
 
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
@@ -20,7 +21,7 @@
 
   type Side = "bottom" | "right";
   type Placed = { side: Side; size: number; collapsed: boolean };
-  type Review = { path: string; name: string; text: string };
+  type Review = { path: string; name: string; text: string; exists: boolean };
 
   let side = $state<Side>("bottom");
   /** its height at the bottom, its width on the right (points) */
@@ -35,6 +36,9 @@
   let words = $state(0);
   let status = $state<Status>("saved");
   let error = $state("");
+  /** the review file is not there (yet): said instead of the editor */
+  let missing = $state(false);
+  let createError = $state("");
   /** the user's own sequences typed that become symbols (the settings) */
   let symbols = $state<[string, string][]>([]);
   /** the sections, as tabs, and the one shown alone (null: all of the text) */
@@ -84,12 +88,28 @@
 
   const text = () => editor?.view()?.state.doc.toString() ?? "";
 
-  const load = () => invoke<Review>("review");
+  const load = async () => {
+    const review = await invoke<Review>("review");
+    missing = !review.exists;
+    return review;
+  };
   const save = (path: string, text: string) => invoke<void>("save_review", { path, text });
 
   /** Escape: the keys back to the PDF, the pane left as it is. */
   const release = keymap.of([{ key: "Escape", run: () => (invoke("pane_release"), true) }]);
   const more = [release];
+
+  /** The review file made, empty, and read into the editor. */
+  async function create() {
+    createError = "";
+    try {
+      await invoke("create_review");
+      await editor?.reload();
+      editor?.focus();
+    } catch (e) {
+      createError = String(e);
+    }
+  }
 
   const loadSettings = () =>
     invoke<Settings>("settings").then((s) => {
@@ -179,10 +199,14 @@
           {/each}
         </nav>
       {/if}
-      <span class="meta">
-        {words} words ·
-        {#if status === "error"}<span class="error" title={error}>not saved</span>{:else}{status === "saved" ? "saved" : "editing"}{/if}
-      </span>
+      {#if !missing}
+        <span class="meta">
+          {words} words ·
+          {#if status === "error"}<span class="error" title={error}>not saved</span>{:else}{status === "saved" ? "saved" : "editing"}{/if}
+        </span>
+      {:else}
+        <span class="meta"></span>
+      {/if}
       <button onclick={() => invoke("pane_side")} title={side === "bottom" ? "To the Right (⌘⇧J)" : "To the Bottom (⌘⇧J)"}>
         {side === "bottom" ? "⇥" : "⤓"}
       </button>
@@ -191,7 +215,17 @@
     {/if}
   </header>
   <main>
-    <FileEditor bind:this={editor} {load} {save} {symbols} extensions={more} onchange={count} bind:status bind:error bind:path />
+    <!-- kept while the file is missing, to read it into when it is made -->
+    <div class="editor" class:hidden={missing}>
+      <FileEditor bind:this={editor} {load} {save} {symbols} extensions={more} onchange={count} bind:status bind:error bind:path />
+    </div>
+    {#if missing}
+      <div class="missing">
+        <p>No review file yet</p>
+        <button class="make" onclick={create}>Create {name || "review.md"}</button>
+        {#if createError}<p class="error">{createError}</p>{/if}
+      </div>
+    {/if}
   </main>
 </div>
 
@@ -319,8 +353,36 @@
     transform: rotate(90deg);
   }
   main {
+    position: relative;
     flex: 1;
     min-height: 0;
+  }
+  .editor {
+    height: 100%;
+  }
+  .editor.hidden {
+    visibility: hidden;
+  }
+  .missing {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--muted);
+  }
+  .missing p {
+    margin: 0;
+  }
+  .missing .error {
+    color: var(--error);
+  }
+  .make {
+    color: var(--fg);
+    border: 1px solid var(--border);
+    padding: 3px 12px;
   }
   .collapsed main {
     display: none;
