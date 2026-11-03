@@ -119,9 +119,19 @@ impl Saved {
 
     /// A project opened: first of the recent ones, and open.
     pub fn opened(&mut self, root: &Path) {
+        self.remembered(root);
+        self.shown(root);
+    }
+
+    /// A project made first of the recent ones. A new project is not, until it is defined.
+    pub fn remembered(&mut self, root: &Path) {
         self.recent.retain(|r| r != root);
         self.recent.insert(0, root.to_path_buf());
         self.recent.truncate(RECENT);
+    }
+
+    /// A project in a window: open, to open again at the next start.
+    pub fn shown(&mut self, root: &Path) {
         if !self.open.iter().any(|o| o == root) {
             self.open.push(root.to_path_buf());
         }
@@ -133,14 +143,13 @@ impl Saved {
     }
 
     /// A window switched from the project `old` to `new`: `new` is open where
-    /// `old` was, and first of the recent ones.
+    /// `old` was.
     pub fn switched(&mut self, old: &Path, new: &Path) {
         self.open.retain(|o| o != new);
         match self.open.iter_mut().find(|o| *o == old) {
             Some(slot) => *slot = new.to_path_buf(),
             None => self.open.push(new.to_path_buf()),
         }
-        self.opened(new);
     }
 
     /// A project put in the project bar, at the end, unless it is there.
@@ -177,9 +186,24 @@ mod tests {
         saved.opened(b);
         saved.switched(a, c);
         assert_eq!(saved.open, [c, b]);
+        // the recent ones are the caller's to say: a new project is not one yet
+        assert_eq!(saved.recent, [b, a]);
+        saved.remembered(c);
         assert_eq!(saved.recent, [c, b, a]);
         saved.switched(c, b);
         assert_eq!(saved.open, [b]);
+    }
+
+    #[test]
+    fn a_project_shown_is_open_but_not_recent_until_remembered() {
+        let mut saved = Saved::default();
+        let a = Path::new("/a");
+        saved.shown(a);
+        saved.shown(a);
+        assert_eq!(saved.open, [a]);
+        assert!(saved.recent.is_empty());
+        saved.remembered(a);
+        assert_eq!(saved.recent, [a]);
     }
 
     #[test]

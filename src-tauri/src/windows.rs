@@ -79,8 +79,8 @@ pub fn reopen(app: &AppHandle) {
 }
 
 /// The project of `root` loaded, if it is not: opened, given a colour if it
-/// has none (the next one not in use, written in its `review.toml`), its
-/// review watched.
+/// has none (the next one not in use, written in its `review.toml`, or kept
+/// until the project is defined when it has none), its review watched.
 pub fn load(app: &AppHandle, root: &Path) -> Result<(), String> {
     let state = app.state::<AppState>();
     if state.projects.lock().unwrap().contains_key(root) {
@@ -102,6 +102,11 @@ pub fn load(app: &AppHandle, root: &Path) -> Result<(), String> {
     state.projects.lock().unwrap().insert(root.to_path_buf(), project);
     review::watch(app, root);
     Ok(())
+}
+
+/// Whether the project of `root` is loaded and yet to be defined (it has no `review.toml`).
+pub fn is_new(app: &AppHandle, root: &Path) -> bool {
+    app.state::<AppState>().projects.lock().unwrap().get(root).is_some_and(Project::is_new)
 }
 
 /// The project of `root` unloaded, when no window shows it.
@@ -178,7 +183,12 @@ fn new_window(app: &AppHandle, root: &Path) -> Result<(), String> {
     }
     {
         let mut saved = state.saved.lock().unwrap();
-        saved.opened(root);
+        // a new project is a recent one once it is defined
+        if is_new(app, root) {
+            saved.shown(root);
+        } else {
+            saved.opened(root);
+        }
         if bar_on(app) {
             saved.barred(root);
         }
@@ -209,7 +219,13 @@ pub fn switch(app: &AppHandle, window: &str, root: &Path) -> Result<(), String> 
     let state = app.state::<AppState>();
     state.windows.lock().unwrap().insert(window.to_string(), root.to_path_buf());
     release(app, &old);
-    state.saved.lock().unwrap().switched(&old, root);
+    {
+        let mut saved = state.saved.lock().unwrap();
+        saved.switched(&old, root);
+        if !is_new(app, root) {
+            saved.remembered(root);
+        }
+    }
     state.save();
     retitle(app, window);
     files::unwatch_all(app, window);
@@ -233,23 +249,53 @@ pub fn remove_from_bar(app: &AppHandle, root: &Path) {
     state.saved.lock().unwrap().bar.retain(|b| b != root);
     state.save();
     if bar_on(app) {
-        for window in of_project(app, root) {
-            match neighbour(&bar, root, |p| window_of(app, p).is_none()) {
-                Some(next) => {
-                    if let Err(e) = switch(app, &window, &next) {
-                        eprintln!("{e}");
-                    }
+        vacate(app, root, &bar);
+    }
+    menu::update(app);
+    tell_bar(app);
+}
+
+/// The windows of the project of `root` given to its neighbour in `bar` (the bar as it was), or closed when
+/// none is left.
+fn vacate(app: &AppHandle, root: &Path, bar: &[PathBuf]) {
+    for window in of_project(app, root) {
+        match neighbour(bar, root, |p| window_of(app, p).is_none()) {
+            Some(next) => {
+                if let Err(e) = switch(app, &window, &next) {
+                    eprintln!("{e}");
                 }
-                None => {
-                    if let Some(window) = app.get_window(&window) {
-                        let _ = window.close();
-                    }
+            }
+            None => {
+                if let Some(window) = app.get_window(&window) {
+                    let _ = window.close();
                 }
             }
         }
     }
+}
+
+/// A new project given up, from the card that asks for its name: out of the bar, its windows closed, or with
+/// the bar on given to a neighbour in it. Nothing was written, and it was never a recent project.
+pub fn cancel(app: &AppHandle, root: &Path) {
+    let state = app.state::<AppState>();
+    let bar = state.saved.lock().unwrap().bar.clone();
+    state.saved.lock().unwrap().bar.retain(|b| b != root);
+    state.save();
+    // with no bar every window closes: nothing follows the project in an empty one
+    vacate(app, root, if bar_on(app) { &bar } else { &[] });
     menu::update(app);
     tell_bar(app);
+}
+
+/// The new project of `root` defined: first of the recent ones, its review watched (it may be another file
+/// than before), and its windows told.
+pub fn created(app: &AppHandle, root: &Path) {
+    let state = app.state::<AppState>();
+    state.saved.lock().unwrap().remembered(root);
+    state.save();
+    review::moved(app, root);
+    renamed(app, root);
+    changed(app, root);
 }
 
 /// The project of `bar` to switch to when `root` leaves it: the next one that

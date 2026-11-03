@@ -60,9 +60,15 @@ pub fn choose(app: &AppHandle, window: &str, path: &Path) -> Result<(), String> 
         let project = projects.get_mut(&root).ok_or("the project is not open")?;
         project.set_review(path).map_err(|e| e.to_string())?;
     }
-    watch(app, &root);
-    tell(app, &root, "review-switched");
+    moved(app, &root);
     Ok(())
+}
+
+/// The review of the project of `root` is another file than the panes read, or was made: watched instead,
+/// and the panes told.
+pub fn moved(app: &AppHandle, root: &Path) {
+    watch(app, root);
+    tell(app, root, "review-switched");
 }
 
 /// The panes of the project's windows told `event`.

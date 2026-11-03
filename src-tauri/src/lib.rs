@@ -16,7 +16,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::atomic::AtomicUsize;
 
-use review_core::{Colour, Datetime, Node, Project};
+use review_core::{Colour, Datetime, Node, Project, ReviewFile};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State, Webview, WindowEvent};
 
@@ -63,6 +63,9 @@ struct ProjectView {
     linked: Vec<Node>,
     /// the Markdown file of the review
     review: PathBuf,
+    /// not defined yet: the folder had no `review.toml` when it was opened, and the page asks for its name,
+    /// due date and review file (`create_project`)
+    new: bool,
 }
 
 /// A project as the page of its settings shows it: what `review.toml` says, the Markdown files to choose
@@ -230,6 +233,7 @@ fn project(webview: Webview, state: State<'_, AppState>) -> Result<ProjectView, 
         files: project.files(),
         linked: project.linked(),
         review: project.review_path(),
+        new: project.is_new(),
         root,
     })
 }
@@ -261,28 +265,77 @@ fn project_info(webview: Webview, state: State<'_, AppState>) -> Result<ProjectI
 #[tauri::command]
 fn set_project_info(app: AppHandle, webview: Webview, state: State<'_, AppState>, info: InfoEdit) -> Result<(), String> {
     let root = root_of(&webview)?;
-    let due = match info.due.as_deref().map(str::trim).filter(|d| !d.is_empty()) {
-        Some(due) => Some(
+    let due = parse_due(info.due.as_deref())?;
+    {
+        let mut projects = state.projects.lock().unwrap();
+        let project = projects.get_mut(&root).ok_or("the project is not open")?;
+        set_info(project, info, due)?;
+    }
+    windows::renamed(&app, &root);
+    windows::changed(&app, &root);
+    Ok(())
+}
+
+/// A due date of the card: `YYYY-MM-DD`, or none when empty.
+fn parse_due(due: Option<&str>) -> Result<Option<Datetime>, String> {
+    match due.map(str::trim).filter(|d| !d.is_empty()) {
+        Some(due) => Ok(Some(
             due.parse::<Datetime>()
                 .ok()
                 .filter(|d| d.date.is_some() && d.time.is_none())
                 .ok_or_else(|| format!("{due}: not a date (YYYY-MM-DD)"))?,
-        ),
-        None => None,
-    };
+        )),
+        None => Ok(None),
+    }
+}
+
+/// The fields of the card set in the project.
+fn set_info(project: &mut Project, info: InfoEdit, due: Option<Datetime>) -> Result<(), String> {
+    project
+        .set_title(info.title)
+        .and_then(|()| project.set_short(info.short))
+        .and_then(|()| project.set_journal(info.journal))
+        .and_then(|()| project.set_manuscript(info.manuscript))
+        .and_then(|()| project.set_due(due))
+        .map_err(|e| e.to_string())
+}
+
+/// The new project defined, from the card that asks for it: the fields as in `set_project_info`, then
+/// `review.toml` written and the review file made (`review`, its name in the folder) or chosen (`existing`,
+/// a Markdown file of the folder; `review` is then unused). Nothing is written if it fails.
+#[tauri::command]
+fn create_project(
+    app: AppHandle,
+    webview: Webview,
+    state: State<'_, AppState>,
+    info: InfoEdit,
+    review: String,
+    existing: Option<PathBuf>,
+) -> Result<(), String> {
+    let root = root_of(&webview)?;
+    let due = parse_due(info.due.as_deref())?;
     {
         let mut projects = state.projects.lock().unwrap();
         let project = projects.get_mut(&root).ok_or("the project is not open")?;
-        let written = project
-            .set_title(info.title)
-            .and_then(|()| project.set_short(info.short))
-            .and_then(|()| project.set_journal(info.journal))
-            .and_then(|()| project.set_manuscript(info.manuscript))
-            .and_then(|()| project.set_due(due));
-        written.map_err(|e| e.to_string())?;
+        set_info(project, info, due)?;
+        let file = match &existing {
+            Some(path) => ReviewFile::Existing(path),
+            None => ReviewFile::New(&review),
+        };
+        project.create(file).map_err(|e| e.to_string())?;
     }
-    windows::renamed(&app, &root);
-    windows::changed(&app, &root);
+    windows::created(&app, &root);
+    Ok(())
+}
+
+/// Cancel on the card of a new project: the project is closed, as a window or in the bar, and leaves nothing.
+#[tauri::command]
+fn cancel_project(app: AppHandle, webview: Webview) -> Result<(), String> {
+    let root = root_of(&webview)?;
+    if !windows::is_new(&app, &root) {
+        return Err(format!("{}: already a project", root.display()));
+    }
+    windows::cancel(&app, &root);
     Ok(())
 }
 
@@ -549,6 +602,8 @@ pub fn run() {
             project,
             project_info,
             set_project_info,
+            create_project,
+            cancel_project,
             add_files,
             unlink,
             new_file,
