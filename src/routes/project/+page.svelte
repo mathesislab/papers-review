@@ -450,7 +450,7 @@
     style:grid-template-columns={`${showBar ? "84px " : ""}${layout.files ? `${layout.files_width}px ` : ""}1fr`}
   >
     {#if showBar}
-      <!-- the project bar: a tile per project, the current one marked, with its due date and a dot for how near it is -->
+      <!-- the project bar: a tile per project, the current one marked, with its due date and a bar for how near it is -->
       <aside class="projects" aria-label="Projects">
         {#each bar as item (item.root)}
           {@const name = label(item.name, item.short)}
@@ -463,9 +463,13 @@
             onclick={() => switchTo(item.root)}
             oncontextmenu={(e) => tileMenu(e, item)}
           >
-            <span class="chip" style:background={cssOf(item.colour) ?? "var(--tile-none)"}>
+            <span
+              class="chip"
+              style:background={cssOf(item.colour) ?? "var(--tile-none)"}
+              style:--urgency={item.due ? `var(--due-${urgency(daysLeft(item.due))})` : null}
+            >
               <span class="name" style:font-size="{name.size}px">{#each name.lines as line}<span>{line}</span>{/each}</span>
-              {#if item.due}<span class="when"><span class="dot {urgency(daysLeft(item.due))}"></span>{shortDate(item.due)}</span>{/if}
+              {#if item.due}<span class="when">{shortDate(item.due)}</span>{/if}
             </span>
           </button>
         {/each}
@@ -714,11 +718,22 @@
     width: 68px;
     height: 52px;
     box-sizing: border-box;
-    padding: 4px;
+    position: relative;
+    padding: 4px 4px 4px 10px;
     overflow: hidden;
     border-radius: 10px;
     color: #fff;
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  }
+  /* a bar down its left side in the colour of how near the due date is */
+  .chip::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    background: var(--urgency, transparent);
   }
   /* the short name, on one line or two */
   .name {
@@ -730,35 +745,14 @@
   .name span {
     display: block;
   }
-  /* the due date, with a dot for how near it is; dark, as small as it is, on the light colours of the tiles */
+  /* the due date: dark, small as it is, on the light colours of the tiles */
   .when {
     color: rgba(0, 0, 0, 0.68);
     text-shadow: none;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11.5px;
+    font-size: 13px;
     font-weight: 600;
     line-height: 1;
     white-space: nowrap;
-  }
-  .dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85);
-  }
-  .dot.far {
-    background: var(--due-far);
-  }
-  .dot.near {
-    background: var(--due-near);
-  }
-  .dot.close {
-    background: var(--due-close);
-  }
-  .dot.due {
-    background: var(--due-due);
   }
   .tile:not(.current):hover .chip {
     filter: brightness(0.94);

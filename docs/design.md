@@ -57,8 +57,9 @@ share its colour.
   none. A new project takes the next colour not in use among those open.
 - **Project bar** (Settings; on by default): a column at the left with a tile
   per project, in its colour with its short name (ten letters at most, on two
-  lines when long) or initials, the due date under it with a dot (green, yellow
-  within a week, orange within three days, red when due or past), the current
+  lines when long) or initials, the due date under it, and down its left side
+  a bar for how near that is (green, yellow within a week, orange within
+  three days, red when due or past), the current
   one marked; `+` opens another. A click switches the window to the project (its
   page loads again, the review pane follows, writing what was typed to the
   old review first); right-click: Open in New Window, Remove from Bar. Open
