@@ -25,6 +25,7 @@
   let short = $state("");
   let journal = $state("");
   let manuscript = $state("");
+  let heading = $state("");
   let due = $state<string | null>(null);
   let colour = $state<Colour>("none");
   let review = $state("");
@@ -53,6 +54,7 @@
       short = next.short ?? "";
       journal = next.journal ?? "";
       manuscript = next.manuscript ?? "";
+      heading = next.heading ?? "";
       due = next.due;
       colour = next.colour;
       review = next.review;
@@ -68,6 +70,7 @@
       short: blank(Array.from(short.trim()).slice(0, SHORT).join("")),
       journal: blank(journal),
       manuscript: blank(manuscript),
+      heading: blank(heading),
       due,
     };
     try {
@@ -134,6 +137,9 @@
 
       <label for="info-manuscript">Manuscript ID</label>
       <input id="info-manuscript" bind:value={manuscript} autocomplete="off" spellcheck="false" />
+
+      <label for="info-heading">PDF heading</label>
+      <input id="info-heading" bind:value={heading} placeholder="Manuscript review" autocomplete="off" spellcheck="false" />
 
       <label for="info-due">Due</label>
       <div class="row"><DateField id="info-due" bind:value={due} {format} /></div>

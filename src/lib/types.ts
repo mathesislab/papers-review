@@ -18,6 +18,8 @@ export type Project = {
   short: string | null;
   journal: string | null;
   manuscript: string | null;
+  /** the heading of the PDF export; the page says "Manuscript review" when unset */
+  heading: string | null;
   due: string | null;
   colour: Colour;
   files: Node[];
@@ -63,6 +65,7 @@ export type ProjectInfo = {
   short: string | null;
   journal: string | null;
   manuscript: string | null;
+  heading: string | null;
   /** YYYY-MM-DD */
   due: string | null;
   colour: Colour;
@@ -75,4 +78,4 @@ export type ProjectInfo = {
 };
 
 /** mirrors InfoEdit: the fields of the card that are text */
-export type InfoEdit = { title: string | null; short: string | null; journal: string | null; manuscript: string | null; due: string | null };
+export type InfoEdit = { title: string | null; short: string | null; journal: string | null; manuscript: string | null; heading: string | null; due: string | null };

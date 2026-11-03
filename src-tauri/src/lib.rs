@@ -57,6 +57,8 @@ struct ProjectView {
     short: Option<String>,
     journal: Option<String>,
     manuscript: Option<String>,
+    /// the heading of the PDF export
+    heading: Option<String>,
     due: Option<String>,
     colour: Colour,
     files: Vec<Node>,
@@ -78,6 +80,7 @@ struct ProjectInfo {
     short: Option<String>,
     journal: Option<String>,
     manuscript: Option<String>,
+    heading: Option<String>,
     /// `YYYY-MM-DD`
     due: Option<String>,
     colour: Colour,
@@ -94,6 +97,7 @@ struct InfoEdit {
     short: Option<String>,
     journal: Option<String>,
     manuscript: Option<String>,
+    heading: Option<String>,
     /// `YYYY-MM-DD`
     due: Option<String>,
 }
@@ -228,6 +232,7 @@ fn project(webview: Webview, state: State<'_, AppState>) -> Result<ProjectView, 
         short: manifest.short.clone(),
         journal: manifest.journal.clone(),
         manuscript: manifest.manuscript.clone(),
+        heading: manifest.heading.clone(),
         due: manifest.due.map(|d| d.to_string()),
         colour: manifest.colour.unwrap_or(Colour::None),
         files: project.files(),
@@ -251,6 +256,7 @@ fn project_info(webview: Webview, state: State<'_, AppState>) -> Result<ProjectI
         short: manifest.short.clone(),
         journal: manifest.journal.clone(),
         manuscript: manifest.manuscript.clone(),
+        heading: manifest.heading.clone(),
         due: manifest.due.map(|d| d.to_string()),
         colour: manifest.colour.unwrap_or(Colour::None),
         review: project.review_path(),
@@ -260,7 +266,7 @@ fn project_info(webview: Webview, state: State<'_, AppState>) -> Result<ProjectI
     })
 }
 
-/// The title, short name, journal, manuscript and due date of the project, for all its windows, written
+/// The title, short name, journal, manuscript, heading and due date of the project, for all its windows, written
 /// in its `review.toml`.
 #[tauri::command]
 fn set_project_info(app: AppHandle, webview: Webview, state: State<'_, AppState>, info: InfoEdit) -> Result<(), String> {
@@ -296,6 +302,7 @@ fn set_info(project: &mut Project, info: InfoEdit, due: Option<Datetime>) -> Res
         .and_then(|()| project.set_short(info.short))
         .and_then(|()| project.set_journal(info.journal))
         .and_then(|()| project.set_manuscript(info.manuscript))
+        .and_then(|()| project.set_heading(info.heading))
         .and_then(|()| project.set_due(due))
         .map_err(|e| e.to_string())
 }

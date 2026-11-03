@@ -20,6 +20,7 @@
   let short = $state("");
   let journal = $state("");
   let manuscript = $state("");
+  let heading = $state("");
   let due = $state<string | null>(null);
   /** the name of the review file to make, unless a Markdown file of the folder is chosen */
   let file = $state("review.md");
@@ -53,6 +54,7 @@
       short: blank(Array.from(short.trim()).slice(0, SHORT).join("")),
       journal: blank(journal),
       manuscript: blank(manuscript),
+      heading: blank(heading),
       due,
     };
     busy = true;
@@ -102,6 +104,9 @@
 
       <label for="new-manuscript">Manuscript ID</label>
       <input id="new-manuscript" bind:value={manuscript} autocomplete="off" spellcheck="false" />
+
+      <label for="new-heading">PDF heading</label>
+      <input id="new-heading" bind:value={heading} placeholder="Manuscript review" autocomplete="off" spellcheck="false" />
 
       <label for="new-due">Due</label>
       <div class="row">
