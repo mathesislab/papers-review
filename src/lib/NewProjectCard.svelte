@@ -1,6 +1,6 @@
 <script lang="ts">
   // The card of a new project, over the top of the window like the project's info: a folder without a review.toml
-  // asks for the project's name, short name, journal, manuscript, the heading of its PDF exports, due date and the
+  // asks for the project's name, short name, journal, manuscript, the heading of its exports, due date and the
   // file of its review, a new one (review.md) or a Markdown file of the folder. Create writes review.toml and makes
   // the file; Cancel closes the project, which leaves nothing behind. There is no Esc: it would close the project by
   // a stray key.
@@ -9,6 +9,7 @@
   import { onMount } from "svelte";
   import { SHORT, initials } from "./bar";
   import "./card.css";
+  import { DEFAULT_HEADING } from "./export";
   import DateField from "./DateField.svelte";
   import type { DateFormat, InfoEdit, ProjectInfo } from "./types";
 
@@ -21,7 +22,7 @@
   let short = $state("");
   let journal = $state("");
   let manuscript = $state("");
-  let heading = $state("");
+  let heading = $state(DEFAULT_HEADING);
   let due = $state<string | null>(null);
   /** the name of the review file to make, unless a Markdown file of the folder is chosen */
   let file = $state("review.md");
@@ -55,7 +56,7 @@
       short: blank(Array.from(short.trim()).slice(0, SHORT).join("")),
       journal: blank(journal),
       manuscript: blank(manuscript),
-      heading: blank(heading),
+      heading: heading.trim() === DEFAULT_HEADING ? null : blank(heading),
       due,
     };
     busy = true;
@@ -106,8 +107,8 @@
       <label for="new-manuscript">Manuscript ID</label>
       <input id="new-manuscript" bind:value={manuscript} autocomplete="off" spellcheck="false" />
 
-      <label for="new-heading">PDF heading</label>
-      <input id="new-heading" bind:value={heading} placeholder="Manuscript review" autocomplete="off" spellcheck="false" />
+      <label for="new-heading">Export heading</label>
+      <input id="new-heading" bind:value={heading} placeholder={DEFAULT_HEADING} autocomplete="off" spellcheck="false" />
 
       <label for="new-due">Due</label>
       <div class="row">

@@ -160,7 +160,7 @@ NSVisualEffectView under it.
   The files are named from the review and the section (`review-round-2`).
 - As PDF: the Markdown to HTML (`export.ts`, from the editor's own parser),
   laid out as an A4 page by a hidden window (`/export`) and printed by
-  WebKit. A header with the project's PDF heading (info card; default
+  WebKit. A header with the project's export heading (info card; default
   "Manuscript review") and, if Settings > Export asks, the journal,
   manuscript ID and date below it. Locations (`p5, l136:`) are set in a
   muted colour. Anonymous unless Settings > Export has "Sign the reviews"

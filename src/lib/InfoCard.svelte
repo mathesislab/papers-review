@@ -1,6 +1,6 @@
 <script lang="ts">
   // The card of the project's info, over the top of the window like a macOS sheet: its name, short name (for the
-  // tile of the project bar), journal, manuscript, the heading of its PDF exports, due date, colour, the file of the
+  // tile of the project bar), journal, manuscript, the heading of its exports, due date, colour, the file of the
   // review, the files and folders linked from elsewhere, and the project's folder (to rename in the Finder). Open
   // until Done or Esc. What is typed, chosen as the colour or the review is written on Done, Cancel (or Esc) drops
   // it; the linked files change as they are added or taken out.
@@ -13,6 +13,7 @@
   import { SHORT, initials } from "./bar";
   import { COLOURS } from "./colour";
   import "./card.css";
+  import { DEFAULT_HEADING } from "./export";
   import DateField from "./DateField.svelte";
   import type { Colour, DateFormat, InfoEdit, ProjectInfo } from "./types";
 
@@ -45,16 +46,21 @@
   /** Nothing but spaces: not set. */
   const blank = (text: string) => text.trim() || null;
 
+  /** A field shown filled with what stands in for it when unset (the folder's name, the default heading): unset
+   *  still, unless changed. */
+  const unless = (text: string, standIn: string, was: string | null) =>
+    was === null && text.trim() === standIn ? null : blank(text);
+
   async function load(first: boolean) {
     try {
       const next = await invoke<ProjectInfo>("project_info");
       info = next;
       if (!first) return;
-      title = next.title ?? "";
+      title = next.title ?? base(next.root);
       short = next.short ?? "";
       journal = next.journal ?? "";
       manuscript = next.manuscript ?? "";
-      heading = next.heading ?? "";
+      heading = next.heading ?? DEFAULT_HEADING;
       due = next.due;
       colour = next.colour;
       review = next.review;
@@ -66,11 +72,11 @@
   async function done() {
     if (!info) return;
     const edit: InfoEdit = {
-      title: blank(title),
+      title: unless(title, base(info.root), info.title),
       short: blank(Array.from(short.trim()).slice(0, SHORT).join("")),
       journal: blank(journal),
       manuscript: blank(manuscript),
-      heading: blank(heading),
+      heading: unless(heading, DEFAULT_HEADING, info.heading),
       due,
     };
     try {
@@ -105,10 +111,6 @@
     }
   }
 
-  function focus(input: HTMLInputElement) {
-    input.focus();
-  }
-
   onMount(() => {
     load(true);
     // the linked files changed, from here or another window of the project
@@ -127,7 +129,7 @@
     {@const folder = base(info.root)}
     <div class="grid">
       <label for="info-title">Name</label>
-      <input id="info-title" bind:value={title} use:focus placeholder={folder} autocomplete="off" spellcheck="false" />
+      <input id="info-title" bind:value={title} placeholder={folder} autocomplete="off" spellcheck="false" />
 
       <label for="info-short">Short name</label>
       <input id="info-short" class="short" bind:value={short} maxlength={SHORT} placeholder={initials(info.name)} autocomplete="off" spellcheck="false" />
@@ -138,8 +140,8 @@
       <label for="info-manuscript">Manuscript ID</label>
       <input id="info-manuscript" bind:value={manuscript} autocomplete="off" spellcheck="false" />
 
-      <label for="info-heading">PDF heading</label>
-      <input id="info-heading" bind:value={heading} placeholder="Manuscript review" autocomplete="off" spellcheck="false" />
+      <label for="info-heading">Export heading</label>
+      <input id="info-heading" bind:value={heading} placeholder={DEFAULT_HEADING} autocomplete="off" spellcheck="false" />
 
       <label for="info-due">Due</label>
       <div class="row"><DateField id="info-due" bind:value={due} {format} /></div>
