@@ -54,6 +54,8 @@ export type Settings = {
   header_details: boolean;
   /** the folder the folders of new reviews are made in; null: asked for with the first */
   reviews_folder: string | null;
+  /** look for updates at start and twice a day; they are installed only when asked */
+  check_updates: boolean;
 };
 
 /** mirrors settings::DateFormat: 2026-11-14, 14.11.2026, 11/14/2026 */

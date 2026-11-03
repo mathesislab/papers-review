@@ -2,16 +2,17 @@
   // The Settings window (⌘,): whether the projects open in one window, with a bar to switch between them, or each in
   // a window of its own; the folder new reviews are made in; how dates are written; the font and size of the editors; the exports of the review (the
   // reviewer's name, whether the PDF is signed with it, whether its header has the journal, the manuscript ID and the
-  // date); and the sequences typed in the review that become symbols: the defaults, each turned off if not wanted,
+  // date); the updates (the version running, whether to look for them, Check Now, the one found to install); and the sequences typed in the review that become symbols: the defaults, each turned off if not wanted,
   // and the user's own. Kept in the app's data folder (settings.json); the project windows are told as it changes.
 
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { open } from "@tauri-apps/plugin-dialog";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import "$lib/theme.css";
   import { DEFAULTS } from "$lib/symbols";
+  import { Updates } from "$lib/updates.svelte";
   import type { DateFormat, EditorFont, Settings } from "$lib/types";
 
   const FORMATS: [DateFormat, string][] = [
@@ -26,6 +27,7 @@
   ];
 
   let settings = $state<Settings | null>(null);
+  const updates = new Updates();
   /** the sequence and the replacement of a pair being added */
   let keys = $state("");
   let insert = $state("");
@@ -79,12 +81,22 @@
     save();
   }
 
+  /** Scroll to a section (its id): the window opens at one after an update, and the menu may ask for one. */
+  async function show(section: string) {
+    await tick();
+    document.getElementById(section)?.scrollIntoView();
+  }
+
   onMount(() => {
-    invoke<Settings>("settings").then((s) => (settings = s));
-    const unlisten = listen<Settings>("settings-changed", (e) => (settings = e.payload));
-    return () => {
-      unlisten.then((f) => f());
-    };
+    Promise.all([invoke<Settings>("settings"), updates.load()]).then(([s]) => {
+      settings = s;
+      if (location.hash) show(location.hash.slice(1));
+    });
+    const unlisten = [
+      listen<Settings>("settings-changed", (e) => (settings = e.payload)),
+      listen<string>("section", (e) => show(e.payload)),
+    ];
+    return () => unlisten.forEach((u) => u.then((f) => f()));
   });
 
   /** Esc with no field in focus: the window closes (a field gives up the focus first). */
@@ -151,6 +163,30 @@
       <span>Header with journal, manuscript ID and date</span>
     </label>
     <p class="note">Off: the PDF is headed by the project's heading alone.</p>
+
+    <h2 id="updates">Updates</h2>
+    <div class="field">
+      <span class="version">Version {updates.version}</span>
+      <span class="status" class:error={updates.updating === "failed"}>{updates.status}</span>
+      {#if updates.update}
+        <button disabled={updates.updating === "installing"} onclick={updates.install}>
+          Install Version {updates.update.version} and Restart
+        </button>
+      {:else}
+        <button disabled={updates.updating === "checking"} onclick={updates.check}>Check Now</button>
+      {/if}
+    </div>
+    {#if updates.updating === "installing"}
+      <progress value={updates.progress.done} max={updates.progress.total ?? undefined}></progress>
+    {/if}
+    {#if updates.installed}
+      <p class="note first">Updated from {updates.installed.from}.</p>
+    {/if}
+    <label class="option">
+      <input type="checkbox" bind:checked={settings.check_updates} onchange={save} />
+      <span>Check for updates automatically</span>
+    </label>
+    <p class="note">At start and twice a day; a new version is installed only when you ask.</p>
 
     <h2>Typed symbols</h2>
     <p class="note first">
@@ -252,6 +288,21 @@
   .folder.unset {
     color: var(--muted);
     direction: ltr;
+  }
+  .version {
+    white-space: nowrap;
+  }
+  .status {
+    flex: 1;
+    min-width: 0;
+    color: var(--muted);
+  }
+  .status.error {
+    color: var(--error);
+  }
+  progress {
+    width: 100%;
+    margin-top: 8px;
   }
   select {
     font: inherit;
