@@ -107,8 +107,12 @@
         collapsed = e.payload.collapsed;
       }),
       listen("review-changed", () => editor?.changedOnDisk()),
-      // Undo and Redo of the menu: the editor's own history
-      listen<string>("edit", (e) => (e.payload === "redo" ? editor?.redo() : editor?.undo())),
+      // Undo, Redo and Symbols… of the menu: the editor's own history, its list of symbols
+      listen<string>("edit", (e) => {
+        if (e.payload === "symbols") editor?.list();
+        else if (e.payload === "redo") editor?.redo();
+        else editor?.undo();
+      }),
       // ⌘' and ⌘; in the page: a quote of the PDF at the cursor, in quotation marks or not
       listen<string>("review-insert", (e) => {
         const view = editor?.view();

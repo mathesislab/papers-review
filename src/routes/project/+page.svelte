@@ -253,9 +253,11 @@
 
   const write = (path: string, text: string) => invoke<void>("write_file", { path, text });
 
-  /** Undo and Redo of the menu: the history of the editor in focus, else the field of the page. */
+  /** Undo, Redo and Symbols… of the menu: the history or the symbols of the editor in focus, else the field of the page. */
   function edit(what: string) {
-    if (editor?.hasFocus()) (what === "redo" ? editor.redo : editor.undo)();
+    if (what === "symbols") {
+      if (editor?.hasFocus()) editor.list();
+    } else if (editor?.hasFocus()) (what === "redo" ? editor.redo : editor.undo)();
     else document.execCommand(what);
   }
 

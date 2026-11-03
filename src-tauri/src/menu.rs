@@ -97,6 +97,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             &separator()?,
             &item("quote", "Quote Selection", Some("CmdOrCtrl+'"))?,
             &item("insert", "Insert Selection", Some("CmdOrCtrl+;"))?,
+            &separator()?,
+            &item("symbols", "Symbols…", Some("CmdOrCtrl+/"))?,
         ],
     )?;
     let view = Submenu::with_items(
@@ -159,7 +161,7 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
             state.save();
             update(app);
         }
-        "undo" | "redo" => undo_redo(app, id),
+        "undo" | "redo" | "symbols" => edit(app, id),
         "review" | "review-side" => {
             if let Some(window) = front(app).filter(|w| w.label() != windows::START) {
                 if id == "review" {
@@ -211,10 +213,11 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
     }
 }
 
-/// Undo and Redo: the review's own history when its pane has the keys (the
-/// editor keeps it, not WebKit), else the page of a project's window, which
-/// gives it to the file edited in focus or the field in focus.
-fn undo_redo(app: &AppHandle, name: &str) {
+/// Undo, Redo and Symbols…: the review's own history or list of symbols when
+/// its pane has the keys (the editor keeps them, not WebKit), else the page of
+/// a project's window, which gives it to the file edited in focus or, for Undo
+/// and Redo, the field in focus.
+fn edit(app: &AppHandle, name: &str) {
     let Some(window) = front(app) else {
         return;
     };
@@ -223,7 +226,9 @@ fn undo_redo(app: &AppHandle, name: &str) {
         let pane_has_keys = app.state::<AppState>().panes.lock().unwrap().focused.contains(label);
         let target = if pane_has_keys { pane::label(label) } else { page.label().to_string() };
         let _ = app.emit_to(EventTarget::webview(target), "edit", name);
-    } else if let Some(webview) = app.get_webview(label) {
+    } else if name != "symbols"
+        && let Some(webview) = app.get_webview(label)
+    {
         // a window of one web view (start, settings)
         let _ = webview.eval(format!("document.execCommand('{name}')"));
     }
