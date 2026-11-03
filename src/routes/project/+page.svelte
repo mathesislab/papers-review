@@ -8,7 +8,7 @@
   // asks for the name, due date and review file of a new project (a folder without a review.toml).
 
   import { invoke } from "@tauri-apps/api/core";
-  import { listen } from "@tauri-apps/api/event";
+  import { emitTo, listen } from "@tauri-apps/api/event";
   import { CheckMenuItem, Menu, MenuItem } from "@tauri-apps/api/menu";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { confirm, message } from "@tauri-apps/plugin-dialog";
@@ -26,7 +26,7 @@
   import InfoCard from "$lib/InfoCard.svelte";
   import NewProjectCard from "$lib/NewProjectCard.svelte";
   import PdfView from "$lib/PdfView.svelte";
-  import { quote } from "$lib/quote";
+  import { quote, quoteText } from "$lib/quote";
   import type { BarItem, Colour, Kind, Layout, Node, Project, Settings } from "$lib/types";
 
   let project = $state<Project | null>(null);
@@ -56,7 +56,12 @@
     return all;
   });
 
-  const front = $derived(layout.front ? nodes.get(layout.front) : undefined);
+  /** the files opened from outside the project (a paper of the references), by their path */
+  let outside = $state<Record<string, Node>>({});
+  /** the file of a path: of the project, or opened from outside it */
+  const nodeOf = (path: string) => nodes.get(path) ?? outside[path];
+
+  const front = $derived(layout.front ? nodeOf(layout.front) : undefined);
 
   /** the PDF in front, its page count and page in view */
   let pdf = $state<PdfView>();
@@ -223,10 +228,18 @@
     layout.front = node.path;
   }
 
+  /** A PDF of a path anywhere, in a tab: as a file of the project if it is one, else as one outside it (not
+   *  restored with the layout). */
+  function openFile(path: string) {
+    if (!nodes.has(path)) outside[path] = { name: path.split("/").pop() ?? path, path, kind: "pdf" };
+    open(nodeOf(path)!);
+  }
+
   function close(path: string) {
     const i = layout.tabs.indexOf(path);
     if (i < 0) return;
     delete unreadable[path];
+    delete outside[path];
     layout.tabs.splice(i, 1);
     if (layout.front === path) layout.front = layout.tabs[Math.min(i, layout.tabs.length - 1)] ?? null;
   }
@@ -343,6 +356,19 @@
     }
   }
 
+  /** ⇧⌘R: the references listed in the review pane, which is shown; the text of the selection in the PDF, if there
+   *  is one, is the reference to look for. */
+  async function references() {
+    const selection = await pdf?.selection();
+    const text = selection ? quoteText(selection) : "";
+    try {
+      await invoke("pane_show");
+      await emitTo({ kind: "Webview", label: `${getCurrentWindow().label}-pane` }, "references", { text });
+    } catch (e) {
+      error = String(e);
+    }
+  }
+
   /** A command of the menu bar. */
   function command(id: string) {
     switch (id) {
@@ -378,6 +404,9 @@
       case "insert":
         quoteSelection(true);
         break;
+      case "references":
+        references();
+        break;
       case "info":
         openCard();
         break;
@@ -409,6 +438,8 @@
       location.reload();
     });
     const unlistenBar = listen("bar-changed", () => loadBar());
+    // the PDF of a paper chosen in the references
+    const unlistenOpen = listen<string>("open-file", (e) => openFile(e.payload));
     const unlistenEdit = listen<string>("edit", (e) => edit(e.payload));
     const unlistenFile = listen<string>("file-changed", (e) => {
       if (e.payload === edited?.path) editor?.changedOnDisk();
@@ -417,6 +448,7 @@
     return () => {
       unlistenSwitched.then((f) => f());
       unlistenBar.then((f) => f());
+      unlistenOpen.then((f) => f());
       unlistenEdit.then((f) => f());
       unlistenFile.then((f) => f());
       unlistenSettings.then((f) => f());
@@ -522,7 +554,7 @@
         <div class="tabs">
           {#each layout.tabs as path (path)}
             <div class="tab" class:front={path === layout.front}>
-              <button class="label" onclick={() => (layout.front = path)} title={path}>{nodes.get(path)?.name ?? path}</button>
+              <button class="label" onclick={() => (layout.front = path)} title={path}>{nodeOf(path)?.name ?? path}</button>
               <button class="close" onclick={() => close(path)} title="Close Tab (⌘W)">✕</button>
             </div>
           {/each}
