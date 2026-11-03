@@ -40,14 +40,26 @@ journal and DOI are read from the PDF with papers-rs (as papers reads them).
 
 ## The window
 
-One window per project, several when asked (a file opened in a new window);
-all the windows of a project share its colour.
+One window per project, or one window for all of them with a bar to switch
+between projects, as set in Settings (`⌘,`); several windows when asked
+(File > Open Project in New Window…, `⇧⌘O`). All the windows of a project
+share its colour.
 
 - **Colour bar**: a thin bar along the top of the page, under the title bar,
   in the project's colour, to tell the windows apart in Mission Control and
   the window switcher: the pastel colours of Papers Desktop's window, by
   name (`colour = "orange"` in `review.toml`). Right-click it: the colour, or
   none. A new project takes the next colour not in use among those open.
+- **Project bar** (Settings; on by default): a column at the left with a tile
+  per project, in its colour with its initials, the current one marked, a
+  badge with the days left when the due date is within a week (`!` once
+  past); `+` opens another. A click switches the window to the project (its
+  page loads again, the review pane follows, writing what was typed to the
+  old review first); right-click: Open in New Window, Remove from Bar. Open
+  Project adds to the bar and switches the window in front, or brings
+  forward the window that shows the project. The bar is kept in `state.json`
+  and listed in the Window menu (`⌘1` to `⌘9`); removing the project of a
+  window switches it to a neighbour, or closes it when none is left.
 - **Files** (sidebar, `⌘⌥S`): the files of the project by folder, the linked
   files, the due date. Hidden, the viewer takes the whole window.
 - **Viewer**: a PDF in PDFKit (tauri-plugin-pdfkit), with find, zoom, the
@@ -140,6 +152,8 @@ the margin).
    saving, the file watched; any Markdown file as the review; the tabs of its
    sections.
 3. Quotes with page and line; the symbols.
-4. Export.
-5. References.
-6. Text files; new review from a dropped manuscript.
+4. The project bar and Settings (done): `settings.json` in the app's data
+   folder.
+5. Export.
+6. References.
+7. Text files; new review from a dropped manuscript.
