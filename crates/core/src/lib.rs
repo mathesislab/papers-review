@@ -7,5 +7,5 @@ pub mod project;
 
 pub use colour::Colour;
 pub use files::{Kind, Node};
-pub use project::{Error, MANIFEST, Manifest, Project, REVIEW};
+pub use project::{Error, MANIFEST, Manifest, Project, REVIEW, ReviewFile};
 pub use toml_edit::Datetime;

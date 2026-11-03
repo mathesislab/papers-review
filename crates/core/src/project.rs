@@ -37,6 +37,10 @@ pub enum Error {
     Name(String),
     #[error("{0}: a folder cannot be copied into itself")]
     Itself(PathBuf),
+    #[error("{0}: already a project")]
+    Defined(PathBuf),
+    #[error("{0}: not a Markdown file")]
+    NotMarkdown(PathBuf),
 }
 
 /// What `review.toml` says; all of it optional.
@@ -58,12 +62,24 @@ pub struct Manifest {
     pub review: Option<PathBuf>,
 }
 
+/// The review file a new project is made with.
+#[derive(Debug, Clone, Copy)]
+pub enum ReviewFile<'a> {
+    /// a file to make in the folder, by its name (`.md` is added when it has no extension)
+    New(&'a str),
+    /// a Markdown file there is already
+    Existing(&'a Path),
+}
+
 #[derive(Debug)]
 pub struct Project {
     pub root: PathBuf,
     pub manifest: Manifest,
     /// `review.toml` as written, changed key by key
     document: DocumentMut,
+    /// the folder had no `review.toml` when it was opened, and `create` has not been called since: what is
+    /// set is kept here, nothing is written
+    new: bool,
 }
 
 impl Project {
@@ -73,9 +89,9 @@ impl Project {
             return Err(Error::NotAFolder(root.to_path_buf()));
         }
         let path = root.join(MANIFEST);
-        let text = match fs::read_to_string(&path) {
-            Ok(text) => text,
-            Err(e) if e.kind() == io::ErrorKind::NotFound => String::new(),
+        let (text, new) = match fs::read_to_string(&path) {
+            Ok(text) => (text, false),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => (String::new(), true),
             Err(e) => return Err(Error::Read(path, e)),
         };
         let document: DocumentMut = text
@@ -86,7 +102,59 @@ impl Project {
             root: root.to_path_buf(),
             manifest,
             document,
+            new,
         })
+    }
+
+    /// Whether the folder is a project yet to be defined: it had no `review.toml` when it was opened, and
+    /// `create` has not been called. A new project is not written: the colour given on opening, and whatever
+    /// else is set, wait for `create`.
+    pub fn is_new(&self) -> bool {
+        self.new
+    }
+
+    /// The new project defined: `review.toml` written with what was set, the review file made or chosen.
+    /// Nothing is written when the file cannot be made (a name that is not one, a file there already).
+    pub fn create(&mut self, review: ReviewFile) -> Result<(), Error> {
+        if !self.new {
+            return Err(Error::Defined(self.root.clone()));
+        }
+        let chosen = match review {
+            ReviewFile::New(name) => {
+                let name = markdown_name(name)?;
+                let path = self.root.join(&name);
+                if path.symlink_metadata().is_ok() {
+                    return Err(Error::Exists(path));
+                }
+                self.new_file(&self.root, &name)?;
+                path
+            }
+            ReviewFile::Existing(path) => {
+                if !is_markdown(path) {
+                    return Err(Error::NotMarkdown(path.to_path_buf()));
+                }
+                if !path.is_file() {
+                    return Err(Error::Read(path.to_path_buf(), io::ErrorKind::NotFound.into()));
+                }
+                path.to_path_buf()
+            }
+        };
+        if chosen != self.root.join(REVIEW) {
+            self.set_review(&chosen)?;
+        }
+        write_atomically(&self.root.join(MANIFEST), &self.document.to_string())?;
+        self.new = false;
+        Ok(())
+    }
+
+    /// The review file made, empty, where `review_path` says; nothing is done when it is there.
+    pub fn create_review(&self) -> Result<PathBuf, Error> {
+        let path = self.review_path();
+        match fs::OpenOptions::new().write(true).create_new(true).open(&path) {
+            Ok(_) => Ok(path),
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => Ok(path),
+            Err(e) => Err(Error::Write(path, e)),
+        }
     }
 
     /// The title, else the name of the folder.
@@ -373,10 +441,32 @@ impl Project {
         Ok(())
     }
 
-    /// `review.toml` written whole, atomically.
+    /// `review.toml` written whole, atomically; not while the project is new.
     fn save(&self) -> Result<(), Error> {
+        if self.new {
+            return Ok(());
+        }
         write_atomically(&self.root.join(MANIFEST), &self.document.to_string())
     }
+}
+
+/// Whether a path has the extension of a Markdown file.
+fn is_markdown(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("md") || e.eq_ignore_ascii_case("markdown"))
+}
+
+/// The name of a new review file: the name typed, `.md` added when it has no extension.
+fn markdown_name(name: &str) -> Result<String, Error> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(Error::Name(String::new()));
+    }
+    let name = if Path::new(name).extension().is_none() { format!("{name}.md") } else { name.to_string() };
+    if !is_markdown(Path::new(&name)) {
+        return Err(Error::Name(name));
+    }
+    Ok(name)
 }
 
 /// A text without the spaces round it; none when nothing is left.
@@ -451,8 +541,9 @@ mod tests {
     }
 
     #[test]
-    fn a_first_colour_makes_review_toml() {
+    fn a_first_colour_is_written_to_the_review_toml_there() {
         let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join(MANIFEST), "").unwrap();
         let mut project = Project::open(dir.path()).unwrap();
         project.set_colour(Colour::Teal).unwrap();
         let written = fs::read_to_string(dir.path().join(MANIFEST)).unwrap();
@@ -480,6 +571,7 @@ mod tests {
     #[test]
     fn the_review_is_review_md_until_another_file_is_chosen() {
         let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join(MANIFEST), "").unwrap();
         let mut project = Project::open(dir.path()).unwrap();
         assert_eq!(project.review_path(), dir.path().join(REVIEW));
         // not written yet: empty
@@ -565,6 +657,145 @@ mod tests {
         project.set_journal(None).unwrap();
         project.set_due(None).unwrap();
         assert!(!dir.path().join(MANIFEST).exists());
+    }
+
+    #[test]
+    fn a_folder_is_new_until_it_has_a_review_toml() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(Project::open(dir.path()).unwrap().is_new());
+        fs::write(dir.path().join(MANIFEST), "").unwrap();
+        assert!(!Project::open(dir.path()).unwrap().is_new());
+    }
+
+    #[test]
+    fn nothing_is_written_while_the_project_is_new_not_even_the_colour() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut project = Project::open(dir.path()).unwrap();
+        project.set_colour(Colour::Teal).unwrap();
+        project.set_title(Some("Overshoot".into())).unwrap();
+        project.set_due(Some("2026-11-14".parse().unwrap())).unwrap();
+        project.link(&[PathBuf::from("/elsewhere/a.pdf")]).unwrap();
+        assert!(project.is_new());
+        assert_eq!(project.manifest.colour, Some(Colour::Teal));
+        assert_eq!(project.name(), "Overshoot");
+        assert!(!dir.path().join(MANIFEST).exists());
+    }
+
+    #[test]
+    fn creating_writes_review_toml_with_what_was_set_and_makes_the_review_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut project = Project::open(dir.path()).unwrap();
+        project.set_colour(Colour::Teal).unwrap();
+        project.set_title(Some("Overshoot thresholds".into())).unwrap();
+        project.set_journal(Some("The Cryosphere".into())).unwrap();
+        project.set_due(Some("2026-11-14".parse().unwrap())).unwrap();
+        project.create(ReviewFile::New("review")).unwrap();
+        assert!(!project.is_new());
+        assert_eq!(fs::read_to_string(dir.path().join(REVIEW)).unwrap(), "");
+        let written = fs::read_to_string(dir.path().join(MANIFEST)).unwrap();
+        assert!(!written.contains("review ="), "{written}");
+        let reopened = Project::open(dir.path()).unwrap();
+        assert!(!reopened.is_new());
+        assert_eq!(reopened.manifest, project.manifest);
+        assert_eq!(reopened.manifest.colour, Some(Colour::Teal));
+        assert_eq!(reopened.name(), "Overshoot thresholds");
+        // written from now on
+        project.set_short(Some("OT".into())).unwrap();
+        assert_eq!(Project::open(dir.path()).unwrap().manifest.short.as_deref(), Some("OT"));
+    }
+
+    #[test]
+    fn another_name_makes_that_file_the_review() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut project = Project::open(dir.path()).unwrap();
+        project.create(ReviewFile::New("notes.markdown")).unwrap();
+        assert!(dir.path().join("notes.markdown").is_file());
+        assert!(!dir.path().join(REVIEW).exists());
+        assert_eq!(fs::read_to_string(dir.path().join(MANIFEST)).unwrap(), "review = \"notes.markdown\"\n");
+        assert_eq!(Project::open(dir.path()).unwrap().review_path(), dir.path().join("notes.markdown"));
+    }
+
+    #[test]
+    fn a_name_without_an_extension_gets_md() {
+        for (typed, made) in [("notes", "notes.md"), (" notes ", "notes.md"), ("review.md", "review.md"), ("Notes.MD", "Notes.MD")] {
+            let dir = tempfile::tempdir().unwrap();
+            Project::open(dir.path()).unwrap().create(ReviewFile::New(typed)).unwrap();
+            assert!(dir.path().join(made).is_file(), "{typed}");
+        }
+    }
+
+    #[test]
+    fn a_review_name_that_is_not_one_creates_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("taken.md"), "mine").unwrap();
+        let mut project = Project::open(dir.path()).unwrap();
+        for name in ["", "  ", "a/b.md", "../b.md", "notes.txt"] {
+            assert!(matches!(project.create(ReviewFile::New(name)), Err(Error::Name(_))), "{name}");
+        }
+        assert!(matches!(project.create(ReviewFile::New("taken")), Err(Error::Exists(_))));
+        assert_eq!(fs::read_to_string(dir.path().join("taken.md")).unwrap(), "mine");
+        assert!(project.is_new());
+        let names: Vec<_> = fs::read_dir(dir.path()).unwrap().map(|e| e.unwrap().file_name()).collect();
+        assert_eq!(names, ["taken.md"]);
+    }
+
+    #[test]
+    fn a_markdown_file_there_is_chosen_as_the_review() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join("round-1")).unwrap();
+        fs::write(dir.path().join("round-1/notes.md"), "notes").unwrap();
+        fs::write(dir.path().join(REVIEW), "mine").unwrap();
+        let mut project = Project::open(dir.path()).unwrap();
+        project.create(ReviewFile::Existing(&dir.path().join("round-1/notes.md"))).unwrap();
+        assert_eq!(fs::read_to_string(dir.path().join(MANIFEST)).unwrap(), "review = \"round-1/notes.md\"\n");
+        assert_eq!(project.read_review().unwrap(), "notes");
+
+        // review.md there already: no key
+        let other = tempfile::tempdir().unwrap();
+        fs::write(other.path().join(REVIEW), "mine").unwrap();
+        let mut project = Project::open(other.path()).unwrap();
+        project.create(ReviewFile::Existing(&other.path().join(REVIEW))).unwrap();
+        assert_eq!(fs::read_to_string(other.path().join(MANIFEST)).unwrap(), "");
+        assert_eq!(fs::read_to_string(other.path().join(REVIEW)).unwrap(), "mine");
+    }
+
+    #[test]
+    fn only_a_markdown_file_that_is_there_can_be_chosen() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("a.txt"), "").unwrap();
+        let mut project = Project::open(dir.path()).unwrap();
+        let error = project.create(ReviewFile::Existing(&dir.path().join("a.txt")));
+        assert!(matches!(error, Err(Error::NotMarkdown(_))));
+        let error = project.create(ReviewFile::Existing(&dir.path().join("none.md")));
+        assert!(matches!(error, Err(Error::Read(..))));
+        assert!(project.is_new());
+        assert!(!dir.path().join(MANIFEST).exists());
+    }
+
+    #[test]
+    fn a_project_defined_is_not_created_again() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join(MANIFEST), "title = \"T\"\n").unwrap();
+        let mut project = Project::open(dir.path()).unwrap();
+        assert!(matches!(project.create(ReviewFile::New("review")), Err(Error::Defined(_))));
+        assert!(!dir.path().join(REVIEW).exists());
+    }
+
+    #[test]
+    fn the_review_file_is_made_empty_where_the_project_says_and_never_replaced() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut project = Project::open(dir.path()).unwrap();
+        assert_eq!(project.create_review().unwrap(), dir.path().join(REVIEW));
+        assert_eq!(fs::read_to_string(dir.path().join(REVIEW)).unwrap(), "");
+        fs::write(dir.path().join(REVIEW), "typed").unwrap();
+        project.create_review().unwrap();
+        assert_eq!(fs::read_to_string(dir.path().join(REVIEW)).unwrap(), "typed");
+
+        project.set_review(&dir.path().join("notes.md")).unwrap();
+        project.create_review().unwrap();
+        assert_eq!(fs::read_to_string(dir.path().join("notes.md")).unwrap(), "");
+        project.set_review(&dir.path().join("none/notes.md")).unwrap();
+        assert!(matches!(project.create_review(), Err(Error::Write(..))));
     }
 
     /// A project folder and a folder elsewhere, with a few files.
