@@ -110,7 +110,7 @@ pub fn is_new(app: &AppHandle, root: &Path) -> bool {
 }
 
 /// The project of `root` unloaded, when no window shows it.
-fn release(app: &AppHandle, root: &Path) {
+pub fn release(app: &AppHandle, root: &Path) {
     let state = app.state::<AppState>();
     if state.windows.lock().unwrap().values().any(|r| r == root) {
         return;

@@ -4,6 +4,7 @@
 
 pub mod export;
 mod files;
+mod manuscript;
 mod menu;
 mod pane;
 mod refs;
@@ -194,6 +195,15 @@ fn open_project(app: AppHandle, path: PathBuf) -> Result<(), String> {
 #[tauri::command]
 fn choose_project(app: AppHandle) {
     menu::choose_project(&app, false);
+}
+
+/// A review started from the manuscript `pdf`: its folder, the project open with the title, journal and
+/// manuscript ID read from the PDF. Returns when the project is open.
+#[tauri::command]
+async fn new_review(app: AppHandle, pdf: PathBuf) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || manuscript::start(&app, &pdf))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -690,6 +700,7 @@ pub fn run() {
             set_settings,
             open_project,
             choose_project,
+            new_review,
             recent,
             bar,
             switch_project,
