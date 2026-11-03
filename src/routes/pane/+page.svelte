@@ -8,16 +8,23 @@
   // and as the pane loses the keys; read again when changed elsewhere (an editor, a sync client), the pane asking
   // which to keep when changes of its own are not yet written. A review file that is not there is not made as one
   // types: the pane says so, with a button to make it.
+  //
+  // What is shown, a round (its tab) or all of the text, is exported from the button of the header or the File menu:
+  // as a PDF, saved in the project and shown in the Finder, or as plain text, copied and saved (src/lib/export.ts).
 
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
+  import { Menu, MenuItem } from "@tauri-apps/api/menu";
+  import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { keymap } from "@codemirror/view";
   import { onMount } from "svelte";
   import "$lib/theme.css";
   import { insertQuote, setEditorFont, showSection, wordsOf } from "$lib/editor";
+  import { formatDate } from "$lib/due";
+  import { exportName, pdfDocument, section, toHtml, toPlainText } from "$lib/export";
   import FileEditor, { type Status } from "$lib/FileEditor.svelte";
   import { sections, type Section } from "$lib/sections";
-  import type { Settings } from "$lib/types";
+  import type { ProjectInfo, Settings } from "$lib/types";
 
   type Side = "bottom" | "right";
   type Placed = { side: Side; size: number; collapsed: boolean };
@@ -44,6 +51,11 @@
   /** the sections, as tabs, and the one shown alone (null: all of the text) */
   let tabs = $state<Section[]>([]);
   let active = $state<number | null>(null);
+  /** what an export says: that it is done, or what failed */
+  let note = $state("");
+  let exportError = $state("");
+  let exporting = false;
+  let noteTimer: ReturnType<typeof setTimeout> | undefined;
 
   /** The tabs and the words of what is shown, from the text. */
   function count(now: string) {
@@ -58,6 +70,58 @@
     const view = editor?.view();
     if (view) showSection(view, index);
     count(text());
+  }
+
+  /** What an export is of: the tab shown, else the whole review. */
+  const target = $derived((active === null ? undefined : tabs[active]?.title) ?? "Review");
+
+  /** Today, as `2026-11-14`. */
+  function today() {
+    const now = new Date();
+    return [now.getFullYear(), now.getMonth() + 1, now.getDate()].map((n, i) => String(n).padStart(i ? 2 : 4, "0")).join("-");
+  }
+
+  /** What is shown exported as a PDF in the project's `export` folder, shown in the Finder, or as plain text,
+   *  copied and saved there. */
+  async function exportAs(kind: "pdf" | "text") {
+    if (exporting || missing) return;
+    exporting = true;
+    clearTimeout(noteTimer);
+    [note, exportError] = ["", ""];
+    try {
+      await editor?.flush();
+      const all = text();
+      const markdown = section(all, active);
+      if (!markdown.trim()) throw "There is nothing to export";
+      const name = exportName(path, active === null ? null : (sections(all)[active]?.title ?? null));
+      if (kind === "text") {
+        await invoke("export_text", { name, text: toPlainText(markdown) });
+        note = "copied";
+        noteTimer = setTimeout(() => (note = ""), 3000);
+        return;
+      }
+      const [info, settings] = await Promise.all([invoke<ProjectInfo>("project_info"), invoke<Settings>("settings")]);
+      const html = pdfDocument({
+        heading: info.heading ?? "",
+        details: settings.header_details ? [info.journal, info.manuscript, formatDate(today(), settings.date_format)] : [],
+        body: toHtml(markdown),
+        signature: settings.sign ? settings.reviewer_name : null,
+      });
+      await revealItemInDir(await invoke<string>("export_pdf", { name, html }));
+    } catch (e) {
+      exportError = String(e);
+    } finally {
+      exporting = false;
+    }
+  }
+
+  /** The menu of the export button. */
+  async function exportMenu() {
+    const items = await Promise.all([
+      MenuItem.new({ text: `Export ${target} as PDF`, action: () => exportAs("pdf") }),
+      MenuItem.new({ text: `Copy ${target} as Plain Text`, action: () => exportAs("text") }),
+    ]);
+    await (await Menu.new({ items })).popup();
   }
 
   /** The inner edge dragged: the size follows, in points of the screen (the pane moves as it grows). */
@@ -131,6 +195,8 @@
         collapsed = e.payload.collapsed;
       }),
       listen("review-changed", () => editor?.changedOnDisk()),
+      // Export as PDF and Copy as Plain Text of the File menu
+      listen<"pdf" | "text">("export", (e) => exportAs(e.payload)),
       // Undo, Redo and Symbols… of the menu: the editor's own history, its list of symbols
       listen<string>("edit", (e) => {
         if (e.payload === "symbols") editor?.list();
@@ -202,11 +268,24 @@
       {#if !missing}
         <span class="meta">
           {words} words ·
-          {#if status === "error"}<span class="error" title={error}>not saved</span>{:else}{status === "saved" ? "saved" : "editing"}{/if}
+          {#if status === "error"}
+            <span class="error" title={error}>not saved</span>
+          {:else if exportError}
+            <span class="error" title={exportError}>not exported</span>
+          {:else if note}
+            {note}
+          {:else}
+            {status === "saved" ? "saved" : "editing"}
+          {/if}
         </span>
       {:else}
         <span class="meta"></span>
       {/if}
+      <button class="export" onclick={exportMenu} disabled={missing} title="Export {target}" aria-label="Export {target}">
+        <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+          <path d="M7 1.5v6.5M4.5 5.5 7 8l2.5-2.5M2 8.5v3a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
       <button onclick={() => invoke("pane_side")} title={side === "bottom" ? "To the Right (⌘⇧J)" : "To the Bottom (⌘⇧J)"}>
         {side === "bottom" ? "⇥" : "⤓"}
       </button>
@@ -336,6 +415,16 @@
   }
   button:hover {
     background: var(--chip);
+  }
+  button:disabled {
+    opacity: 0.4;
+  }
+  button:disabled:hover {
+    background: none;
+  }
+  .export {
+    display: flex;
+    padding: 4px 6px;
   }
   .arrow {
     display: flex;
