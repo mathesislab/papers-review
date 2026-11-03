@@ -14,7 +14,7 @@
   import { onMount } from "svelte";
   import type { Entry } from "tauri-plugin-pdfkit-api";
   import "$lib/theme.css";
-  import { badge, initials } from "$lib/bar";
+  import { badge, chip } from "$lib/bar";
   import { COLOURS, cssOf } from "$lib/colour";
   import { dueText } from "$lib/due";
   import FileEditor, { type Status } from "$lib/FileEditor.svelte";
@@ -365,6 +365,7 @@
       <aside class="projects" aria-label="Projects">
         {#each bar as item (item.root)}
           {@const due = badge(item.due)}
+          {@const label = chip(item.name, item.short)}
           <button
             class="tile"
             class:current={item.root === project.root}
@@ -374,7 +375,7 @@
             onclick={() => switchTo(item.root)}
             oncontextmenu={(e) => tileMenu(e, item)}
           >
-            <span class="chip" style:background={cssOf(item.colour) ?? "var(--tile-none)"}>{initials(item.name)}</span>
+            <span class="chip" style:background={cssOf(item.colour) ?? "var(--tile-none)"} style:font-size="{label.size}px">{label.text}</span>
             {#if due}<span class="badge" class:urgent={due.urgent}>{due.text}</span>{/if}
           </button>
         {/each}
@@ -605,6 +606,7 @@
     color: #fff;
     font-size: 13px;
     font-weight: 600;
+    white-space: nowrap;
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
   }
   .tile:not(.current):hover .chip {
