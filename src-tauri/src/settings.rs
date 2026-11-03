@@ -45,6 +45,12 @@ pub struct Settings {
     /// the font of the editors and its size (points)
     pub editor_font: EditorFont,
     pub editor_size: f64,
+    /// the reviewer's name, for the header of the PDF export
+    pub reviewer_name: String,
+    /// the review signed with `reviewer_name`; off, it is anonymous
+    pub sign: bool,
+    /// the header of the PDF has the journal, the manuscript, the title and the date; off, it is the heading alone
+    pub header_details: bool,
 }
 
 impl Default for Settings {
@@ -55,6 +61,9 @@ impl Default for Settings {
             date_format: DateFormat::default(),
             editor_font: EditorFont::default(),
             editor_size: 13.5,
+            reviewer_name: String::new(),
+            sign: false,
+            header_details: false,
         }
     }
 }
@@ -97,6 +106,16 @@ mod tests {
     }
 
     #[test]
+    fn the_review_is_anonymous_with_a_plain_header_unless_the_settings_say_otherwise() {
+        let settings = Settings::default();
+        assert_eq!((settings.reviewer_name.as_str(), settings.sign, settings.header_details), ("", false, false));
+        let old: Settings = serde_json::from_str(r#"{"project_bar": false}"#).unwrap();
+        assert_eq!((old.reviewer_name.as_str(), old.sign, old.header_details), ("", false, false));
+        let set: Settings = serde_json::from_str(r#"{"reviewer_name": "A. Reviewer", "sign": true, "header_details": true}"#).unwrap();
+        assert_eq!((set.reviewer_name.as_str(), set.sign, set.header_details), ("A. Reviewer", true, true));
+    }
+
+    #[test]
     fn saved_and_loaded_back_a_missing_or_broken_file_is_the_defaults() {
         let dir = std::env::temp_dir().join(format!("papers-review-settings-{}", std::process::id()));
         assert_eq!(Settings::load(&dir), Settings::default());
@@ -106,6 +125,9 @@ mod tests {
             date_format: DateFormat::Dmy,
             editor_font: EditorFont::Serif,
             editor_size: 16.0,
+            reviewer_name: "A. Reviewer".into(),
+            sign: true,
+            header_details: true,
         };
         settings.save(&dir);
         assert_eq!(Settings::load(&dir), settings);

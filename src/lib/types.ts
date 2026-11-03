@@ -46,6 +46,12 @@ export type Settings = {
   /** the font of the editors and its size (points) */
   editor_font: EditorFont;
   editor_size: number;
+  /** the reviewer's name, for the header of the PDF export */
+  reviewer_name: string;
+  /** the review signed with that name; off: anonymous */
+  sign: boolean;
+  /** the header of the PDF has the journal, manuscript, title and date; off: the heading alone */
+  header_details: boolean;
 };
 
 /** mirrors settings::DateFormat: 2026-11-14, 14.11.2026, 11/14/2026 */
