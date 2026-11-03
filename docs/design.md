@@ -251,9 +251,10 @@ the margin).
    saving, the file watched; any Markdown file as the review; the tabs of its
    sections; the pane collapsed to its header, the PDF's tools bar, the
    files as a clearer tree.
-3. Quotes with page and line (done); the symbols.
-4. The project bar and Settings (done): `settings.json` in the app's data
-   folder.
-5. Export.
-6. References.
-7. Text files; new review from a dropped manuscript.
+3. Done: quotes with page and line; the typed symbols.
+4. Done: the project bar and Settings (`settings.json` in the app's data
+   folder); the info card, the new project's card.
+5. Done: export, as PDF and as plain text.
+6. Done: references.
+7. Text files edited in their tab (done); new review from a dropped
+   manuscript.
