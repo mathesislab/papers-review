@@ -16,6 +16,8 @@ pub struct ReviewView {
     pub path: PathBuf,
     pub name: String,
     pub text: String,
+    /// whether the file is there; the pane offers to make it when it is not
+    pub exists: bool,
 }
 
 pub fn read(app: &AppHandle, window: &str) -> Result<ReviewView, String> {
@@ -30,23 +32,35 @@ pub fn read(app: &AppHandle, window: &str) -> Result<ReviewView, String> {
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default(),
         text: project.read_review().map_err(|e| e.to_string())?,
+        exists: path.exists(),
         path,
     })
 }
 
 /// The review written to the file the pane read (it may have changed to
 /// another since: what was typed goes where it was read from). A file that
-/// was not there yet shows in the files.
-pub fn write(app: &AppHandle, window: &str, path: &Path, text: &str) -> Result<(), String> {
-    let root = windows::root_of(app, window).ok_or("no project in this window")?;
+/// is not there is not made: the pane offers to make it (`create`).
+pub fn write(path: &Path, text: &str) -> Result<(), String> {
     if !path.extension().is_some_and(|e| e.eq_ignore_ascii_case("md") || e.eq_ignore_ascii_case("markdown")) {
         return Err(format!("{}: not a Markdown file", path.display()));
     }
-    let new = !path.exists();
-    review_core::project::write_atomically(path, text).map_err(|e| e.to_string())?;
-    if new {
-        windows::changed(app, &root);
+    if !path.exists() {
+        return Err(format!("{}: no review file yet", path.display()));
     }
+    review_core::project::write_atomically(path, text).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// The review file of the project made, empty: it shows in the files.
+pub fn create(app: &AppHandle, window: &str) -> Result<(), String> {
+    let root = windows::root_of(app, window).ok_or("no project in this window")?;
+    {
+        let state = app.state::<AppState>();
+        let projects = state.projects.lock().unwrap();
+        let project = projects.get(&root).ok_or("the project is not open")?;
+        project.create_review().map_err(|e| e.to_string())?;
+    }
+    windows::changed(app, &root);
     Ok(())
 }
 

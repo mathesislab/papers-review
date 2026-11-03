@@ -520,10 +520,16 @@ fn review(app: AppHandle, webview: Webview) -> Result<review::ReviewView, String
     review::read(&app, webview.window().label())
 }
 
-/// The review as typed, written to the file the pane read.
+/// The review as typed, written to the file the pane read, if it is there.
 #[tauri::command]
-fn save_review(app: AppHandle, webview: Webview, path: PathBuf, text: String) -> Result<(), String> {
-    review::write(&app, webview.window().label(), &path, &text)
+fn save_review(path: PathBuf, text: String) -> Result<(), String> {
+    review::write(&path, &text)
+}
+
+/// The review file, empty, where the project says it is: the pane's button when it is not there.
+#[tauri::command]
+fn create_review(app: AppHandle, webview: Webview) -> Result<(), String> {
+    review::create(&app, webview.window().label())
 }
 
 /// A Markdown file of the project as its review, shown in the pane.
@@ -626,6 +632,7 @@ pub fn run() {
             pane_placement,
             review,
             save_review,
+            create_review,
             set_review,
             trash
         ])
