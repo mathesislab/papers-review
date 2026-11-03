@@ -153,12 +153,23 @@ NSVisualEffectView under it.
 
 ## Export
 
-- A round (or the whole file) as PDF: the Markdown to HTML in Rust
-  (comrak), printed by WebKit; a header (journal, manuscript, title, date),
-  anonymous unless asked.
-- Plain text on the clipboard for a journal's web form: the symbols kept,
-  the Markdown marks dropped.
-- Into `export/` of the project.
+- The review (or its section shown in the pane) as PDF or text, from the
+  File menu (`⌘E`, `⇧⌘E`), into `export/` of the project (`export_pdf`,
+  `export_text`). The pane turns the Markdown into HTML and the text with
+  the marks dropped (the symbols kept); the text is also copied.
+- The header is the project's heading (`heading` in `review.toml`, "Manuscript
+  review" without), with journal, manuscript, title and date only when the
+  setting says so. The review is anonymous unless the settings give a
+  reviewer's name and sign it.
+- PDF printing: a hidden window (`export-<n>`, the route `/export`) asks for
+  the HTML (`export_html`), renders it and says so (`export_rendered`); its
+  WKWebView is printed with AppKit, A4, margins of 2 cm, to a file saved
+  beside the target and renamed. macOS only. The print operation is made on
+  the main thread but run on a thread of its own: WebKit's printing view
+  paginates and draws from the thread that runs it, and on the main thread
+  it finds blank pages or no end of them. The view must be framed before it
+  runs. `cargo run --example export_pdf -- <file.pdf>` prints a long page
+  that way from a window never shown.
 
 ## References
 
