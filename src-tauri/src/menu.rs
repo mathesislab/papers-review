@@ -21,6 +21,7 @@ const PAGE: &[&str] = &[
     "find-next",
     "find-previous",
     "quote",
+    "info",
 ];
 
 pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
@@ -69,6 +70,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             &item("open", "Open Project…", Some("CmdOrCtrl+O"))?,
             &item("open-new", "Open Project in New Window…", Some("Shift+CmdOrCtrl+O"))?,
             &open_recent,
+            &separator()?,
+            &item("info", "Project Info…", Some("CmdOrCtrl+I"))?,
             &separator()?,
             &item("close-tab", "Close Tab", Some("CmdOrCtrl+W"))?,
             &item("close-window", "Close Window", Some("Shift+CmdOrCtrl+W"))?,
