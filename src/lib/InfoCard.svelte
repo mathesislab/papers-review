@@ -1,9 +1,9 @@
 <script lang="ts">
   // The card of the project's info, over the top of the window like a macOS sheet: its name, short name (for the
-  // tile of the project bar), journal, manuscript, due date, colour, the file of the review, the files and folders
-  // linked from elsewhere, and the project's folder (to rename in the Finder). Open until Done or Esc. What is typed,
-  // chosen as the colour or the review is written on Done, Cancel (or Esc) drops it; the linked files change as they
-  // are added or taken out.
+  // tile of the project bar), journal, manuscript, the heading of its PDF exports, due date, colour, the file of the
+  // review, the files and folders linked from elsewhere, and the project's folder (to rename in the Finder). Open
+  // until Done or Esc. What is typed, chosen as the colour or the review is written on Done, Cancel (or Esc) drops
+  // it; the linked files change as they are added or taken out.
 
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";

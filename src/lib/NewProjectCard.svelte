@@ -1,8 +1,9 @@
 <script lang="ts">
   // The card of a new project, over the top of the window like the project's info: a folder without a review.toml
-  // asks for the project's name, short name, journal, manuscript, due date and the file of its review, a new one
-  // (review.md) or a Markdown file of the folder. Create writes review.toml and makes the file; Cancel closes the
-  // project, which leaves nothing behind. There is no Esc: it would close the project by a stray key.
+  // asks for the project's name, short name, journal, manuscript, the heading of its PDF exports, due date and the
+  // file of its review, a new one (review.md) or a Markdown file of the folder. Create writes review.toml and makes
+  // the file; Cancel closes the project, which leaves nothing behind. There is no Esc: it would close the project by
+  // a stray key.
 
   import { invoke } from "@tauri-apps/api/core";
   import { onMount } from "svelte";
