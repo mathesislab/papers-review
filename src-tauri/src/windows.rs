@@ -211,10 +211,7 @@ pub fn switch(app: &AppHandle, window: &str, root: &Path) -> Result<(), String> 
     release(app, &old);
     state.saved.lock().unwrap().switched(&old, root);
     state.save();
-    let title = state.projects.lock().unwrap().get(root).map(|p| p.name());
-    if let (Some(w), Some(title)) = (app.get_window(window), title) {
-        let _ = w.set_title(&title);
-    }
+    retitle(app, window);
     pane::switched(app, window, &old);
     // the pane writes what was typed to the file it read, then reads the new review; the page loads again
     let _ = app.emit_to(EventTarget::webview(pane::label(window)), "review-switched", ());
@@ -278,6 +275,28 @@ pub fn settings_changed(app: &AppHandle) {
         }
         drop(saved);
         state.save();
+    }
+    menu::update(app);
+    tell_bar(app);
+}
+
+/// The window titled with the name of its project.
+fn retitle(app: &AppHandle, window: &str) {
+    let name = root_of(app, window).and_then(|root| {
+        let state = app.state::<AppState>();
+        let projects = state.projects.lock().unwrap();
+        projects.get(&root).map(|p| p.name())
+    });
+    if let (Some(window), Some(name)) = (app.get_window(window), name) {
+        let _ = window.set_title(&name);
+    }
+}
+
+/// The name, the short name or the due date of the project of `root` changed: the titles of its windows,
+/// the menu and the project bars follow.
+pub fn renamed(app: &AppHandle, root: &Path) {
+    for window in of_project(app, root) {
+        retitle(app, &window);
     }
     menu::update(app);
     tell_bar(app);

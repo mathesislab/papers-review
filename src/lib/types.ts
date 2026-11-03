@@ -14,6 +14,8 @@ export type Project = {
   root: string;
   name: string;
   title: string | null;
+  /** a few letters for the project bar */
+  short: string | null;
   journal: string | null;
   manuscript: string | null;
   due: string | null;
@@ -22,6 +24,35 @@ export type Project = {
   linked: Node[];
   /** the Markdown file of the review */
   review: string;
+};
+
+/** mirrors ProjectInfo: the project as its settings show it (the `project_info` command) */
+export type ProjectInfo = {
+  root: string;
+  name: string;
+  title: string | null;
+  short: string | null;
+  journal: string | null;
+  manuscript: string | null;
+  /** YYYY-MM-DD */
+  due: string | null;
+  colour: Colour;
+  /** the Markdown file of the review */
+  review: string;
+  /** every Markdown file of the project, the linked ones too */
+  markdown: string[];
+  /** the files linked from elsewhere, by their paths */
+  linked: string[];
+};
+
+/** mirrors InfoEdit: what `set_project_info` writes; a null or empty text removes the key */
+export type InfoEdit = {
+  title: string | null;
+  short: string | null;
+  journal: string | null;
+  manuscript: string | null;
+  /** YYYY-MM-DD */
+  due: string | null;
 };
 
 /** mirrors Recent */
@@ -37,4 +68,4 @@ export type Settings = {
 };
 
 /** mirrors BarItem: a project of the project bar */
-export type BarItem = { root: string; name: string; colour: Colour; due: string | null; missing: boolean };
+export type BarItem = { root: string; name: string; short: string | null; colour: Colour; due: string | null; missing: boolean };

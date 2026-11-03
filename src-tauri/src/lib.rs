@@ -14,8 +14,8 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::atomic::AtomicUsize;
 
-use review_core::{Colour, Node, Project};
-use serde::Serialize;
+use review_core::{Colour, Datetime, Node, Project};
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State, Webview, WindowEvent};
 
 use settings::Settings;
@@ -50,6 +50,7 @@ struct ProjectView {
     root: PathBuf,
     name: String,
     title: Option<String>,
+    short: Option<String>,
     journal: Option<String>,
     manuscript: Option<String>,
     due: Option<String>,
@@ -58,6 +59,36 @@ struct ProjectView {
     linked: Vec<Node>,
     /// the Markdown file of the review
     review: PathBuf,
+}
+
+/// A project as the page of its settings shows it: what `review.toml` says, the Markdown files to choose
+/// the review from and the files linked, as paths.
+#[derive(Serialize)]
+struct ProjectInfo {
+    root: PathBuf,
+    name: String,
+    title: Option<String>,
+    short: Option<String>,
+    journal: Option<String>,
+    manuscript: Option<String>,
+    /// `YYYY-MM-DD`
+    due: Option<String>,
+    colour: Colour,
+    review: PathBuf,
+    markdown: Vec<PathBuf>,
+    linked: Vec<PathBuf>,
+}
+
+/// What the page of a project's settings changes: all of it is written, a missing text or an empty one
+/// removes the key.
+#[derive(Deserialize)]
+struct InfoEdit {
+    title: Option<String>,
+    short: Option<String>,
+    journal: Option<String>,
+    manuscript: Option<String>,
+    /// `YYYY-MM-DD`
+    due: Option<String>,
 }
 
 /// A project opened before, as the start window lists it.
@@ -75,6 +106,7 @@ struct Recent {
 pub struct BarItem {
     pub root: PathBuf,
     pub name: String,
+    pub short: Option<String>,
     pub colour: Colour,
     pub due: Option<String>,
     /// gone, or no longer readable
@@ -88,6 +120,7 @@ pub fn bar_items(roots: &[PathBuf]) -> Vec<BarItem> {
         .map(|root| match Project::open(root) {
             Ok(project) => BarItem {
                 name: project.name(),
+                short: project.manifest.short.clone(),
                 colour: project.manifest.colour.unwrap_or(Colour::None),
                 due: project.manifest.due.map(|d| d.to_string()),
                 root: root.clone(),
@@ -98,6 +131,7 @@ pub fn bar_items(roots: &[PathBuf]) -> Vec<BarItem> {
                     .file_name()
                     .map(|n| n.to_string_lossy().into_owned())
                     .unwrap_or_default(),
+                short: None,
                 colour: Colour::None,
                 due: None,
                 root: root.clone(),
@@ -184,6 +218,7 @@ fn project(webview: Webview, state: State<'_, AppState>) -> Result<ProjectView, 
     Ok(ProjectView {
         name: project.name(),
         title: manifest.title.clone(),
+        short: manifest.short.clone(),
         journal: manifest.journal.clone(),
         manuscript: manifest.manuscript.clone(),
         due: manifest.due.map(|d| d.to_string()),
@@ -193,6 +228,58 @@ fn project(webview: Webview, state: State<'_, AppState>) -> Result<ProjectView, 
         review: project.review_path(),
         root,
     })
+}
+
+/// The project as the page of its settings shows it.
+#[tauri::command]
+fn project_info(webview: Webview, state: State<'_, AppState>) -> Result<ProjectInfo, String> {
+    let root = root_of(&webview)?;
+    let projects = state.projects.lock().unwrap();
+    let project = projects.get(&root).ok_or("the project is not open")?;
+    let manifest = &project.manifest;
+    Ok(ProjectInfo {
+        name: project.name(),
+        title: manifest.title.clone(),
+        short: manifest.short.clone(),
+        journal: manifest.journal.clone(),
+        manuscript: manifest.manuscript.clone(),
+        due: manifest.due.map(|d| d.to_string()),
+        colour: manifest.colour.unwrap_or(Colour::None),
+        review: project.review_path(),
+        markdown: project.markdown_files(),
+        linked: project.linked().into_iter().map(|n| n.path).collect(),
+        root,
+    })
+}
+
+/// The title, short name, journal, manuscript and due date of the project, for all its windows, written
+/// in its `review.toml`.
+#[tauri::command]
+fn set_project_info(app: AppHandle, webview: Webview, state: State<'_, AppState>, info: InfoEdit) -> Result<(), String> {
+    let root = root_of(&webview)?;
+    let due = match info.due.as_deref().map(str::trim).filter(|d| !d.is_empty()) {
+        Some(due) => Some(
+            due.parse::<Datetime>()
+                .ok()
+                .filter(|d| d.date.is_some() && d.time.is_none())
+                .ok_or_else(|| format!("{due}: not a date (YYYY-MM-DD)"))?,
+        ),
+        None => None,
+    };
+    {
+        let mut projects = state.projects.lock().unwrap();
+        let project = projects.get_mut(&root).ok_or("the project is not open")?;
+        let written = project
+            .set_title(info.title)
+            .and_then(|()| project.set_short(info.short))
+            .and_then(|()| project.set_journal(info.journal))
+            .and_then(|()| project.set_manuscript(info.manuscript))
+            .and_then(|()| project.set_due(due));
+        written.map_err(|e| e.to_string())?;
+    }
+    windows::renamed(&app, &root);
+    windows::changed(&app, &root);
+    Ok(())
 }
 
 /// How the window of the project looked.
@@ -348,6 +435,8 @@ pub fn run() {
             remove_from_bar,
             open_in_new_window,
             project,
+            project_info,
+            set_project_info,
             layout,
             set_layout,
             set_colour,
