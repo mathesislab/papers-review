@@ -266,34 +266,7 @@ footer {
 }
 
 /* where a screenshot will go: a dashed box with its caption */
-figure.placeholder {
-  margin: 0;
-}
-
-figure.placeholder .box {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  aspect-ratio: 16 / 10;
-  border: 2px dashed var(--line);
-  border-radius: var(--radius);
-  color: var(--muted);
-  font-size: 15px;
-}
-
-figure.placeholder figcaption {
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 14px;
-  text-align: center;
-}
-
-.hero figure.placeholder {
-  max-width: 980px;
-  margin: 0 auto;
-}
-
-.also {
+.hero .also {
   max-width: 760px;
   margin: 0 auto 72px;
   padding: 28px 32px;
