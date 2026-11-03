@@ -38,7 +38,17 @@ export type Settings = {
   project_bar: boolean;
   /** the user's own sequences typed that become symbols, and their replacement; an empty one turns a default off */
   symbols: [string, string][];
+  date_format: DateFormat;
+  /** the font of the editors and its size (points) */
+  editor_font: EditorFont;
+  editor_size: number;
 };
+
+/** mirrors settings::DateFormat: 2026-11-14, 14.11.2026, 11/14/2026 */
+export type DateFormat = "ymd" | "dmy" | "mdy";
+
+/** mirrors settings::EditorFont */
+export type EditorFont = "system" | "serif" | "mono";
 
 /** mirrors BarItem: a project of the project bar */
 export type BarItem = { root: string; name: string; short: string | null; colour: Colour; due: string | null; missing: boolean };

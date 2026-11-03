@@ -9,7 +9,30 @@ use crate::state;
 
 const FILE: &str = "settings.json";
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// How a date is written and read in the app.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DateFormat {
+    /// 2026-11-14
+    #[default]
+    Ymd,
+    /// 14.11.2026
+    Dmy,
+    /// 11/14/2026
+    Mdy,
+}
+
+/// The font of the editors (the review pane, the files edited in tabs).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum EditorFont {
+    #[default]
+    System,
+    Serif,
+    Mono,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
     /// the projects in one window, with a bar to switch between them; off,
@@ -18,11 +41,21 @@ pub struct Settings {
     /// the user's own sequences typed that become symbols, each with what it
     /// becomes; an empty replacement turns off a default sequence
     pub symbols: Vec<(String, String)>,
+    pub date_format: DateFormat,
+    /// the font of the editors and its size (points)
+    pub editor_font: EditorFont,
+    pub editor_size: f64,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { project_bar: true, symbols: Vec::new() }
+        Settings {
+            project_bar: true,
+            symbols: Vec::new(),
+            date_format: DateFormat::default(),
+            editor_font: EditorFont::default(),
+            editor_size: 13.5,
+        }
     }
 }
 
@@ -56,10 +89,24 @@ mod tests {
     }
 
     #[test]
+    fn dates_year_first_and_the_system_font_by_default() {
+        let settings: Settings = serde_json::from_str(r#"{"date_format": "dmy"}"#).unwrap();
+        assert_eq!(settings.date_format, DateFormat::Dmy);
+        assert_eq!(Settings::default().date_format, DateFormat::Ymd);
+        assert_eq!(Settings::default().editor_font, EditorFont::System);
+    }
+
+    #[test]
     fn saved_and_loaded_back_a_missing_or_broken_file_is_the_defaults() {
         let dir = std::env::temp_dir().join(format!("papers-review-settings-{}", std::process::id()));
         assert_eq!(Settings::load(&dir), Settings::default());
-        let settings = Settings { project_bar: false, symbols: vec![("(c)".into(), "©".into())] };
+        let settings = Settings {
+            project_bar: false,
+            symbols: vec![("(c)".into(), "©".into())],
+            date_format: DateFormat::Dmy,
+            editor_font: EditorFont::Serif,
+            editor_size: 16.0,
+        };
         settings.save(&dir);
         assert_eq!(Settings::load(&dir), settings);
         std::fs::write(dir.join(FILE), "{").unwrap();
