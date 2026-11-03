@@ -32,8 +32,13 @@ egusphere-2026-1234/
 
 `review.toml` is the one file of the app: what the folder does not tell.
 Files from elsewhere are linked (their path in `review.toml`), copied or
-moved in, as asked. A folder without `review.toml` opens too: the app writes
-one when there is something to keep.
+moved in, as asked. A folder without `review.toml` is a new project: its
+window opens with a card asking for the name, short name, journal,
+manuscript ID, due date and review file (a new `review.md`, or a Markdown
+file of the folder). Create writes `review.toml` and makes the review file;
+Cancel closes the project, leaving nothing, and it is not among the recent
+ones until created. A review file that is missing later is not made as one
+types: the pane offers to make it.
 
 New review: a manuscript dropped on the app makes the folder; the title,
 journal and DOI are read from the PDF with papers-rs (as papers reads them).
