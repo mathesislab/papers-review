@@ -579,6 +579,7 @@
                   load={() => read(path)}
                   save={write}
                   mono={edited.kind !== "markdown"}
+                  symbols={settings?.symbols}
                   bind:status
                   bind:error={writeError}
                 />

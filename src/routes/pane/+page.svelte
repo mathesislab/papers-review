@@ -16,6 +16,7 @@
   import { insertQuote, showSection, wordsOf } from "$lib/editor";
   import FileEditor, { type Status } from "$lib/FileEditor.svelte";
   import { sections, type Section } from "$lib/sections";
+  import type { Settings } from "$lib/types";
 
   type Side = "bottom" | "right";
   type Placed = { side: Side; size: number; collapsed: boolean };
@@ -34,6 +35,8 @@
   let words = $state(0);
   let status = $state<Status>("saved");
   let error = $state("");
+  /** the user's own sequences typed that become symbols (the settings) */
+  let symbols = $state<[string, string][]>([]);
   /** the sections, as tabs, and the one shown alone (null: all of the text) */
   let tabs = $state<Section[]>([]);
   let active = $state<number | null>(null);
@@ -88,12 +91,16 @@
   const release = keymap.of([{ key: "Escape", run: () => (invoke("pane_release"), true) }]);
   const more = [release];
 
+  const loadSettings = () => invoke<Settings>("settings").then((s) => (symbols = s.symbols));
+
   onMount(() => {
     // placed before this page listened, maybe
     invoke<Placed | null>("pane_placement").then((placed) => {
       if (placed) [side, size, collapsed] = [placed.side, placed.size, placed.collapsed];
     });
+    loadSettings();
     const unlisteners = [
+      listen("settings-changed", loadSettings),
       listen<Placed>("pane-placed", (e) => {
         side = e.payload.side;
         size = e.payload.size;
@@ -176,7 +183,7 @@
     {/if}
   </header>
   <main>
-    <FileEditor bind:this={editor} {load} {save} extensions={more} onchange={count} bind:status bind:error bind:path />
+    <FileEditor bind:this={editor} {load} {save} {symbols} extensions={more} onchange={count} bind:status bind:error bind:path />
   </main>
 </div>
 

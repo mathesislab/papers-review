@@ -15,11 +15,14 @@ pub struct Settings {
     /// the projects in one window, with a bar to switch between them; off,
     /// each project opens in a window of its own
     pub project_bar: bool,
+    /// the user's own sequences typed that become symbols, each with what it
+    /// becomes; an empty replacement turns off a default sequence
+    pub symbols: Vec<(String, String)>,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { project_bar: true }
+        Settings { project_bar: true, symbols: Vec::new() }
     }
 }
 
@@ -46,11 +49,19 @@ mod tests {
     }
 
     #[test]
+    fn the_symbols_are_pairs_and_a_file_without_them_has_none() {
+        let settings: Settings = serde_json::from_str(r#"{"symbols": [["(c)", "©"], ["->", ""]]}"#).unwrap();
+        assert_eq!(settings.symbols, [("(c)".to_string(), "©".to_string()), ("->".to_string(), String::new())]);
+        assert!(serde_json::from_str::<Settings>(r#"{"project_bar": false}"#).unwrap().symbols.is_empty());
+    }
+
+    #[test]
     fn saved_and_loaded_back_a_missing_or_broken_file_is_the_defaults() {
         let dir = std::env::temp_dir().join(format!("papers-review-settings-{}", std::process::id()));
         assert_eq!(Settings::load(&dir), Settings::default());
-        Settings { project_bar: false }.save(&dir);
-        assert!(!Settings::load(&dir).project_bar);
+        let settings = Settings { project_bar: false, symbols: vec![("(c)".into(), "©".into())] };
+        settings.save(&dir);
+        assert_eq!(Settings::load(&dir), settings);
         std::fs::write(dir.join(FILE), "{").unwrap();
         assert_eq!(Settings::load(&dir), Settings::default());
         let _ = std::fs::remove_dir_all(&dir);

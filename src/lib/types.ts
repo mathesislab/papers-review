@@ -36,6 +36,8 @@ export type Layout = { files: boolean; files_width: number; tabs: string[]; fron
 export type Settings = {
   /** the projects in one window, with a bar to switch between them; off: each in a window of its own */
   project_bar: boolean;
+  /** the user's own sequences typed that become symbols, and their replacement; an empty one turns a default off */
+  symbols: [string, string][];
 };
 
 /** mirrors BarItem: a project of the project bar */
