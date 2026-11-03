@@ -102,7 +102,8 @@ share its colour.
   while the card shows.
 - **Viewer**: a PDF in PDFKit (tauri-plugin-pdfkit), its tools in a bar
   under the tabs as in Papers Desktop (the outline, beside the PDF; find;
-  the page; zoom; open in the default app). A Markdown, text or BibTeX
+  ‹ and › at its left, back and forward to the page a link left; the page,
+  a click on it a field to type one; zoom; open in the default app). A Markdown, text or BibTeX
   file is edited in its tab, filling the viewer (the same editor as the
   review pane, monospace unless Markdown): written half a second after the
   typing stops and as it loses the keys, read again when changed on disk
@@ -110,6 +111,11 @@ share its colour.
   UTF-8 keeps its name and Open in Default App. Tabs for the files open; that
   of a paper outside the project has a `+` before its `✕`, Add to the
   Project…: linked, or copied, and the tab then shows the copy, at its page.
+- **Go menu**: Back (`⌘[`) and Forward (`⌘]`) in the PDF's history, Previous
+  and Next Page (`⌥⌘↑`, `⌥⌘↓`), First and Last Page, Go to Page… (`⌥⌘G`, the
+  tools bar's page field). `⌘[` and `⌘]` are indent less and more in an
+  editor with the keys (the review pane, a file edited in its tab), as in
+  CodeMirror.
 - **Review pane** (`⌘J`): a Markdown editor over the viewer, at the bottom
   or on the right (`⌘⇧J`), its inner edge dragged for its size; its side,
   sizes and whether shown kept per project (the app's `state.json`). `⌘J`
