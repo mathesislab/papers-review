@@ -98,9 +98,9 @@ share its colour.
   or on the right (`⌘⇧J`), its inner edge dragged for its size; its side,
   sizes and whether shown kept per project (the app's `state.json`). `⌘J`
   hides it when it has the keys (they go back to the PDF), else shows it
-  with them. Hidden, nothing remains. The arrow of its header collapses it
-  to that header (a strip on the right), the keys back to the PDF, and
-  brings it back; `⌘J` expands it too. One window of a project holds its
+  with them. Hidden, nothing remains. A click on its header (not on a
+  button or tab), or its arrow, collapses it to that header (a strip on the
+  right), the keys back to the PDF, and brings it back; `⌘J` expands it too. One window of a project holds its
   pane at a time.
 - **The review**: any Markdown file of the project (`review` in
   `review.toml`, `review.md` without; Edit in Review Pane on a Markdown

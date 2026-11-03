@@ -81,9 +81,9 @@
     edge.addEventListener("pointerup", up);
   }
 
-  /** The collapsed header or strip clicked, but not on a button: the pane expands. */
-  function expand(e: MouseEvent) {
-    if (collapsed && !(e.target as Element).closest("button")) invoke("pane_collapse", { collapsed: false });
+  /** A click on the header, not on a button or tab: the pane collapsed, or expanded again. */
+  function toggle(e: MouseEvent) {
+    if (!(e.target as Element).closest("button")) invoke("pane_collapse", { collapsed: !collapsed });
   }
 
   const text = () => editor?.view()?.state.doc.toString() ?? "";
@@ -185,7 +185,7 @@
   {#if !collapsed}
     <div class="edge" onpointerdown={drag} role="separator" aria-orientation={side === "bottom" ? "horizontal" : "vertical"}></div>
   {/if}
-  <header class:strip={collapsed && side === "right"} onclick={expand} role="presentation">
+  <header class:strip={collapsed && side === "right"} onclick={toggle} role="presentation">
     {#if collapsed && side === "right"}
       {@render arrow()}
       <span class="name" title={path}>{name || "Review"}</span>
