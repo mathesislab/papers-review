@@ -51,7 +51,7 @@ share its colour.
   name (`colour = "orange"` in `review.toml`). Right-click it: the colour, or
   none. A new project takes the next colour not in use among those open.
 - **Project bar** (Settings; on by default): a column at the left with a tile
-  per project, in its colour with its initials, the current one marked, a
+  per project, in its colour with its short name or initials, the current one marked, a
   badge with the days left when the due date is within a week (`!` once
   past); `+` opens another. A click switches the window to the project (its
   page loads again, the review pane follows, writing what was typed to the
@@ -63,7 +63,20 @@ share its colour.
 - **Files** (sidebar, `⌘⌥S`, or the button at the left of the tabs): the
   project's folder at the top and its files as a tree, a line along what
   each open folder holds; the linked files apart, with where they lie; the
-  due date. Hidden, the viewer takes the whole window.
+  due date. Hidden, the viewer takes the whole window. Right-click: the
+  project's row and its folders make a Markdown file (named in a row of its
+  own, `untitled.md`), or take files and folders in, linked from where they are
+  or copied in, as asked; a file or folder is shown in the Finder; a file
+  opens in the default app; a linked one is removed (the file stays), one of
+  the project is moved to the Trash after asking.
+- **Project info** (`⌘I`, File > Project Info…, a click on the project's row
+  in the files, or in the bar's tile menu): a card at the top of the window
+  like a macOS sheet, open until Done or `Esc` (Cancel). Name (the folder's
+  name when empty), short name (four letters at most, for the tile of the
+  bar), journal, manuscript ID, due date, colour, the review file (or a new
+  `review.md`), the linked files and folders, and the project's folder with
+  Show in Finder (to rename it there). Written on Done; the PDF hides
+  while the card shows.
 - **Viewer**: a PDF in PDFKit (tauri-plugin-pdfkit), its tools in a bar
   under the tabs as in Papers Desktop (the outline, beside the PDF; find;
   the page; zoom; open in the default app). A Markdown, text or BibTeX
