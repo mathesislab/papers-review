@@ -51,7 +51,8 @@ the title and journal (EGUsphere for a preprint without one), else the PDF's
 own title is used. The ID is the suffix of a Copernicus DOI
 (`10.5194/egusphere-2026-6269`), else one of that shape on the first page.
 Without network, or a DOI, the fields are left empty. Nothing is written
-until Create; Cancel leaves the folder and the PDF copied in it.
+until Create; Cancel moves the folder made for it to the Trash, as long as
+it holds nothing but the PDF copied in.
 
 ## The window
 

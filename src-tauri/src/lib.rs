@@ -48,6 +48,8 @@ pub struct AppState {
     pub exports: Mutex<HashMap<String, export::Pending>>,
     /// the references of each project open, once asked for
     pub references: Mutex<refs::Loaded>,
+    /// the folders made for a new review from a manuscript, not yet defined, with the PDF copied into each
+    pub started: Mutex<HashMap<PathBuf, PathBuf>>,
 }
 
 impl AppState {
@@ -684,6 +686,7 @@ pub fn run() {
                 file_watchers: Mutex::new(HashMap::new()),
                 exports: Mutex::new(HashMap::new()),
                 references: Mutex::new(HashMap::new()),
+                started: Mutex::new(HashMap::new()),
             });
             app.set_menu(menu::build(app.handle())?)?;
             app.on_menu_event(menu::on_event);

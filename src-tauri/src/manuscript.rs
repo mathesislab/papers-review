@@ -207,6 +207,7 @@ pub fn start(app: &AppHandle, pdf: &Path) -> Result<(), String> {
     }
     let root = folder.canonicalize().map_err(|e| format!("{}: {e}", folder.display()))?;
     let copy = root.join(copy.file_name().unwrap_or_default());
+    state.started.lock().unwrap().insert(root.clone(), copy.clone());
     // the project is loaded, with what was read set in it (nothing is written until it is defined), and the PDF
     // is in its saved layout, before its page asks for either
     windows::load(app, &root)?;
@@ -242,6 +243,29 @@ pub fn begin(app: &AppHandle, pdf: PathBuf) {
             app.dialog().message(e).title("New Review").show(|_| {});
         }
     });
+}
+
+
+/// A new review from a manuscript cancelled: its saved layout goes, and its folder, holding nothing but the PDF
+/// copied in, goes to the Trash (taken back from there if need be).
+pub fn undo(app: &AppHandle, root: &Path, pdf: &Path) {
+    app.state::<AppState>().saved.lock().unwrap().layouts.remove(root);
+    if holds_only(root, pdf)
+        && let Err(e) = crate::trash::trash(root)
+    {
+        eprintln!("{e}");
+    }
+}
+
+/// Whether a folder holds nothing but `file` (and the Finder's .DS_Store).
+fn holds_only(folder: &Path, file: &Path) -> bool {
+    fs::read_dir(folder).is_ok_and(|entries| {
+        entries
+            .filter_map(Result::ok)
+            .map(|e| e.path())
+            .filter(|p| p.file_name().is_none_or(|n| n != ".DS_Store"))
+            .all(|p| p == file)
+    })
 }
 
 #[cfg(test)]
@@ -330,5 +354,18 @@ mod tests {
     fn a_file_that_is_not_a_pdf_is_read_as_nothing() {
         assert_eq!(read_with(Path::new("/not/there.pdf"), None), Manuscript::default());
         assert_eq!(read_with(Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml").as_path(), None), Manuscript::default());
+    }
+
+    #[test]
+    fn a_folder_holding_the_copied_pdf_alone_is_one_to_take_back() {
+        let dir = std::env::temp_dir().join(format!("papers-review-holds-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let pdf = dir.join("manuscript.pdf");
+        fs::write(&pdf, "pdf").unwrap();
+        fs::write(dir.join(".DS_Store"), "").unwrap();
+        assert!(holds_only(&dir, &pdf));
+        fs::write(dir.join("review.md"), "mine").unwrap();
+        assert!(!holds_only(&dir, &pdf));
+        let _ = fs::remove_dir_all(&dir);
     }
 }

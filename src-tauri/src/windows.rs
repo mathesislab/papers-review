@@ -284,6 +284,12 @@ pub fn cancel(app: &AppHandle, root: &Path) {
     state.save();
     // with no bar every window closes: nothing follows the project in an empty one
     vacate(app, root, if bar_on(app) { &bar } else { &[] });
+    // a folder made from a manuscript for it: not kept either
+    let started = state.started.lock().unwrap().remove(root);
+    if let Some(pdf) = started {
+        crate::manuscript::undo(app, root, &pdf);
+        state.save();
+    }
     menu::update(app);
     tell_bar(app);
 }
@@ -293,6 +299,7 @@ pub fn cancel(app: &AppHandle, root: &Path) {
 pub fn created(app: &AppHandle, root: &Path) {
     let state = app.state::<AppState>();
     state.saved.lock().unwrap().remembered(root);
+    state.started.lock().unwrap().remove(root);
     state.save();
     review::moved(app, root);
     renamed(app, root);
