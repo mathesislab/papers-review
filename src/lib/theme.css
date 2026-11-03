@@ -15,6 +15,11 @@
   /* a project without a colour, as a tile of the project bar */
   --tile-none: #a3a3aa;
   --error: #c4321f;
+  /* how near a due date is: the dot beside it */
+  --due-far: #34a15a;
+  --due-near: #e2b21c;
+  --due-close: #e8892b;
+  --due-due: #d63c2a;
   /* the review's Markdown */
   --md-heading: #2f6fde;
   --md-location: #1f8a70;
@@ -36,6 +41,10 @@
     --viewer: #1e1e20;
     --tile-none: #5b5b61;
     --error: #ff7a66;
+    --due-far: #4cc171;
+    --due-near: #f0c53a;
+    --due-close: #f29a45;
+    --due-due: #ff6552;
     --md-heading: #7ea6f5;
     --md-location: #5fc4a8;
     --md-quote: #b4b4bc;

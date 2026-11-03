@@ -16,9 +16,9 @@
   import type { Entry } from "tauri-plugin-pdfkit-api";
   import "$lib/theme.css";
   import { addFiles } from "$lib/add";
-  import { badge, chip } from "$lib/bar";
+  import { label } from "$lib/bar";
   import { COLOURS, cssOf } from "$lib/colour";
-  import { dueText } from "$lib/due";
+  import { daysLeft, formatDate, shortDate, urgency } from "$lib/due";
   import { setEditorFont } from "$lib/editor";
   import FileEditor, { type Status } from "$lib/FileEditor.svelte";
   import Files from "$lib/Files.svelte";
@@ -207,7 +207,8 @@
   }
 
   /** The name of a tile and what is due, for its tooltip. */
-  const tooltip = (item: BarItem) => [item.name, item.missing ? "not found" : item.due ? dueText(item.due) : ""].filter(Boolean).join("\n");
+  const tooltip = (item: BarItem) =>
+    [item.name, item.missing ? "not found" : item.due ? `Due ${formatDate(item.due, settings?.date_format ?? "ymd")}` : ""].filter(Boolean).join("\n");
 
   /** A file to the front, in a tab of its own. */
   function open(node: Node) {
@@ -439,14 +440,13 @@
     class="window"
     class:nofiles={!layout.files}
     class:coloured={cssOf(project.colour)}
-    style:grid-template-columns={`${showBar ? "56px " : ""}${layout.files ? `${layout.files_width}px ` : ""}1fr`}
+    style:grid-template-columns={`${showBar ? "84px " : ""}${layout.files ? `${layout.files_width}px ` : ""}1fr`}
   >
     {#if showBar}
-      <!-- the project bar: a tile per project, the current one marked; the days left shown when few -->
+      <!-- the project bar: a tile per project, the current one marked, with its due date and a dot for how near it is -->
       <aside class="projects" aria-label="Projects">
         {#each bar as item (item.root)}
-          {@const due = badge(item.due)}
-          {@const label = chip(item.name, item.short)}
+          {@const name = label(item.name, item.short)}
           <button
             class="tile"
             class:current={item.root === project.root}
@@ -456,8 +456,10 @@
             onclick={() => switchTo(item.root)}
             oncontextmenu={(e) => tileMenu(e, item)}
           >
-            <span class="chip" style:background={cssOf(item.colour) ?? "var(--tile-none)"} style:font-size="{label.size}px">{label.text}</span>
-            {#if due}<span class="badge" class:urgent={due.urgent}>{due.text}</span>{/if}
+            <span class="chip" style:background={cssOf(item.colour) ?? "var(--tile-none)"}>
+              <span class="name" style:font-size="{name.size}px">{#each name.lines as line}<span>{line}</span>{/each}</span>
+              {#if item.due}<span class="when"><span class="dot {urgency(daysLeft(item.due))}"></span>{shortDate(item.due)}</span>{/if}
+            </span>
           </button>
         {/each}
         <button class="tile add" title="Open Project… (⌘O)" aria-label="Open Project" onclick={() => invoke("choose_project")}>
@@ -667,7 +669,7 @@
     flex: none;
     display: flex;
     justify-content: center;
-    padding: 0;
+    padding: 0 8px;
     background: none;
     border: none;
     font: inherit;
@@ -693,16 +695,56 @@
   }
   .chip {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 9px;
+    gap: 3px;
+    width: 68px;
+    height: 52px;
+    box-sizing: border-box;
+    padding: 4px;
+    overflow: hidden;
+    border-radius: 10px;
     color: #fff;
-    font-size: 13px;
-    font-weight: 600;
-    white-space: nowrap;
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  }
+  /* the short name, on one line or two */
+  .name {
+    font-weight: 600;
+    line-height: 1.1;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .name span {
+    display: block;
+  }
+  /* the due date, with a dot for how near it is */
+  .when {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85);
+  }
+  .dot.far {
+    background: var(--due-far);
+  }
+  .dot.near {
+    background: var(--due-near);
+  }
+  .dot.close {
+    background: var(--due-close);
+  }
+  .dot.due {
+    background: var(--due-due);
   }
   .tile:not(.current):hover .chip {
     filter: brightness(0.94);
@@ -717,26 +759,6 @@
   }
   .tile.add:hover .chip {
     background: var(--chip);
-  }
-  .badge {
-    position: absolute;
-    top: -4px;
-    right: 3px;
-    min-width: 15px;
-    height: 15px;
-    padding: 0 3px;
-    box-sizing: border-box;
-    border-radius: 8px;
-    box-shadow: 0 0 0 2px var(--sidebar);
-    background: #e8892b;
-    color: #fff;
-    font-size: 10px;
-    font-weight: 700;
-    line-height: 15px;
-    text-align: center;
-  }
-  .badge.urgent {
-    background: #d63c2a;
   }
   .files {
     position: relative;
