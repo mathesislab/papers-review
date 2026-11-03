@@ -12,6 +12,7 @@
   import { addFiles } from "./add";
   import { SHORT, initials } from "./bar";
   import { COLOURS } from "./colour";
+  import "./card.css";
   import DateField from "./DateField.svelte";
   import type { Colour, DateFormat, InfoEdit, ProjectInfo } from "./types";
 
@@ -192,97 +193,9 @@
 </form>
 
 <style>
-  /* absolute, not fixed: WebKit tints the title bar with what is fixed at the top of the page */
-  .scrim {
-    position: absolute;
-    inset: 0;
-    z-index: 90;
-    background: rgba(0, 0, 0, 0.22);
-  }
-  .card {
-    position: absolute;
-    z-index: 100;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    box-sizing: border-box;
-    width: min(500px, calc(100vw - 32px));
-    max-height: calc(100vh - 24px);
-    overflow-y: auto;
-    padding: 18px 20px 14px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-top: none;
-    border-radius: 0 0 12px 12px;
-    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.3);
-  }
-  .grid {
-    display: grid;
-    grid-template-columns: 92px 1fr;
-    align-items: center;
-    gap: 9px 12px;
-  }
-  label,
-  .label {
-    color: var(--muted);
-    text-align: right;
-  }
   .label.top {
     align-self: start;
     padding-top: 3px;
-  }
-  input,
-  select {
-    box-sizing: border-box;
-    min-width: 0;
-    height: 26px;
-    padding: 0 8px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: transparent;
-    color: var(--fg);
-    font: inherit;
-    outline: none;
-    -webkit-user-select: text;
-    user-select: text;
-  }
-  input:focus,
-  select:focus {
-    border-color: var(--accent);
-  }
-  input.short {
-    width: 80px;
-  }
-  select {
-    width: 100%;
-  }
-  button {
-    padding: 3px 10px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: none;
-    color: var(--fg);
-    font: inherit;
-    white-space: nowrap;
-  }
-  button.default {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--on-accent);
-  }
-  button:disabled {
-    opacity: 0.5;
-  }
-  button.plain {
-    padding: 0 6px;
-    border: none;
-    color: var(--muted);
-  }
-  .row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
   }
   .swatches {
     gap: 7px;
@@ -335,15 +248,5 @@
   }
   .none-linked {
     color: var(--muted);
-  }
-  .error {
-    margin: 10px 0 0;
-    color: var(--error);
-  }
-  footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 16px;
   }
 </style>

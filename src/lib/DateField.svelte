@@ -184,6 +184,7 @@
     user-select: text;
   }
   button {
+    padding: 0;
     border: none;
     background: none;
     color: var(--muted);
