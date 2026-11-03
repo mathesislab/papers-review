@@ -95,3 +95,13 @@ function withoutNumber(text: string, n: number | null): string {
   if (tokens[tokens.length - 1] === String(n)) tokens.pop();
   return tokens.join(" ");
 }
+
+const LOCATION =
+  /^(?:p\.? ?[\divxlc]+(?:[–-][\divxlc]+)?(?:, ?l\.? ?\d+(?:[–-]\d+)?)?|l\.? ?\d+(?:[–-]\d+)?)(?: – p\.? ?[\divxlc]+, ?l\.? ?\d+)?:(?= )/i;
+
+/** The length of the location a line of a review starts with, up to its colon ("p5, l136–138:"; "p. iii:", "l153:"),
+ *  or 0 if it does not start with one. */
+export function locationPrefix(line: string): number {
+  const length = LOCATION.exec(line)?.[0].length ?? 0;
+  return length <= 30 ? length : 0;
+}

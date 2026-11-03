@@ -2,7 +2,7 @@
 
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { lineNumber, location, quote, quoteText, type Line, type Selection } from "../src/lib/quote.ts";
+import { lineNumber, location, locationPrefix, quote, quoteText, type Line, type Selection } from "../src/lib/quote.ts";
 
 // A line of text at x 100–300, with the numbers given printed in the margin at the given centres.
 function line(page: number, text: string, margin: [string, number][] = [], label = ""): Line {
@@ -107,4 +107,23 @@ test("the quote", () => {
   const lines = numbered(5, 136, ["the ice re-", "cently lost"]);
   assert.equal(quote(sel(lines)), 'p5, l136–137: "the ice recently lost"');
   assert.equal(quote(sel([line(5, "a")])), 'p5: "a"');
+});
+
+test("the location a line of a review starts with, up to its colon", () => {
+  assert.equal(locationPrefix('p5, l136–138: "the ice"'), "p5, l136–138:".length);
+  assert.equal(locationPrefix('p5–6: "the ice"'), "p5–6:".length);
+  assert.equal(locationPrefix("l153: the ice"), "l153:".length);
+  assert.equal(locationPrefix('p. iii: "the ice"'), "p. iii:".length);
+  assert.equal(locationPrefix('p5, l38 – p6, l4: "the ice"'), "p5, l38 – p6, l4:".length);
+  assert.equal(locationPrefix("P5, L3: x"), "P5, L3:".length);
+});
+
+test("other lines have no location", () => {
+  assert.equal(locationPrefix("people: x"), 0);
+  assert.equal(locationPrefix("p5 is fine"), 0);
+  assert.equal(locationPrefix("lorem: x"), 0);
+  assert.equal(locationPrefix("p5:x"), 0);
+  assert.equal(locationPrefix('see p5: "x"'), 0);
+  assert.equal(locationPrefix(' p5: "x"'), 0);
+  assert.equal(locationPrefix("**p. 5, l. 136:** x"), 0);
 });
