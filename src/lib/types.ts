@@ -24,6 +24,8 @@ export type Project = {
   linked: Node[];
   /** the Markdown file of the review */
   review: string;
+  /** not defined yet: the folder had no review.toml when it was opened */
+  new: boolean;
 };
 
 /** mirrors Recent */

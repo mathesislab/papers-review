@@ -4,7 +4,8 @@
   // them), the files open in tabs, the one in front: a PDF in PDFKit, with its outline, page, zoom and find; a
   // Markdown, text or BibTeX file edited in place (FileEditor). How the window looked is kept between sessions (the
   // app's state.json); the commands of the menu bar come as `menu`. The window switched to another project loads this
-  // page again. The project's info (⌘I) is a card over the top of it, the PDF hidden meanwhile.
+  // page again. The project's info (⌘I) is a card over the top of it, the PDF hidden meanwhile; so is the card that
+  // asks for the name, due date and review file of a new project (a folder without a review.toml).
 
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
@@ -23,6 +24,7 @@
   import FileEditor, { type Status } from "$lib/FileEditor.svelte";
   import Files from "$lib/Files.svelte";
   import InfoCard from "$lib/InfoCard.svelte";
+  import NewProjectCard from "$lib/NewProjectCard.svelte";
   import PdfView from "$lib/PdfView.svelte";
   import { quote } from "$lib/quote";
   import type { BarItem, Colour, Kind, Layout, Node, Project, Settings } from "$lib/types";
@@ -143,7 +145,10 @@
 
   async function load() {
     try {
-      project = await invoke<Project>("project");
+      const next = await invoke<Project>("project");
+      project = next;
+      // a new project, defined now: its layout is kept from here on
+      if (!next.new && layoutRoot === next.root) ready = true;
     } catch (e) {
       error = String(e);
     }
@@ -179,15 +184,16 @@
     }
   }
 
-  /** The info card shown. The PDF and the review pane are native views above the page, so they hide while it
-   *  shows. */
+  /** The info card shown, or the card that asks for the name of a new project. The PDF and the review pane are
+   *  native views above the page, so they hide while a card shows. */
   let card = $state(false);
+  const covered = $derived(card || (project?.new ?? false));
   $effect(() => {
-    invoke("page_covered", { covered: card });
+    invoke("page_covered", { covered });
   });
 
   function openCard() {
-    card = true;
+    if (!project?.new) card = true;
   }
 
   function closeCard() {
@@ -388,7 +394,8 @@
       if (saved.front && !saved.tabs.includes(saved.front)) saved.front = saved.tabs[0] ?? null;
       layout = saved;
       layoutRoot = project.root;
-      ready = true;
+      // the layout of a new project is not kept: it may be given up, and leave nothing
+      ready = !project.new;
     })();
     const unlisten = listen<string>("menu", (e) => command(e.payload));
     // the colour or the files changed, from this window or another of the project
@@ -570,7 +577,7 @@
                 bind:this={pdf}
                 path={front.path}
                 page={layout.pages[front.path] ?? 1}
-                covered={card}
+                {covered}
                 onpage={turned}
                 onopen={(c, o) => {
                   count = c;
@@ -622,7 +629,9 @@
   <button onclick={() => openPath(file.path)}>Open in Default App</button>
 {/snippet}
 
-{#if card}
+{#if project?.new}
+  <NewProjectCard oncreated={load} />
+{:else if card}
   <InfoCard format={settings?.date_format ?? "ymd"} onclose={closeCard} />
 {/if}
 
