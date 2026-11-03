@@ -2,7 +2,9 @@
 //! viewer, at the bottom or on the right; above the page, and so above the
 //! PDF view that lies in the page. The page tells where the viewer is
 //! (`pane_area`); the pane's side, size and whether it is shown are kept per
-//! project (state.json). One window of a project holds its pane at a time.
+//! project (state.json). Collapsed, it is no more than its header bar
+//! (`HEADER`), along the bottom of the viewer or down its right side. One
+//! window of a project holds its pane at a time.
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -23,6 +25,9 @@ const MARGIN: f64 = 8.0;
 /// The smallest pane (points), and the least of the viewer it leaves.
 const SMALLEST: f64 = 120.0;
 const LEFT: f64 = 60.0;
+/// The pane collapsed: its header bar alone (points), the height of the header in
+/// `routes/pane/+page.svelte`, the width of the strip on the right.
+const HEADER: f64 = 32.0;
 
 /// The viewer of a page, in points from the top left of the window's content.
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
@@ -51,6 +56,7 @@ pub struct Panes {
 pub struct Placed {
     side: Side,
     size: f64,
+    collapsed: bool,
 }
 
 fn layout_of(app: &AppHandle, window: &str) -> Option<(PathBuf, PaneLayout)> {
@@ -73,18 +79,19 @@ fn keep(app: &AppHandle, root: PathBuf, layout: PaneLayout) {
     state.save();
 }
 
-/// The pane's bounds in the viewer, its size kept within it.
+/// The pane's bounds in the viewer, its size kept within it; collapsed, the
+/// header bar alone at the same place.
 fn bounds(area: Area, layout: &PaneLayout) -> (f64, f64, f64, f64) {
     match layout.side {
         Side::Bottom => {
             let room = (area.height - 2.0 * MARGIN - LEFT).max(SMALLEST);
-            let height = layout.bottom.clamp(SMALLEST, room);
+            let height = if layout.collapsed { HEADER } else { layout.bottom.clamp(SMALLEST, room) };
             let y = area.y + area.height - MARGIN - height;
             (area.x + MARGIN, y, (area.width - 2.0 * MARGIN).max(0.0), height)
         }
         Side::Right => {
             let room = (area.width - 2.0 * MARGIN - LEFT).max(SMALLEST);
-            let width = layout.right.clamp(SMALLEST, room);
+            let width = if layout.collapsed { HEADER } else { layout.right.clamp(SMALLEST, room) };
             let x = area.x + area.width - MARGIN - width;
             (x, area.y + MARGIN, width, (area.height - 2.0 * MARGIN).max(0.0))
         }
@@ -123,7 +130,7 @@ pub fn place(app: &AppHandle, window: &str) {
         Side::Bottom => height,
         Side::Right => width,
     };
-    let placed = Placed { side: layout.side, size };
+    let placed = Placed { side: layout.side, size, collapsed: layout.collapsed };
     state.panes.lock().unwrap().placed.insert(window.to_string(), placed.clone());
     let _ = app.emit_to(EventTarget::webview(label(window)), "pane-placed", placed);
 }
@@ -155,7 +162,8 @@ pub fn set_area(app: &AppHandle, window: &str, area: Area) {
     }
 }
 
-/// ⌘J: the pane shown in this window with the keys, or hidden when it has them.
+/// ⌘J: the pane shown in this window with the keys (expanded if collapsed), or
+/// hidden when it has them.
 pub fn toggle(app: &AppHandle, window: &str) {
     let Some((root, layout)) = layout_of(app, window) else {
         return;
@@ -163,20 +171,21 @@ pub fn toggle(app: &AppHandle, window: &str) {
     let state = app.state::<AppState>();
     let focused = state.panes.lock().unwrap().focused.contains(window);
     let held = state.panes.lock().unwrap().holder.get(&root).is_some_and(|w| w == window);
-    if layout.shown && held && focused {
+    if layout.shown && held && focused && !layout.collapsed {
         hide(app, window);
     } else {
         show(app, window);
     }
 }
 
-/// The pane shown in this window, with the keys (hidden in the project's other windows).
+/// The pane shown and expanded in this window, with the keys (hidden in the project's other windows).
 pub fn show(app: &AppHandle, window: &str) {
     let Some((root, mut layout)) = layout_of(app, window) else {
         return;
     };
     let state = app.state::<AppState>();
     layout.shown = true;
+    layout.collapsed = false;
     state.panes.lock().unwrap().holder.insert(root.clone(), window.to_string());
     keep(app, root, layout);
     place_project(app, window);
@@ -192,12 +201,33 @@ pub fn hide(app: &AppHandle, window: &str) {
     };
     layout.shown = false;
     keep(app, root, layout);
-    app.state::<AppState>().panes.lock().unwrap().focused.remove(window);
     place_project(app, window);
+    keys_to_page(app, window);
+}
+
+/// The keys from the pane back to the page (and its PDF).
+fn keys_to_page(app: &AppHandle, window: &str) {
+    app.state::<AppState>().panes.lock().unwrap().focused.remove(window);
     if let Some(page) = app.get_webview(&windows::page(window)) {
         let _ = page.set_focus();
     }
     let _ = app.emit_to(EventTarget::webview(windows::page(window)), "pane-hidden", ());
+}
+
+/// The pane's collapse button: the pane collapsed to its header bar, the keys
+/// back to the page (and its PDF), or expanded again.
+pub fn collapse(app: &AppHandle, window: &str, collapsed: bool) {
+    let Some((root, mut layout)) = layout_of(app, window) else {
+        return;
+    };
+    layout.collapsed = collapsed;
+    keep(app, root, layout);
+    place(app, window);
+    if collapsed {
+        keys_to_page(app, window);
+    } else if let Some(pane) = app.get_webview(&label(window)) {
+        let _ = pane.set_focus();
+    }
 }
 
 /// ⌘⇧J: the pane to the other side.
@@ -271,6 +301,19 @@ mod tests {
         assert_eq!(bounds(AREA, &layout), (248.0, 30.0 + 770.0 - 8.0 - 280.0, 944.0, 280.0));
         layout.side = Side::Right;
         assert_eq!(bounds(AREA, &layout), (240.0 + 960.0 - 8.0 - 400.0, 38.0, 400.0, 754.0));
+    }
+
+    #[test]
+    fn collapsed_it_is_its_header_at_the_bottom_or_the_right_of_the_viewer() {
+        let mut layout = PaneLayout {
+            collapsed: true,
+            bottom: 280.0,
+            right: 400.0,
+            ..PaneLayout::default()
+        };
+        assert_eq!(bounds(AREA, &layout), (248.0, 30.0 + 770.0 - 8.0 - HEADER, 944.0, HEADER));
+        layout.side = Side::Right;
+        assert_eq!(bounds(AREA, &layout), (240.0 + 960.0 - 8.0 - HEADER, 38.0, HEADER, 754.0));
     }
 
     #[test]

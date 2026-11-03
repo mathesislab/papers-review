@@ -47,12 +47,13 @@ pub enum Side {
     Right,
 }
 
-/// The review pane of a project: shown or not, its side, its height at the
-/// bottom and its width on the right (points).
+/// The review pane of a project: shown or not, collapsed to its header bar or
+/// not, its side, its height at the bottom and its width on the right (points).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PaneLayout {
     pub shown: bool,
+    pub collapsed: bool,
     pub side: Side,
     pub bottom: f64,
     pub right: f64,
@@ -62,6 +63,7 @@ impl Default for PaneLayout {
     fn default() -> Self {
         PaneLayout {
             shown: false,
+            collapsed: false,
             side: Side::Bottom,
             bottom: 280.0,
             right: 420.0,

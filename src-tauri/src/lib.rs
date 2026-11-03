@@ -184,6 +184,12 @@ fn pane_side(app: AppHandle, webview: Webview) {
     pane::switch_side(&app, webview.window().label());
 }
 
+/// The pane's collapse button: `collapsed` to its header bar, or expanded.
+#[tauri::command]
+fn pane_collapse(app: AppHandle, webview: Webview, collapsed: bool) {
+    pane::collapse(&app, webview.window().label(), collapsed);
+}
+
 /// The pane's edge dragged to `size` (points); `done` when let go.
 #[tauri::command]
 fn pane_size(app: AppHandle, webview: Webview, size: f64, done: bool) {
@@ -261,6 +267,7 @@ pub fn run() {
             pane_area,
             pane_hide,
             pane_side,
+            pane_collapse,
             pane_size,
             pane_focus,
             pane_placement,
