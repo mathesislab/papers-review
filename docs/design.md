@@ -190,10 +190,24 @@ Papers Desktop: words, field filters, a citation key, or a reference
 selected in the PDF. `↵` opens the paper's PDF in a tab of the same
 project, `⌘↵` in a new window; `⌘.` copies `[@key]`, `⌘L` `\cite{key}`.
 
-papers-rs finds the library (its configuration: the library of a folder,
-the default one); papers-core (Papers Desktop) loads and searches the
-`.bib` files, a git dependency until it leaves papers-desktop. The Search
-Papers service of Papers Desktop also works from here.
+Sources (`refs.rs`): the `.bib` files of the project (its folder and the
+linked files), and the `.bib` of the papers library, which papers-rs finds
+(`find_config` from the project's folder: a library there or above, else the
+machine configuration's default library). The files are loaded as one
+papers-core library when first asked, per project, kept while the project
+is open, read again when one of them changes (`BibWatch`) or when the
+project's files change to other `.bib` files, and told to the page and the
+pane as `references-changed`. A file that does not parse is the error the
+panel shows; a papers configuration that cannot be read leaves the project's
+own files. papers-core is a git dependency until it leaves papers-desktop.
+The Search Papers service of Papers Desktop also works from here.
+
+Commands: `references(query, limit)` (words matching from the start of a
+word) and `closest_references(text, limit)` give papers-core's `Found`;
+`reference_sources()` lists the files searched; `open_reference_pdf(path)`
+tells the page of the calling window to open the PDF in a tab (`open-file`).
+Edit ▸ References… (⇧⌘R) goes to the page of the window in front, as the
+other page commands.
 
 ## Crates
 
