@@ -275,6 +275,42 @@ impl Project {
         Ok(())
     }
 
+    /// The Markdown files of the project: those of the folder, then the linked ones (and those in linked
+    /// folders).
+    pub fn markdown_files(&self) -> Vec<PathBuf> {
+        let mut found = Vec::new();
+        files::markdown(&self.files(), &mut found);
+        for node in self.linked() {
+            if node.kind == files::Kind::Folder {
+                files::markdown(&files::tree(&node.path), &mut found);
+            } else {
+                files::markdown(&[node], &mut found);
+            }
+        }
+        found
+    }
+
+    /// Whether a file is the project's, to be read and written: in the folder (`review.toml` apart, the
+    /// app's own), the review, a linked file or in a linked folder. Links and `..` are resolved first.
+    pub fn contains(&self, path: &Path) -> bool {
+        let Some(path) = canonical(path) else {
+            return false;
+        };
+        if let Some(root) = canonical(&self.root)
+            && path.starts_with(&root)
+        {
+            return path != root.join(MANIFEST);
+        }
+        if canonical(&self.review_path()).is_some_and(|review| review == path) {
+            return true;
+        }
+        self.manifest
+            .linked
+            .iter()
+            .filter_map(|l| canonical(&self.resolve(l)))
+            .any(|l| path == l || (l.is_dir() && path.starts_with(&l)))
+    }
+
     /// Whether a path is in the folder of the project, links and `..` resolved.
     fn within(&self, path: &Path) -> bool {
         canonical(path)
@@ -647,4 +683,74 @@ mod tests {
         assert!(matches!(project.new_file(&dir.path().join("none"), "a.md"), Err(Error::NotAFolder(_))));
     }
 
+    #[test]
+    fn the_markdown_files_are_those_of_the_folder_and_the_linked_ones() {
+        let (dir, elsewhere) = two_folders();
+        fs::write(dir.path().join("review.md"), "").unwrap();
+        fs::write(dir.path().join("round-1/notes.markdown"), "").unwrap();
+        fs::write(
+            dir.path().join(MANIFEST),
+            format!(
+                "linked = [{:?}, {:?}, {:?}, {:?}]\n",
+                elsewhere.path().join("notes.md"),
+                elsewhere.path().join("code"),
+                elsewhere.path().join("guidelines.pdf"),
+                elsewhere.path().join("gone.md"),
+            ),
+        )
+        .unwrap();
+        let project = Project::open(dir.path()).unwrap();
+        assert_eq!(
+            project.markdown_files(),
+            [
+                dir.path().join("round-1/notes.markdown"),
+                dir.path().join("review.md"),
+                elsewhere.path().join("notes.md"),
+                elsewhere.path().join("code/README.md"),
+            ]
+        );
+    }
+
+    #[test]
+    fn the_project_contains_its_folder_the_review_and_what_is_linked() {
+        let (dir, elsewhere) = two_folders();
+        let other = tempfile::tempdir().unwrap();
+        fs::write(other.path().join("secret.txt"), "").unwrap();
+        fs::write(
+            dir.path().join(MANIFEST),
+            format!(
+                "review = {:?}\nlinked = [{:?}, {:?}]\n",
+                elsewhere.path().join("notes.md"),
+                elsewhere.path().join("guidelines.pdf"),
+                elsewhere.path().join("code"),
+            ),
+        )
+        .unwrap();
+        let project = Project::open(dir.path()).unwrap();
+        let root = dir.path();
+        assert!(project.contains(&root.join("round-1/manuscript.pdf")));
+        // not there yet
+        assert!(project.contains(&root.join("round-1/new.md")));
+        assert!(project.contains(&root.join("review.md")));
+        assert!(project.contains(&elsewhere.path().join("notes.md")));
+        assert!(project.contains(&elsewhere.path().join("guidelines.pdf")));
+        assert!(project.contains(&elsewhere.path().join("code/README.md")));
+        assert!(project.contains(&elsewhere.path().join("code/new.md")));
+
+        assert!(!project.contains(&root.join(MANIFEST)));
+        assert!(!project.contains(&other.path().join("secret.txt")));
+        assert!(!project.contains(&elsewhere.path().join("guidelines.pdf.bak")));
+        assert!(!project.contains(&root.join("round-1/../../secret.txt")));
+        assert!(!project.contains(&root.join("nowhere/new.md")));
+        assert!(!project.contains(Path::new("")));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_link_to_a_file_elsewhere_does_not_make_the_file_it_points_to_the_projects() {
+        let (dir, elsewhere) = two_folders();
+        std::os::unix::fs::symlink(elsewhere.path().join("notes.md"), dir.path().join("link.md")).unwrap();
+        let project = Project::open(dir.path()).unwrap();
+        assert!(!project.contains(&dir.path().join("link.md")));
+    }
 }

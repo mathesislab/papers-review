@@ -157,6 +157,17 @@ pub fn linked(path: &Path) -> Node {
     }
 }
 
+/// The Markdown files of `nodes` and the folders in them, added to `found`; a linked file that is not
+/// there is left out.
+pub fn markdown(nodes: &[Node], found: &mut Vec<PathBuf>) {
+    for node in nodes {
+        if node.kind == Kind::Markdown && !node.missing {
+            found.push(node.path.clone());
+        }
+        markdown(&node.children, found);
+    }
+}
+
 /// A file or a folder (with all it holds) copied to `to`, which is not there yet.
 pub fn copy(from: &Path, to: &Path) -> io::Result<()> {
     if from.is_dir() {
