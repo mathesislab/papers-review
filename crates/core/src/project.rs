@@ -8,7 +8,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use toml_edit::{Datetime, DocumentMut, value};
+use toml_edit::{Array, Datetime, DocumentMut, value};
 
 use crate::colour::Colour;
 use crate::files::{self, Node};
@@ -167,6 +167,62 @@ impl Project {
         self.save()
     }
 
+    /// Files from elsewhere linked to the project, after those linked already; a file in the folder, or
+    /// linked already, is left out.
+    pub fn link(&mut self, paths: &[PathBuf]) -> Result<(), Error> {
+        let mut added: Vec<PathBuf> = Vec::new();
+        for path in paths {
+            if !self.within(path) && !self.is_linked(path) && !added.contains(path) {
+                added.push(path.clone());
+            }
+        }
+        if added.is_empty() {
+            return Ok(());
+        }
+        let mut linked = self.manifest.linked.clone();
+        linked.extend(added);
+        self.write_linked(linked)
+    }
+
+    /// A file no longer linked, by its path as `linked` gives it or as `review.toml` has it.
+    pub fn unlink(&mut self, path: &Path) -> Result<(), Error> {
+        let kept: Vec<PathBuf> = self
+            .manifest
+            .linked
+            .iter()
+            .filter(|l| l.as_path() != path && self.resolve(l) != path)
+            .cloned()
+            .collect();
+        if kept.len() == self.manifest.linked.len() {
+            return Ok(());
+        }
+        self.write_linked(kept)
+    }
+
+    /// `linked` of `review.toml` set to `linked`, the key removed when none is left.
+    fn write_linked(&mut self, linked: Vec<PathBuf>) -> Result<(), Error> {
+        if linked.is_empty() {
+            self.document.remove("linked");
+        } else {
+            let paths: Array = linked.iter().map(|p| p.to_string_lossy().into_owned()).collect();
+            self.document["linked"] = value(paths);
+        }
+        self.save()?;
+        self.manifest.linked = linked;
+        Ok(())
+    }
+
+    fn is_linked(&self, path: &Path) -> bool {
+        self.manifest.linked.iter().any(|l| self.resolve(l) == path)
+    }
+
+    /// Whether a path is in the folder of the project, links and `..` resolved.
+    fn within(&self, path: &Path) -> bool {
+        canonical(path)
+            .zip(canonical(&self.root))
+            .is_some_and(|(path, root)| path.starts_with(root))
+    }
+
     /// The files of the folder, as a tree.
     pub fn files(&self) -> Vec<Node> {
         files::tree(&self.root)
@@ -231,6 +287,15 @@ impl Project {
 /// A text without the spaces round it; none when nothing is left.
 fn clean(text: Option<String>) -> Option<String> {
     text.map(|t| t.trim().to_string()).filter(|t| !t.is_empty())
+}
+
+/// A path with its links and `..` resolved; a file not there yet, by its folder.
+fn canonical(path: &Path) -> Option<PathBuf> {
+    if let Ok(path) = path.canonicalize() {
+        return Some(path);
+    }
+    let name = path.file_name()?;
+    Some(path.parent()?.canonicalize().ok()?.join(name))
 }
 
 /// A file written whole, atomically: a hidden file beside it, renamed.
@@ -405,6 +470,55 @@ mod tests {
         project.set_journal(None).unwrap();
         project.set_due(None).unwrap();
         assert!(!dir.path().join(MANIFEST).exists());
+    }
+
+    /// A project folder and a folder elsewhere, with a few files.
+    fn two_folders() -> (tempfile::TempDir, tempfile::TempDir) {
+        let (dir, elsewhere) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        fs::create_dir(dir.path().join("round-1")).unwrap();
+        fs::write(dir.path().join("round-1/manuscript.pdf"), "pdf").unwrap();
+        fs::write(elsewhere.path().join("guidelines.pdf"), "pdf").unwrap();
+        fs::write(elsewhere.path().join("notes.md"), "notes").unwrap();
+        fs::create_dir(elsewhere.path().join("code")).unwrap();
+        fs::write(elsewhere.path().join("code/README.md"), "readme").unwrap();
+        fs::write(elsewhere.path().join("code/run.jl"), "").unwrap();
+        (dir, elsewhere)
+    }
+
+    #[test]
+    fn files_are_linked_after_those_linked_and_unlinked() {
+        let (dir, elsewhere) = two_folders();
+        fs::write(dir.path().join(MANIFEST), "title = \"T\"  # kept\nlinked = [\"~/a.pdf\"]\n").unwrap();
+        let mut project = Project::open(dir.path()).unwrap();
+        let (guidelines, notes) = (elsewhere.path().join("guidelines.pdf"), elsewhere.path().join("notes.md"));
+        project.link(&[guidelines.clone(), notes.clone()]).unwrap();
+        let reopened = Project::open(dir.path()).unwrap();
+        assert_eq!(reopened.manifest.linked, [PathBuf::from("~/a.pdf"), guidelines.clone(), notes.clone()]);
+        assert!(fs::read_to_string(dir.path().join(MANIFEST)).unwrap().starts_with("title = \"T\"  # kept\n"));
+
+        project.unlink(&guidelines).unwrap();
+        assert_eq!(Project::open(dir.path()).unwrap().manifest.linked, [PathBuf::from("~/a.pdf"), notes]);
+        // as review.toml has it
+        project.unlink(Path::new("~/a.pdf")).unwrap();
+        project.unlink(&elsewhere.path().join("notes.md")).unwrap();
+        assert_eq!(fs::read_to_string(dir.path().join(MANIFEST)).unwrap(), "title = \"T\"  # kept\n");
+        assert!(project.manifest.linked.is_empty());
+    }
+
+    #[test]
+    fn a_file_linked_already_or_in_the_folder_is_not_linked_again() {
+        let (dir, elsewhere) = two_folders();
+        let mut project = Project::open(dir.path()).unwrap();
+        let guidelines = elsewhere.path().join("guidelines.pdf");
+        project.link(&[guidelines.clone(), guidelines.clone()]).unwrap();
+        project.link(&[guidelines.clone(), dir.path().join("round-1/manuscript.pdf")]).unwrap();
+        assert_eq!(project.manifest.linked, [guidelines]);
+        // nothing to add: nothing written
+        let other = tempfile::tempdir().unwrap();
+        let mut bare = Project::open(other.path()).unwrap();
+        bare.link(&[other.path().join("x.pdf")]).unwrap();
+        bare.unlink(Path::new("/nowhere")).unwrap();
+        assert!(!other.path().join(MANIFEST).exists());
     }
 
 }
