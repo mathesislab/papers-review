@@ -4,6 +4,7 @@
   // pane's), marked ✎.
 
   import { Menu, MenuItem } from "@tauri-apps/api/menu";
+  import { dueText } from "./due";
   import type { Kind, Node } from "./types";
 
   let {
@@ -61,16 +62,6 @@
     bib: "BIB",
     other: "",
   };
-
-  /** The days left to the due date, said plainly. */
-  function dueText(date: string): string {
-    const days = Math.round((new Date(date).getTime() - Date.now()) / 86_400_000);
-    const when = new Date(date).toLocaleDateString(undefined, { day: "numeric", month: "short" });
-    if (days > 1) return `Due ${when} · in ${days} days`;
-    if (days === 1) return `Due ${when} · tomorrow`;
-    if (days === 0) return `Due ${when} · today`;
-    return `Due ${when} · ${-days} days ago`;
-  }
 </script>
 
 {#snippet chevron(open: boolean)}
