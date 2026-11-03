@@ -206,7 +206,8 @@ NSVisualEffectView under it.
 
 A `.bib` in the project, or a papers library (a `.papers/config.json` in
 the folder or above it, or papers' default library), is searched as in
-Papers Desktop: words from their start, field filters, a citation key. `⇧⌘R`
+Papers Desktop: words from their start, field filters, a citation key; with
+nothing typed, all of them, newest first. `⇧⌘R`
 (Edit > References…) lists them over the review pane (RefList), which is
 shown; with a reference selected in the PDF, the list is the papers closest
 to its text until something is typed. The key on the paper marked:

@@ -48,9 +48,18 @@ impl Refs {
 }
 
 /// The matches of `query` in the library: words, field filters, a citation key; a word matches from the start
-/// of a word of the entry. The first `limit` come back, with their marks.
+/// of a word of the entry. The first `limit` come back, with their marks. With nothing typed, the entries,
+/// newest first, to look through.
 pub fn search(library: &Library, query: &str, limit: usize) -> Found {
-    library.search(query, Matching::WordStart, limit)
+    if !query.trim().is_empty() {
+        return library.search(query, Matching::WordStart, limit);
+    }
+    let ids = library.matching("", Matching::WordStart);
+    Found {
+        total: ids.len(),
+        hits: ids.iter().take(limit).filter_map(|id| library.hit(id)).collect(),
+        ..Found::default()
+    }
 }
 
 /// The slot of the references of the project of `root`.
@@ -279,7 +288,9 @@ mod tests {
         // not inside a word
         assert_eq!(search(&library, "stability", 10).total, 0);
         assert_eq!(keys(&search(&library, "year:2017", 10)), ["feldmann2017"]);
-        assert!(search(&library, "", 10).hits.is_empty());
+        // nothing typed: all of them, newest first
+        assert_eq!(keys(&search(&library, " ", 10)), ["feldmann2017", "robinson2012"]);
+        assert_eq!(search(&library, "", 1).total, 2);
         let _ = fs::remove_dir_all(&dir);
     }
 
