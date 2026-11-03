@@ -60,16 +60,21 @@ share its colour.
   forward the window that shows the project. The bar is kept in `state.json`
   and listed in the Window menu (`⌘1` to `⌘9`); removing the project of a
   window switches it to a neighbour, or closes it when none is left.
-- **Files** (sidebar, `⌘⌥S`): the files of the project by folder, the linked
-  files, the due date. Hidden, the viewer takes the whole window.
-- **Viewer**: a PDF in PDFKit (tauri-plugin-pdfkit), with find, zoom, the
-  outline; a text file rendered or as source (`⌘R`: Markdown, READMEs, code
+- **Files** (sidebar, `⌘⌥S`, or the button at the left of the tabs): the
+  project's folder at the top and its files as a tree, a line along what
+  each open folder holds; the linked files apart, with where they lie; the
+  due date. Hidden, the viewer takes the whole window.
+- **Viewer**: a PDF in PDFKit (tauri-plugin-pdfkit), its tools in a bar
+  under the tabs as in Papers Desktop (the outline, beside the PDF; find;
+  the page; zoom; open in the default app); a text file rendered or as source (`⌘R`: Markdown, READMEs, code
   and data descriptions). Tabs for the files open.
 - **Review pane** (`⌘J`): a Markdown editor over the viewer, at the bottom
   or on the right (`⌘⇧J`), its inner edge dragged for its size; its side,
   sizes and whether shown kept per project (the app's `state.json`). `⌘J`
   hides it when it has the keys (they go back to the PDF), else shows it
-  with them. Hidden, nothing remains. One window of a project holds its
+  with them. Hidden, nothing remains. The arrow of its header collapses it
+  to that header (a strip on the right), the keys back to the PDF, and
+  brings it back; `⌘J` expands it too. One window of a project holds its
   pane at a time.
 - **The review**: any Markdown file of the project (`review` in
   `review.toml`, `review.md` without; Edit in Review Pane on a Markdown
@@ -90,10 +95,18 @@ NSVisualEffectView under it.
 ## Writing the review
 
 - CodeMirror 6, Markdown.
-- `⌘'` quotes the selection of the PDF at the cursor, with its page, and its
-  line where the manuscript has line numbers (the numbers in the margin
-  beside the selection): `**p. 5, l. 136:** "…"`. `⌃L` inserts the location
-  in view.
+- `⌘'` quotes the selection of the PDF at the cursor, as a paragraph of its
+  own, with its page (the printed label, else the number) and its lines
+  where the manuscript has line numbers: `**p. 5, l. 136:** "…"`,
+  `**p. 5, ll. 136–138:** "…"`, `**pp. 5–6, ll. 210–228:** "…"`. The pane
+  shows with the keys, to write what the quote is about; `Esc` gives them
+  back to the PDF. The plugin gives the selection line by line with the
+  words beside each line (`selection`); `quote.ts` takes the whole number
+  nearest each line, left of it first, and keeps the page alone when the
+  numbers do not fit the lines selected. Words split at a line end are made
+  whole, ligatures undone. The numbers of a two-column layout are not read
+  yet: PDFKit glues them to the line's text. `⌃L` inserts the location in
+  view.
 - Typed sequences become symbols: `->` →, `<-` ←, `<->` ↔, `=>` ⇒, `>=` ≥,
   `<=` ≤, `!=` ≠, `~=` ≈, `+-` ±, LaTeX names (`\Delta` Δ, `\times` ×,
   `\deg` °), straight quotes to curly ones, `--` –, `...` …. `⌘Z` right
@@ -150,8 +163,9 @@ the margin).
    each looked).
 2. Done: the review pane, the second web view over the viewer; CodeMirror,
    saving, the file watched; any Markdown file as the review; the tabs of its
-   sections.
-3. Quotes with page and line; the symbols.
+   sections; the pane collapsed to its header, the PDF's tools bar, the
+   files as a clearer tree.
+3. Quotes with page and line (done); the symbols.
 4. The project bar and Settings (done): `settings.json` in the app's data
    folder.
 5. Export.
