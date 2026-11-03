@@ -449,6 +449,12 @@ fn quote(app: AppHandle, webview: Webview, text: String) {
     pane::insert(&app, webview.window().label(), &text);
 }
 
+/// A card of the page shown or gone: the pane, above the page, hides meanwhile.
+#[tauri::command]
+fn page_covered(app: AppHandle, webview: Webview, covered: bool) {
+    pane::set_covered(&app, webview.window().label(), covered);
+}
+
 /// The pane's edge dragged to `size` (points); `done` when let go.
 #[tauri::command]
 fn pane_size(app: AppHandle, webview: Webview, size: f64, done: bool) {
@@ -559,6 +565,7 @@ pub fn run() {
             pane_collapse,
             pane_release,
             quote,
+            page_covered,
             pane_size,
             pane_focus,
             pane_placement,

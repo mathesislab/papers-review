@@ -177,18 +177,19 @@
     }
   }
 
-  /** The info card shown. The PDF is a native view over the page, so it is hidden while the card shows. */
+  /** The info card shown. The PDF and the review pane are native views above the page, so they hide while it
+   *  shows. */
   let card = $state(false);
+  $effect(() => {
+    invoke("page_covered", { covered: card });
+  });
 
   function openCard() {
-    if (card) return;
     card = true;
-    pdf?.cover(true);
   }
 
   function closeCard() {
     card = false;
-    pdf?.cover(false);
   }
 
   /** A right-click on a tile: the project in a window of its own, or out of the bar; its info, if it is the one of
@@ -557,6 +558,7 @@
                 bind:this={pdf}
                 path={front.path}
                 page={layout.pages[front.path] ?? 1}
+                covered={card}
                 onpage={turned}
                 onopen={(c, o) => {
                   count = c;

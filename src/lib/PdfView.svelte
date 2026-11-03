@@ -10,12 +10,15 @@
   let {
     path,
     page = 1,
+    covered = false,
     onpage,
     onopen,
   }: {
     path: string;
     /** the page to open at (from 1) */
     page?: number;
+    /** hidden while the page shows a card over it: the view lies above all of the page */
+    covered?: boolean;
     /** the page in view of the PDF of `path` */
     onpage: (path: string, page: number) => void;
     /** the PDF open: its page count and outline */
@@ -37,14 +40,9 @@
     send(() => pdfkit.zoom(step));
   }
 
-  /** The keys to the PDF. */
+  /** The keys to the PDF, unless a card covers it. */
   export function focus() {
-    send(() => pdfkit.cover(path, false));
-  }
-
-  /** Hidden while the page shows a card over it (the view lies above all of the page), shown again when done. */
-  export function cover(covered: boolean) {
-    send(() => pdfkit.cover(path, covered));
+    if (!covered) send(() => pdfkit.cover(path, false));
   }
 
   /** To an entry of the outline, by its `target`. */
@@ -62,6 +60,14 @@
     return send(() => pdfkit.find(text, again, backwards));
   }
 
+  // a card shown or gone after the PDF opened
+  let opening = true;
+  $effect(() => {
+    const hidden = covered;
+    if (opening) opening = false;
+    else send(() => pdfkit.cover(path, hidden));
+  });
+
   onMount(() => {
     // the PDF this view opened: as the tab changes, `path` is already the next file's when the view goes
     const shown = path;
@@ -72,7 +78,7 @@
     });
     resize.observe(area);
     const unlisten = pdfkit.onPage((p) => onpage(shown, p));
-    send(() => pdfkit.open(shown, shown, page, pdfkit.frameOf(area)))
+    send(() => pdfkit.open(shown, shown, page, pdfkit.frameOf(area), covered))
       .then(({ count, outline }) => {
         opened = true;
         onopen(count, outline);

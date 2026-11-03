@@ -49,6 +49,8 @@ pub struct Panes {
     pub holder: HashMap<PathBuf, String>,
     /// where the pane of each window was placed last, for its page as it loads
     pub placed: HashMap<String, Placed>,
+    /// the windows whose page shows a card, which the pane would cover
+    pub covered: HashSet<String>,
 }
 
 /// What the pane's page learns of where it is, to draw its edge.
@@ -114,7 +116,8 @@ pub fn place(app: &AppHandle, window: &str) {
         if layout.shown && !panes.holder.contains_key(&root) {
             panes.holder.insert(root.clone(), window.to_string());
         }
-        (panes.areas.get(window).copied(), panes.holder.get(&root).is_some_and(|w| w == window))
+        let held = panes.holder.get(&root).is_some_and(|w| w == window) && !panes.covered.contains(window);
+        (panes.areas.get(window).copied(), held)
     };
     let Some(area) = area.filter(|_| layout.shown && held) else {
         let _ = pane.hide();
@@ -217,6 +220,21 @@ pub fn insert(app: &AppHandle, window: &str, text: &str) {
     let _ = app.emit_to(EventTarget::webview(label(window)), "review-insert", text);
 }
 
+/// A card of the page shown or gone: the pane hidden meanwhile, then placed
+/// again as it was.
+pub fn set_covered(app: &AppHandle, window: &str, covered: bool) {
+    {
+        let state = app.state::<AppState>();
+        let mut panes = state.panes.lock().unwrap();
+        if covered {
+            panes.covered.insert(window.to_string());
+        } else {
+            panes.covered.remove(window);
+        }
+    }
+    place(app, window);
+}
+
 /// The keys from the pane back to the page (and its PDF).
 fn keys_to_page(app: &AppHandle, window: &str) {
     app.state::<AppState>().panes.lock().unwrap().focused.remove(window);
@@ -301,6 +319,7 @@ pub fn closed(app: &AppHandle, window: &str) {
     panes.focused.remove(window);
     panes.holder.retain(|_, w| w != window);
     panes.placed.remove(window);
+    panes.covered.remove(window);
 }
 
 #[cfg(test)]
