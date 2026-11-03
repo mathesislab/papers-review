@@ -9,6 +9,8 @@ Everything is plain files on your computer (synced by whatever service you
 use): the PDFs, a `review.md` (or as many Markdown files as you like) and a
 small `review.toml`. Any other app opens them.
 
+Website and downloads: <https://mathesislab.github.io/papers-review/>.
+
 Part of the papers family:
 [papers-cli](https://github.com/perrette/papers),
 [Papers Desktop](https://github.com/mathesislab/papers-desktop),
