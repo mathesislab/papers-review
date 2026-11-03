@@ -9,11 +9,12 @@
   import { listen } from "@tauri-apps/api/event";
   import { CheckMenuItem, Menu, MenuItem } from "@tauri-apps/api/menu";
   import { getCurrentWindow } from "@tauri-apps/api/window";
-  import { message } from "@tauri-apps/plugin-dialog";
-  import { openPath } from "@tauri-apps/plugin-opener";
+  import { confirm, message } from "@tauri-apps/plugin-dialog";
+  import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
   import type { Entry } from "tauri-plugin-pdfkit-api";
   import "$lib/theme.css";
+  import { addFiles } from "$lib/add";
   import { badge, chip } from "$lib/bar";
   import { COLOURS, cssOf } from "$lib/colour";
   import { dueText } from "$lib/due";
@@ -249,6 +250,57 @@
     }
   }
 
+  /** An error of what was asked from the files, said in a dialog. */
+  const fail = (title: string, e: unknown) => message(String(e), { title, kind: "error" });
+
+  /** A Markdown file made in a folder, and opened in a tab. */
+  async function newFile(folder: string, name: string) {
+    try {
+      const path = await invoke<string>("new_file", { folder, name });
+      await load();
+      const node = nodes.get(path);
+      if (node) open(node);
+    } catch (e) {
+      await fail("New Markdown File", e);
+    }
+  }
+
+  /** Files, or folders, linked or copied into a folder of the project. */
+  async function add(folder: string, directory: boolean) {
+    try {
+      await addFiles(directory, folder);
+    } catch (e) {
+      await fail("Add to the Project", e);
+    }
+  }
+
+  /** A path gone from the project: its tabs close. */
+  function closeUnder(path: string) {
+    for (const tab of [...layout.tabs]) if (tab === path || tab.startsWith(`${path}/`)) close(tab);
+  }
+
+  /** A linked file or folder out of the project; it stays where it is. */
+  async function unlink(node: Node) {
+    try {
+      await invoke("unlink", { path: node.path });
+      closeUnder(node.path);
+    } catch (e) {
+      await fail("Remove Link", e);
+    }
+  }
+
+  /** A file or folder of the project to the Trash, once asked. */
+  async function trash(node: Node) {
+    const sure = await confirm(`Move “${node.name}” to the Trash?`, { title: "Move to Trash", kind: "warning", okLabel: "Move to Trash" });
+    if (!sure) return;
+    try {
+      await invoke("trash", { path: node.path });
+      closeUnder(node.path);
+    } catch (e) {
+      await fail("Move to Trash", e);
+    }
+  }
+
   /** ⌘': the selection of the PDF as a quote, into the review at its cursor. */
   async function quoteSelection() {
     const selection = await pdf?.selection();
@@ -387,6 +439,7 @@
     {#if layout.files}
       <div class="files">
         <Files
+          root={project.root}
           name={project.name}
           files={project.files}
           linked={project.linked}
@@ -395,6 +448,12 @@
           review={project.review}
           onopen={open}
           onreview={(node) => editReview(node.path)}
+          onnew={newFile}
+          onadd={add}
+          onreveal={(path) => revealItemInDir(path).catch((e) => fail("Reveal in Finder", e))}
+          ondefault={(path) => openPath(path).catch((e) => fail("Open in Default App", e))}
+          onunlink={unlink}
+          ontrash={trash}
         />
         <!-- its right edge, dragged, sets its width -->
         <div class="splitter" onpointerdown={resize} role="separator" aria-orientation="vertical"></div>

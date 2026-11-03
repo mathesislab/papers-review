@@ -1,13 +1,16 @@
 <script lang="ts">
   // The files of the project, as a tree (folders first) under the project's name, then the files linked from elsewhere
   // (each with the folder it is in), then the due date. A click opens a file in a tab; folders open and close. A Markdown file, right-clicked, can be the review (the
-  // pane's), marked ✎.
+  // pane's), marked ✎. Right-clicked, the project's row and its folders make a Markdown file (named in a row of
+  // their own) or take files in; a file or folder can be shown in the Finder, opened in the default app, removed
+  // from the project (a link) or moved to the Trash. What is done is reported to the page.
 
-  import { Menu, MenuItem } from "@tauri-apps/api/menu";
+  import { Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
   import { dueText } from "./due";
   import type { Kind, Node } from "./types";
 
   let {
+    root,
     name,
     files,
     linked,
@@ -16,7 +19,15 @@
     review,
     onopen,
     onreview,
+    onnew,
+    onadd,
+    onreveal,
+    ondefault,
+    onunlink,
+    ontrash,
   }: {
+    /** the path of the project folder */
+    root: string;
     /** the name of the project folder */
     name: string;
     files: Node[];
@@ -29,13 +40,73 @@
     onopen: (node: Node) => void;
     /** a Markdown file to be the review */
     onreview: (node: Node) => void;
+    /** a Markdown file of this name to make in a folder of the project */
+    onnew: (folder: string, name: string) => void;
+    /** files, or folders, to add to a folder of the project */
+    onadd: (folder: string, directory: boolean) => void;
+    /** a path to show in the Finder */
+    onreveal: (path: string) => void;
+    /** a file to open in the default app */
+    ondefault: (path: string) => void;
+    /** a linked file or folder to take out of the project (the file stays where it is) */
+    onunlink: (node: Node) => void;
+    /** a file or folder of the project to move to the Trash */
+    ontrash: (node: Node) => void;
   } = $props();
 
-  async function menu(e: MouseEvent, node: Node) {
-    if (node.kind !== "markdown") return;
+  const item = (text: string, action: () => void) => MenuItem.new({ text, action });
+  const separator = () => PredefinedMenuItem.new({ item: "Separator" });
+
+  /** The tools of a folder of the project: a Markdown file made in it, files and folders added to it. */
+  const folderItems = (folder: string) => [
+    item("New Markdown File…", () => start(folder)),
+    item("Add Files…", () => onadd(folder, false)),
+    item("Add Folder…", () => onadd(folder, true)),
+  ];
+
+  /** A right-click on the project's row. */
+  async function projectMenu(e: MouseEvent) {
     e.preventDefault();
-    const item = await MenuItem.new({ text: "Edit in Review Pane", action: () => onreview(node) });
-    await (await Menu.new({ items: [item] })).popup();
+    const items = await Promise.all([...folderItems(root), separator(), item("Reveal in Finder", () => onreveal(root))]);
+    await (await Menu.new({ items })).popup();
+  }
+
+  /** A right-click on a file or folder; `outside`: of the linked ones, `top`: at the top of its list. */
+  async function menu(e: MouseEvent, node: Node, outside: boolean, top: boolean) {
+    e.preventDefault();
+    const items = [];
+    if (node.kind === "folder" && !outside) items.push(...folderItems(node.path), separator());
+    if (node.kind === "markdown") items.push(item("Edit in Review Pane", () => onreview(node)));
+    if (node.kind !== "folder" && !node.missing) items.push(item("Open in Default App", () => ondefault(node.path)));
+    if (!node.missing) items.push(item("Reveal in Finder", () => onreveal(node.path)));
+    if (outside && top) items.push(separator(), item("Remove Link", () => onunlink(node)));
+    if (!outside) items.push(separator(), item("Move to Trash…", () => ontrash(node)));
+    await (await Menu.new({ items: await Promise.all(items) })).popup();
+  }
+
+  /** the folder a Markdown file is being named in, and the name typed so far */
+  let naming = $state<{ folder: string; name: string } | null>(null);
+
+  /** Name a new file in a folder: the folder opens, a row with the name, its name but not its ending selected. */
+  function start(folder: string) {
+    const next = new Set(closed);
+    next.delete(folder);
+    closed = next;
+    naming = { folder, name: "untitled.md" };
+  }
+
+  /** The name is made: Enter; the file is of Markdown, so `.md` is added when it is not there. */
+  function commit() {
+    if (!naming) return;
+    const { folder, name } = naming;
+    naming = null;
+    const file = name.trim();
+    if (file) onnew(folder, /\.md$/i.test(file) ? file : `${file}.md`);
+  }
+
+  function focusName(input: HTMLInputElement) {
+    input.focus();
+    input.setSelectionRange(0, input.value.lastIndexOf("."));
   }
 
   /** the folders closed (all open at first) */
@@ -92,6 +163,28 @@
   </svg>
 {/snippet}
 
+<!-- The row where a new file is named, in the folder it is made in: Enter makes it, Esc (or leaving the field) does not. -->
+{#snippet nameRow()}
+  {#if naming}
+    <div class="item naming">
+      <span class="disclosure"></span>
+      <span class="kind markdown">MD</span>
+      <input
+        bind:value={naming.name}
+        use:focusName
+        autocomplete="off"
+        autocorrect="off"
+        spellcheck="false"
+        onkeydown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") naming = null;
+        }}
+        onblur={() => (naming = null)}
+      />
+    </div>
+  {/if}
+{/snippet}
+
 <!-- The nodes at one level; a level in a folder sits in a box that draws the guide line under its folder. A linked
      node at the top is marked with a link glyph and the folder it comes from. -->
 {#snippet tree(nodes: Node[], depth: number, outside: boolean)}
@@ -99,17 +192,24 @@
     {@const from = outside && depth === 0 ? parent(node.path) : ""}
     {#if node.kind === "folder"}
       {@const empty = !node.children?.length}
-      {@const open = !empty && !closed.has(node.path)}
-      <button class="item" class:empty onclick={() => !empty && toggle(node)} title={node.path}>
+      {@const open = (!empty && !closed.has(node.path)) || naming?.folder === node.path}
+      <button
+        class="item"
+        class:empty
+        onclick={() => !empty && toggle(node)}
+        oncontextmenu={(e) => menu(e, node, outside, depth === 0)}
+        title={node.path}
+      >
         <span class="disclosure">{#if !empty}{@render chevron(open)}{/if}</span>
         {@render folderIcon()}
         {#if from}{@render linkIcon()}{/if}
         <span class="name">{node.name}</span>
         {#if from}<span class="from">{from}</span>{/if}
       </button>
-      {#if open && node.children}
+      {#if open}
         <div class="children" style:--depth={depth + 1}>
-          {@render tree(node.children, depth + 1, outside)}
+          {#if naming?.folder === node.path}{@render nameRow()}{/if}
+          {#if node.children}{@render tree(node.children, depth + 1, outside)}{/if}
         </div>
       {/if}
     {:else}
@@ -117,9 +217,9 @@
         class="item"
         class:front={node.path === front}
         class:missing={node.missing}
-        onclick={() => onopen(node)}
-        oncontextmenu={(e) => menu(e, node)}
-        disabled={node.missing}
+        onclick={() => !node.missing && onopen(node)}
+        oncontextmenu={(e) => menu(e, node, outside, depth === 0)}
+        aria-disabled={node.missing}
         title={node.missing ? `${node.path}: not found` : node.path}
       >
         <span class="disclosure"></span>
@@ -135,11 +235,12 @@
 
 <nav>
   <div class="scroll">
-    <div class="project" title={name}>
+    <div class="project" title={root} oncontextmenu={projectMenu} role="presentation">
       {@render folderIcon()}
       <span class="name">{name}</span>
     </div>
     <div class="level" style:--depth={0}>
+      {#if naming?.folder === root}{@render nameRow()}{/if}
       {@render tree(files, 0, false)}
     </div>
     {#if linked.length}
@@ -199,7 +300,7 @@
     padding: 3px 8px 3px calc(8px + var(--depth) * 14px);
     white-space: nowrap;
   }
-  .item:hover:not(:disabled) {
+  .item:hover:not(.missing, .naming) {
     background: var(--chip);
   }
   .item.front {
@@ -207,6 +308,19 @@
   }
   .item.missing {
     opacity: 0.5;
+  }
+  .naming input {
+    flex: 1;
+    min-width: 0;
+    padding: 1px 5px;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--fg);
+    font: inherit;
+    outline: none;
+    -webkit-user-select: text;
+    user-select: text;
   }
   /* a folder's contents: a guide line under the folder's chevron spans them */
   .children {
@@ -231,7 +345,7 @@
     border-radius: 4px;
     color: var(--muted);
   }
-  .item:hover:not(:disabled) .disclosure:not(:empty) {
+  .item:hover:not(.missing) .disclosure:not(:empty) {
     background: color-mix(in srgb, var(--fg) 12%, transparent);
     color: var(--fg);
   }
