@@ -40,3 +40,25 @@ export type Settings = {
 
 /** mirrors BarItem: a project of the project bar */
 export type BarItem = { root: string; name: string; short: string | null; colour: Colour; due: string | null; missing: boolean };
+
+/** mirrors ProjectInfo: what the project's info card shows and keeps */
+export type ProjectInfo = {
+  root: string;
+  name: string;
+  title: string | null;
+  short: string | null;
+  journal: string | null;
+  manuscript: string | null;
+  /** YYYY-MM-DD */
+  due: string | null;
+  colour: Colour;
+  /** the Markdown file of the review */
+  review: string;
+  /** the Markdown files of the project, and of the linked ones: those to choose the review from */
+  markdown: string[];
+  /** the files and folders linked from elsewhere */
+  linked: string[];
+};
+
+/** mirrors InfoEdit: the fields of the card that are text */
+export type InfoEdit = { title: string | null; short: string | null; journal: string | null; manuscript: string | null; due: string | null };

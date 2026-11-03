@@ -2,8 +2,9 @@
   // The page of a project's window: the colour bar (right-click: its colour), the project bar at the left when the
   // setting is on (a tile per project to switch to; right-click: open in a new window, remove), the files (⌘⌥S hides
   // them), the files open in tabs, the one in front: a PDF in PDFKit, with its outline, page, zoom and find; a
-  // Markdown, text or BibTeX file edited in place (FileEditor). How the window looked is kept between sessions (the app's state.json); the commands of the menu bar come as `menu`. The
-  // window switched to another project loads this page again.
+  // Markdown, text or BibTeX file edited in place (FileEditor). How the window looked is kept between sessions (the
+  // app's state.json); the commands of the menu bar come as `menu`. The window switched to another project loads this
+  // page again. The project's info (⌘I) is a card over the top of it, the PDF hidden meanwhile.
 
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
@@ -20,6 +21,7 @@
   import { dueText } from "$lib/due";
   import FileEditor, { type Status } from "$lib/FileEditor.svelte";
   import Files from "$lib/Files.svelte";
+  import InfoCard from "$lib/InfoCard.svelte";
   import PdfView from "$lib/PdfView.svelte";
   import { quote } from "$lib/quote";
   import type { BarItem, Colour, Kind, Layout, Node, Project, Settings } from "$lib/types";
@@ -175,12 +177,28 @@
     }
   }
 
-  /** A right-click on a tile: the project in a window of its own, or out of the bar. */
+  /** The info card shown. The PDF is a native view over the page, so it is hidden while the card shows. */
+  let card = $state(false);
+
+  function openCard() {
+    if (card) return;
+    card = true;
+    pdf?.cover(true);
+  }
+
+  function closeCard() {
+    card = false;
+    pdf?.cover(false);
+  }
+
+  /** A right-click on a tile: the project in a window of its own, or out of the bar; its info, if it is the one of
+   *  this window. */
   async function tileMenu(e: MouseEvent, item: BarItem) {
     e.preventDefault();
     const items = await Promise.all([
       MenuItem.new({ text: "Open in New Window", action: () => invoke("open_in_new_window", { root: item.root }) }),
       MenuItem.new({ text: "Remove from Bar", action: () => invoke("remove_from_bar", { root: item.root }) }),
+      ...(item.root === project?.root ? [MenuItem.new({ text: "Project Info…", action: openCard })] : []),
     ]);
     await (await Menu.new({ items })).popup();
   }
@@ -344,6 +362,9 @@
       case "quote":
         quoteSelection();
         break;
+      case "info":
+        openCard();
+        break;
     }
   }
 
@@ -448,6 +469,7 @@
           review={project.review}
           onopen={open}
           onreview={(node) => editReview(node.path)}
+          oninfo={openCard}
           onnew={newFile}
           onadd={add}
           onreveal={(path) => revealItemInDir(path).catch((e) => fail("Reveal in Finder", e))}
@@ -584,6 +606,10 @@
   {/if}
   <button onclick={() => openPath(file.path)}>Open in Default App</button>
 {/snippet}
+
+{#if card}
+  <InfoCard onclose={closeCard} />
+{/if}
 
 <!-- the entries of an outline, each nested ones indented below it -->
 {#snippet entries(list: Entry[], depth: number)}

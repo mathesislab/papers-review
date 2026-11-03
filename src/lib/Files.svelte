@@ -1,7 +1,7 @@
 <script lang="ts">
   // The files of the project, as a tree (folders first) under the project's name, then the files linked from elsewhere
   // (each with the folder it is in), then the due date. A click opens a file in a tab; folders open and close. A Markdown file, right-clicked, can be the review (the
-  // pane's), marked ✎. Right-clicked, the project's row and its folders make a Markdown file (named in a row of
+  // pane's), marked ✎. A click on the project's row opens its info. Right-clicked, the project's row and its folders make a Markdown file (named in a row of
   // their own) or take files in; a file or folder can be shown in the Finder, opened in the default app, removed
   // from the project (a link) or moved to the Trash. What is done is reported to the page.
 
@@ -19,6 +19,7 @@
     review,
     onopen,
     onreview,
+    oninfo,
     onnew,
     onadd,
     onreveal,
@@ -40,6 +41,8 @@
     onopen: (node: Node) => void;
     /** a Markdown file to be the review */
     onreview: (node: Node) => void;
+    /** the project's info to show */
+    oninfo: () => void;
     /** a Markdown file of this name to make in a folder of the project */
     onnew: (folder: string, name: string) => void;
     /** files, or folders, to add to a folder of the project */
@@ -67,7 +70,13 @@
   /** A right-click on the project's row. */
   async function projectMenu(e: MouseEvent) {
     e.preventDefault();
-    const items = await Promise.all([...folderItems(root), separator(), item("Reveal in Finder", () => onreveal(root))]);
+    const items = await Promise.all([
+      ...folderItems(root),
+      separator(),
+      item("Reveal in Finder", () => onreveal(root)),
+      separator(),
+      item("Project Info…", oninfo),
+    ]);
     await (await Menu.new({ items })).popup();
   }
 
@@ -235,10 +244,10 @@
 
 <nav>
   <div class="scroll">
-    <div class="project" title={root} oncontextmenu={projectMenu} role="presentation">
+    <button class="project" title="{root}: Project Info (⌘I)" onclick={oninfo} oncontextmenu={projectMenu}>
       {@render folderIcon()}
       <span class="name">{name}</span>
-    </div>
+    </button>
     <div class="level" style:--depth={0}>
       {#if naming?.folder === root}{@render nameRow()}{/if}
       {@render tree(files, 0, false)}
@@ -270,10 +279,21 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    width: 100%;
+    box-sizing: border-box;
     margin: 2px 0 3px;
     padding: 3px 8px;
+    font: inherit;
     font-weight: 600;
+    color: inherit;
+    text-align: left;
+    background: none;
+    border: none;
+    border-radius: 5px;
     white-space: nowrap;
+  }
+  .project:hover {
+    background: var(--chip);
   }
   .project .glyph {
     color: var(--accent);
