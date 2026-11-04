@@ -60,6 +60,9 @@ pub struct Settings {
     pub editor_size: f64,
     /// what Tab puts in
     pub indent: Indent,
+    /// the text of the editors a column of a readable width, a margin on
+    /// each side down to a narrow window
+    pub readable_width: bool,
     /// the reviewer's name, for the header of the PDF export
     pub reviewer_name: String,
     /// the review signed with `reviewer_name`; off, it is anonymous
@@ -81,6 +84,7 @@ impl Default for Settings {
             editor_font: EditorFont::default(),
             editor_size: 13.5,
             indent: Indent::default(),
+            readable_width: true,
             reviewer_name: String::new(),
             sign: false,
             header_details: false,
@@ -135,6 +139,13 @@ mod tests {
     }
 
     #[test]
+    fn the_text_is_a_readable_column_unless_the_settings_say_otherwise() {
+        assert!(Settings::default().readable_width);
+        assert!(serde_json::from_str::<Settings>("{}").unwrap().readable_width);
+        assert!(!serde_json::from_str::<Settings>(r#"{"readable_width": false}"#).unwrap().readable_width);
+    }
+
+    #[test]
     fn the_review_is_anonymous_with_a_plain_header_unless_the_settings_say_otherwise() {
         let settings = Settings::default();
         assert_eq!((settings.reviewer_name.as_str(), settings.sign, settings.header_details), ("", false, false));
@@ -170,6 +181,7 @@ mod tests {
             editor_font: EditorFont::Serif,
             editor_size: 16.0,
             indent: Indent::Tab,
+            readable_width: false,
             reviewer_name: "A. Reviewer".into(),
             sign: true,
             header_details: true,

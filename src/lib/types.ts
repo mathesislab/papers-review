@@ -48,6 +48,8 @@ export type Settings = {
   editor_size: number;
   /** what Tab puts in: four spaces, two, or a tab */
   indent: Indent;
+  /** the text of the editors a column of a readable width, a margin on each side */
+  readable_width: boolean;
   /** the reviewer's name, to sign the exports with */
   reviewer_name: string;
   /** sign the PDF with it; off: anonymous */

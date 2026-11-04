@@ -158,6 +158,11 @@
         {#each INDENTS as [indent, name] (indent)}<option value={indent}>{name}</option>{/each}
       </select>
     </div>
+    <label class="option">
+      <input type="checkbox" bind:checked={settings.readable_width} onchange={save} />
+      <span>Readable line length</span>
+    </label>
+    <p class="note">The text a column in the middle, with a margin on each side; off: as wide as the window.</p>
     <p class="note first">The review and the text files of a project.</p>
 
     <h2>Export</h2>
