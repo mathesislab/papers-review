@@ -34,15 +34,16 @@ pub enum EditorFont {
     Mono,
 }
 
-/// What Tab puts in at the cursor in the editors.
+/// What Tab puts in at the cursor in the editors: two spaces by default, as
+/// four or a tab begin a block of code in Markdown.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Indent {
-    /// four spaces
-    #[default]
-    Four,
     /// two spaces
+    #[default]
     Two,
+    /// four spaces
+    Four,
     /// a tab character
     Tab,
 }
@@ -141,9 +142,9 @@ mod tests {
     }
 
     #[test]
-    fn tab_puts_in_four_spaces_unless_the_settings_say_otherwise() {
-        assert_eq!(Settings::default().indent, Indent::Four);
-        assert_eq!(serde_json::from_str::<Settings>("{}").unwrap().indent, Indent::Four);
+    fn tab_puts_in_two_spaces_unless_the_settings_say_otherwise() {
+        assert_eq!(Settings::default().indent, Indent::Two);
+        assert_eq!(serde_json::from_str::<Settings>("{}").unwrap().indent, Indent::Two);
         assert_eq!(serde_json::from_str::<Settings>(r#"{"indent": "tab"}"#).unwrap().indent, Indent::Tab);
     }
 

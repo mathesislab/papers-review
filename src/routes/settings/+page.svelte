@@ -41,8 +41,8 @@
     ["mono", "Monospace"],
   ];
   const INDENTS: [Indent, string][] = [
-    ["four", "4 spaces"],
     ["two", "2 spaces"],
+    ["four", "4 spaces"],
     ["tab", "A tab"],
   ];
 
@@ -287,7 +287,7 @@
         <label class="row">
           <span>
             <span class="label">Tab inserts</span>
-            <span class="hint">With lines selected, Tab indents them and ⇧Tab takes it out</span>
+            <span class="hint">With lines selected, Tab indents them and ⇧Tab takes it out. In Markdown, 4 spaces or a tab begin a block of code</span>
           </span>
           <select bind:value={settings.indent} onchange={save}>
             {#each INDENTS as [indent, name] (indent)}<option value={indent}>{name}</option>{/each}

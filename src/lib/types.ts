@@ -46,7 +46,7 @@ export type Settings = {
   /** the font of the editors and its size (points) */
   editor_font: EditorFont;
   editor_size: number;
-  /** what Tab puts in: four spaces, two, or a tab */
+  /** what Tab puts in: two spaces, four, or a tab */
   indent: Indent;
   /** the text of the editors a column of a readable width, a margin on each side */
   readable_width: boolean;
@@ -70,7 +70,7 @@ export type Settings = {
 export type DateFormat = "ymd" | "dmy" | "mdy";
 
 /** mirrors settings::Indent */
-export type Indent = "four" | "two" | "tab";
+export type Indent = "two" | "four" | "tab";
 
 /** mirrors settings::EditorFont */
 export type EditorFont = "system" | "serif" | "mono";
