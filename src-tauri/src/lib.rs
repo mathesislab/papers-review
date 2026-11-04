@@ -304,7 +304,7 @@ fn set_project_info(app: AppHandle, webview: Webview, state: State<'_, AppState>
         let project = projects.get_mut(&root).ok_or("the project is not open")?;
         set_info(project, info, due)?;
     }
-    windows::renamed(&app, &root);
+    windows::relabelled(&app, &root);
     windows::changed(&app, &root);
     Ok(())
 }
@@ -496,6 +496,7 @@ fn set_colour(app: AppHandle, webview: Webview, state: State<'_, AppState>, colo
         .ok_or("the project is not open")?
         .set_colour(colour)
         .map_err(|e| e.to_string())?;
+    windows::relabelled(&app, &root);
     windows::changed(&app, &root);
     Ok(())
 }
