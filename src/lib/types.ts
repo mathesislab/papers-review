@@ -46,6 +46,8 @@ export type Settings = {
   /** the font of the editors and its size (points) */
   editor_font: EditorFont;
   editor_size: number;
+  /** what Tab puts in: four spaces, two, or a tab */
+  indent: Indent;
   /** the reviewer's name, to sign the exports with */
   reviewer_name: string;
   /** sign the PDF with it; off: anonymous */
@@ -60,6 +62,9 @@ export type Settings = {
 
 /** mirrors settings::DateFormat: 2026-11-14, 14.11.2026, 11/14/2026 */
 export type DateFormat = "ymd" | "dmy" | "mdy";
+
+/** mirrors settings::Indent */
+export type Indent = "four" | "two" | "tab";
 
 /** mirrors settings::EditorFont */
 export type EditorFont = "system" | "serif" | "mono";

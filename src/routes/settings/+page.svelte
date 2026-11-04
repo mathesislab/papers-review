@@ -13,7 +13,7 @@
   import "$lib/theme.css";
   import { DEFAULTS } from "$lib/symbols";
   import { Updates } from "$lib/updates.svelte";
-  import type { DateFormat, EditorFont, Settings } from "$lib/types";
+  import type { DateFormat, EditorFont, Indent, Settings } from "$lib/types";
 
   const FORMATS: [DateFormat, string][] = [
     ["ymd", "2026-11-14"],
@@ -24,6 +24,12 @@
     ["system", "System"],
     ["serif", "Serif"],
     ["mono", "Monospace"],
+  ];
+
+  const INDENTS: [Indent, string][] = [
+    ["four", "4 spaces"],
+    ["two", "2 spaces"],
+    ["tab", "A tab"],
   ];
 
   let settings = $state<Settings | null>(null);
@@ -145,6 +151,12 @@
       <label for="editor-size">Size</label>
       <input id="editor-size" type="range" min="11" max="20" step="0.5" bind:value={settings.editor_size} onchange={save} />
       <span class="size">{settings.editor_size} pt</span>
+    </div>
+    <div class="field">
+      <label for="indent">Tab inserts</label>
+      <select id="indent" bind:value={settings.indent} onchange={save}>
+        {#each INDENTS as [indent, name] (indent)}<option value={indent}>{name}</option>{/each}
+      </select>
     </div>
     <p class="note first">The review and the text files of a project.</p>
 

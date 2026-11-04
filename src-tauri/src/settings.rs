@@ -32,6 +32,19 @@ pub enum EditorFont {
     Mono,
 }
 
+/// What Tab puts in at the cursor in the editors.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Indent {
+    /// four spaces
+    #[default]
+    Four,
+    /// two spaces
+    Two,
+    /// a tab character
+    Tab,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
@@ -45,6 +58,8 @@ pub struct Settings {
     /// the font of the editors and its size (points)
     pub editor_font: EditorFont,
     pub editor_size: f64,
+    /// what Tab puts in
+    pub indent: Indent,
     /// the reviewer's name, for the header of the PDF export
     pub reviewer_name: String,
     /// the review signed with `reviewer_name`; off, it is anonymous
@@ -65,6 +80,7 @@ impl Default for Settings {
             date_format: DateFormat::default(),
             editor_font: EditorFont::default(),
             editor_size: 13.5,
+            indent: Indent::default(),
             reviewer_name: String::new(),
             sign: false,
             header_details: false,
@@ -112,6 +128,13 @@ mod tests {
     }
 
     #[test]
+    fn tab_puts_in_four_spaces_unless_the_settings_say_otherwise() {
+        assert_eq!(Settings::default().indent, Indent::Four);
+        assert_eq!(serde_json::from_str::<Settings>("{}").unwrap().indent, Indent::Four);
+        assert_eq!(serde_json::from_str::<Settings>(r#"{"indent": "tab"}"#).unwrap().indent, Indent::Tab);
+    }
+
+    #[test]
     fn the_review_is_anonymous_with_a_plain_header_unless_the_settings_say_otherwise() {
         let settings = Settings::default();
         assert_eq!((settings.reviewer_name.as_str(), settings.sign, settings.header_details), ("", false, false));
@@ -146,6 +169,7 @@ mod tests {
             date_format: DateFormat::Dmy,
             editor_font: EditorFont::Serif,
             editor_size: 16.0,
+            indent: Indent::Tab,
             reviewer_name: "A. Reviewer".into(),
             sign: true,
             header_details: true,

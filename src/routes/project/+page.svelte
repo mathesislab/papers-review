@@ -21,7 +21,7 @@
   import { label } from "$lib/bar";
   import { COLOURS, cssOf } from "$lib/colour";
   import { daysLeft, formatDate, shortDate, urgency } from "$lib/due";
-  import { setEditorFont } from "$lib/editor";
+  import { PREFS, prefsFrom, setEditorFont } from "$lib/editor";
   import FileEditor, { type Status } from "$lib/FileEditor.svelte";
   import Files from "$lib/Files.svelte";
   import InfoCard from "$lib/InfoCard.svelte";
@@ -186,6 +186,9 @@
       error = String(e);
     }
   }
+
+  /** what the editor takes from the settings */
+  const prefs = $derived(settings ? prefsFrom(settings) : PREFS);
 
   async function loadSettings() {
     settings = await invoke<Settings>("settings");
@@ -748,6 +751,7 @@
                   save={write}
                   mono={edited.kind !== "markdown"}
                   symbols={settings?.symbols}
+                  {prefs}
                   bind:status
                   bind:error={writeError}
                 />

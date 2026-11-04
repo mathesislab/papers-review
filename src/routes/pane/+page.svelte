@@ -22,7 +22,7 @@
   import { keymap } from "@codemirror/view";
   import { onMount } from "svelte";
   import "$lib/theme.css";
-  import { insertQuote, insertSymbol, setEditorFont, showSection, wordsOf } from "$lib/editor";
+  import { PREFS, insertQuote, insertSymbol, prefsFrom, setEditorFont, showSection, wordsOf } from "$lib/editor";
   import { formatDate } from "$lib/due";
   import { exportName, pdfDocument, section, textDocument, toHtml, toPlainText, type Frame } from "$lib/export";
   import FileEditor, { type Status } from "$lib/FileEditor.svelte";
@@ -58,6 +58,8 @@
   let refs = $state<RefList>();
   /** the user's own sequences typed that become symbols (the settings) */
   let symbols = $state<[string, string][]>([]);
+  /** what the editor takes from the settings */
+  let prefs = $state(PREFS);
   /** the sections, as tabs, and the one shown alone (null: all of the text) */
   let tabs = $state<Section[]>([]);
   let active = $state<number | null>(null);
@@ -217,6 +219,7 @@
   const loadSettings = () =>
     invoke<Settings>("settings").then((s) => {
       symbols = s.symbols;
+      prefs = prefsFrom(s);
       setEditorFont(s.editor_font, s.editor_size);
     });
 
@@ -340,7 +343,7 @@
   <main>
     <!-- kept while the file is missing, to read it into when it is made -->
     <div class="editor" class:hidden={missing}>
-      <FileEditor bind:this={editor} {load} {save} {symbols} extensions={more} onchange={count} bind:status bind:error bind:path />
+      <FileEditor bind:this={editor} {load} {save} {symbols} {prefs} extensions={more} onchange={count} bind:status bind:error bind:path />
     </div>
     {#if listing}
       {#key opened}
