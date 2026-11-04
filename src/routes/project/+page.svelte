@@ -311,16 +311,26 @@
 
   const write = (path: string, text: string) => invoke<void>("write_file", { path, text });
 
-  /** Undo, Redo, Symbols…, Back and Forward of the menu: the history, the symbols or the indent of the editor in
-   *  focus, else the field of the page; Back and Forward, the PDF's. */
+  /** Whether a field of the page has the keys (the find or page field, a field of a card), not the editor. */
+  function inField() {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement) || active.closest(".cm-editor")) return false;
+    return active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active.isContentEditable;
+  }
+
+  /** Undo, Redo, Symbols…, Back and Forward of the menu, which come here when the page has the keys (the pane is
+   *  told otherwise): with a file edited in front, those of its editor (the history, the symbols, the indent) unless a
+   *  field of the page has the keys, whose Undo and Redo they are; with the PDF in front, Back and Forward are its.
+   *  Not `hasFocus()`: the editor has lost it to the menu by then. */
   function edit(what: string) {
+    const toEditor = !!editor && !!edited && !inField();
     if (what === "back" || what === "forward") {
-      if (editor?.hasFocus()) (what === "back" ? editor.outdent : editor.indent)();
+      if (toEditor) (what === "back" ? editor!.outdent : editor!.indent)();
       else if (what === "back") pdf?.back();
       else pdf?.forward();
     } else if (what === "symbols") {
-      if (editor?.hasFocus()) editor.list();
-    } else if (editor?.hasFocus()) (what === "redo" ? editor.redo : editor.undo)();
+      if (toEditor) editor!.list();
+    } else if (toEditor) (what === "redo" ? editor!.redo : editor!.undo)();
     else document.execCommand(what);
   }
 
@@ -542,6 +552,11 @@
     // the PDF of a paper chosen in the references
     const unlistenOpen = listen<string>("open-file", (e) => openFile(e.payload));
     const unlistenEdit = listen<string>("edit", (e) => edit(e.payload));
+    // a click or a field in the page: the keys are the page's, not the pane's (which hears no blur when the keys go
+    // from it to the page), for the menu's Undo, Redo, Back and Forward
+    const toPage = () => invoke("pane_focus", { focused: false });
+    document.addEventListener("pointerdown", toPage, true);
+    document.addEventListener("focusin", toPage);
     const unlistenFile = listen<string>("file-changed", (e) => {
       if (e.payload === edited?.path) editor?.changedOnDisk();
     });
@@ -551,6 +566,8 @@
       if (e.payload.type === "drop") drop(e.payload.paths);
     });
     return () => {
+      document.removeEventListener("pointerdown", toPage, true);
+      document.removeEventListener("focusin", toPage);
       unlistenDrop.then((f) => f());
       unlistenSwitched.then((f) => f());
       unlistenBar.then((f) => f());

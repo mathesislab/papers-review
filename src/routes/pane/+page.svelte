@@ -274,12 +274,19 @@
       invoke("pane_focus", { focused: false });
       editor?.flush();
     };
+    // a click or a field in the pane: the keys are the pane's, when the window's focus does not say so (the keys
+    // coming from the page of the same window)
+    const toPane = () => invoke("pane_focus", { focused: true });
     window.addEventListener("focus", focused);
     window.addEventListener("blur", blurred);
+    document.addEventListener("pointerdown", toPane, true);
+    document.addEventListener("focusin", toPane);
     return () => {
       for (const u of unlisteners) u.then((f) => f());
       window.removeEventListener("focus", focused);
       window.removeEventListener("blur", blurred);
+      document.removeEventListener("pointerdown", toPane, true);
+      document.removeEventListener("focusin", toPane);
     };
   });
 </script>

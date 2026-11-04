@@ -257,10 +257,11 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
 
 /// Undo, Redo, Symbols…, Back and Forward: the review's own history, list of
 /// symbols or indent (⌘[ and ⌘] are indent less and more in the editor) when
-/// its pane has the keys (the editor keeps them, not WebKit), else the page of
-/// a project's window, which gives it to the file edited in focus or, for Undo
-/// and Redo, the field in focus; Back and Forward go to the PDF if no file is
-/// edited in focus.
+/// its pane has the keys (the editor keeps them, not WebKit; the pane and the
+/// page say which has them as they are clicked or focused), else the page of
+/// a project's window, which gives it to the file edited in front or, for
+/// Undo and Redo, a field of the page with the keys; Back and Forward go to
+/// the PDF when it is in front.
 fn edit(app: &AppHandle, name: &str) {
     let Some(window) = front(app) else {
         return;
