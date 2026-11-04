@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The page of a project's window: the colour bar (right-click: its colour), the project bar at the left when the
+  // The page of a project's window: the colour bar of the settings (right-click: its colour), the project bar at the left when the
   // setting is on (a tile per project to switch to; right-click: open in a new window, remove), the files (⌘⌥S hides
   // them), the files open in tabs, the one in front: a PDF in PDFKit, with its outline, page, zoom and find; a
   // Markdown, text or BibTeX file edited in place (FileEditor). How the window looked is kept between sessions (the
@@ -8,7 +8,8 @@
   // asks for the name, due date and review file of a new project (a folder without a review.toml).
 
   import { invoke } from "@tauri-apps/api/core";
-  import { emitTo, listen } from "@tauri-apps/api/event";
+  import { emitTo } from "@tauri-apps/api/event";
+  import { listen } from "$lib/events";
   import { CheckMenuItem, Menu, MenuItem } from "@tauri-apps/api/menu";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -21,7 +22,8 @@
   import { label } from "$lib/bar";
   import { COLOURS, cssOf } from "$lib/colour";
   import { daysLeft, formatDate, shortDate, urgency } from "$lib/due";
-  import { setEditorFont } from "$lib/editor";
+  import { PREFS, prefsFrom, setEditorFont, wordCount, wordsOf } from "$lib/editor";
+  import EditorButtons from "$lib/EditorButtons.svelte";
   import FileEditor, { type Status } from "$lib/FileEditor.svelte";
   import Files from "$lib/Files.svelte";
   import InfoCard from "$lib/InfoCard.svelte";
@@ -155,13 +157,16 @@
     notFound = findText !== "" && !(await pdf.find(findText, again, backwards));
   }
 
-  /** A right-click on the bar: the colour of the project, for all its windows (review.toml). */
+  /** the colour of the bar at the top of the window (the settings) */
+  const barColour = $derived(settings ? cssOf(settings.window_colour) : null);
+
+  /** A right-click on the bar: the colour of the bar of the app's windows (the settings). */
   async function colourMenu(e: MouseEvent) {
     e.preventDefault();
     const items = COLOURS.map((c) =>
       CheckMenuItem.new({
         text: c.name,
-        checked: project?.colour === c.colour,
+        checked: settings?.window_colour === c.colour,
         action: () => setColour(c.colour),
       }),
     );
@@ -169,11 +174,8 @@
   }
 
   async function setColour(colour: Colour) {
-    try {
-      await invoke("set_colour", { colour });
-    } catch (e) {
-      error = String(e);
-    }
+    const now = await invoke<Settings>("settings");
+    await invoke("set_settings", { settings: { ...now, window_colour: colour } });
   }
 
   async function load() {
@@ -186,6 +188,12 @@
       error = String(e);
     }
   }
+
+  /** what the editor takes from the settings */
+  const prefs = $derived(settings ? prefsFrom(settings) : PREFS);
+  /** the words of the file edited, and of its selection */
+  let words = $state(0);
+  let selected = $state(0);
 
   async function loadSettings() {
     settings = await invoke<Settings>("settings");
@@ -304,16 +312,26 @@
 
   const write = (path: string, text: string) => invoke<void>("write_file", { path, text });
 
-  /** Undo, Redo, Symbols…, Back and Forward of the menu: the history, the symbols or the indent of the editor in
-   *  focus, else the field of the page; Back and Forward, the PDF's. */
+  /** Whether a field of the page has the keys (the find or page field, a field of a card), not the editor. */
+  function inField() {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement) || active.closest(".cm-editor")) return false;
+    return active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active.isContentEditable;
+  }
+
+  /** Undo, Redo, Symbols…, Back and Forward of the menu, which come here when the page has the keys (the pane is
+   *  told otherwise): with a file edited in front, those of its editor (the history, the symbols, the indent) unless a
+   *  field of the page has the keys, whose Undo and Redo they are; with the PDF in front, Back and Forward are its.
+   *  Not `hasFocus()`: the editor has lost it to the menu by then. */
   function edit(what: string) {
+    const toEditor = !!editor && !!edited && !inField();
     if (what === "back" || what === "forward") {
-      if (editor?.hasFocus()) (what === "back" ? editor.outdent : editor.indent)();
+      if (toEditor) (what === "back" ? editor!.outdent : editor!.indent)();
       else if (what === "back") pdf?.back();
       else pdf?.forward();
     } else if (what === "symbols") {
-      if (editor?.hasFocus()) editor.list();
-    } else if (editor?.hasFocus()) (what === "redo" ? editor.redo : editor.undo)();
+      if (toEditor) editor!.list();
+    } else if (toEditor) (what === "redo" ? editor!.redo : editor!.undo)();
     else document.execCommand(what);
   }
 
@@ -412,7 +430,7 @@
     }
   }
 
-  /** ⌘': the selection of the PDF as a quote, into the review at its cursor; ⌘; the same without quotation marks. */
+  /** ⌘U: the selection of the PDF as a quote, into the review at its cursor; ⌘Y the same without quotation marks. */
   async function quoteSelection(plain = false) {
     const selection = await pdf?.selection();
     if (!selection) return;
@@ -437,6 +455,14 @@
   }
 
   /** A command of the menu bar. */
+  /** The tab before or after the one in front shown, round from the last to the first (⇧⌘[ and ⇧⌘]). */
+  function stepTab(step: number) {
+    const n = layout.tabs.length;
+    if (n === 0) return;
+    const i = layout.front === null ? -1 : layout.tabs.indexOf(layout.front);
+    layout.front = layout.tabs[(((i < 0 ? (step > 0 ? -1 : 0) : i) + step) % n + n) % n];
+  }
+
   function command(id: string) {
     switch (id) {
       case "files":
@@ -445,6 +471,10 @@
       case "close-tab":
         if (layout.front) close(layout.front);
         else getCurrentWindow().close();
+        break;
+      case "previous-tab":
+      case "next-tab":
+        stepTab(id === "next-tab" ? 1 : -1);
         break;
       case "zoom-in":
         pdf?.zoom(1);
@@ -523,6 +553,11 @@
     // the PDF of a paper chosen in the references
     const unlistenOpen = listen<string>("open-file", (e) => openFile(e.payload));
     const unlistenEdit = listen<string>("edit", (e) => edit(e.payload));
+    // a click or a field in the page: the keys are the page's, not the pane's (which hears no blur when the keys go
+    // from it to the page), for the menu's Undo, Redo, Back and Forward
+    const toPage = () => invoke("pane_focus", { focused: false });
+    document.addEventListener("pointerdown", toPage, true);
+    document.addEventListener("focusin", toPage);
     const unlistenFile = listen<string>("file-changed", (e) => {
       if (e.payload === edited?.path) editor?.changedOnDisk();
     });
@@ -532,6 +567,8 @@
       if (e.payload.type === "drop") drop(e.payload.paths);
     });
     return () => {
+      document.removeEventListener("pointerdown", toPage, true);
+      document.removeEventListener("focusin", toPage);
       unlistenDrop.then((f) => f());
       unlistenSwitched.then((f) => f());
       unlistenBar.then((f) => f());
@@ -557,16 +594,17 @@
   });
 </script>
 
-<!-- the project's colour, at the top, to tell its windows apart among others; a right-click chooses it -->
-{#if project && cssOf(project.colour)}
-  <div class="colour" style:background={cssOf(project.colour)} title="The colour of the project: right-click to choose" oncontextmenu={colourMenu} role="presentation"></div>
+<!-- the colour of the app's windows (the settings), at the top, to tell them apart among others; a right-click
+     chooses it -->
+{#if project && barColour}
+  <div class="colour" style:background={barColour} title="The colour of the windows (Settings): right-click to choose" oncontextmenu={colourMenu} role="presentation"></div>
 {/if}
 
 {#if project}
   <div
     class="window"
     class:nofiles={!layout.files}
-    class:coloured={cssOf(project.colour)}
+    class:coloured={barColour}
     style:grid-template-columns={`${showBar ? "92px " : ""}${layout.files ? `${layout.files_width}px ` : ""}1fr`}
   >
     {#if showBar}
@@ -709,7 +747,9 @@
         <!-- the file in front, edited: its name, whether it is written -->
         <div class="tools">
           <span class="name" title={edited.path}>{edited.name}</span>
+          <EditorButtons framed symbols={edited.kind === "markdown"} lineNumbers={prefs.lineNumbers} onsymbols={() => editor?.list()} />
           <span class="state">
+            {wordCount(words, selected)} ·
             {#if status === "error"}<span class="error" title={writeError}>not saved</span>{:else}{status === "saved" ? "saved" : "editing"}{/if}
           </span>
           {@render actions(edited)}
@@ -748,6 +788,9 @@
                   save={write}
                   mono={edited.kind !== "markdown"}
                   symbols={settings?.symbols}
+                  {prefs}
+                  onchange={(text) => (words = wordsOf(text))}
+                  bind:selected
                   bind:status
                   bind:error={writeError}
                 />

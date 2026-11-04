@@ -58,8 +58,8 @@ pub fn show_settings(app: &AppHandle, section: Option<&str>) {
     };
     let _ = WebviewWindowBuilder::new(app, SETTINGS, WebviewUrl::App(url.into()))
         .title("Settings")
-        .inner_size(520.0, 640.0)
-        .min_inner_size(440.0, 300.0)
+        .inner_size(560.0, 720.0)
+        .min_inner_size(480.0, 360.0)
         .center()
         .build();
 }
@@ -309,7 +309,7 @@ pub fn created(app: &AppHandle, root: &Path) {
     state.started.lock().unwrap().remove(root);
     state.save();
     review::moved(app, root);
-    renamed(app, root);
+    relabelled(app, root);
     changed(app, root);
 }
 
@@ -354,9 +354,9 @@ fn retitle(app: &AppHandle, window: &str) {
     }
 }
 
-/// The name, the short name or the due date of the project of `root` changed: the titles of its windows,
-/// the menu and the project bars follow.
-pub fn renamed(app: &AppHandle, root: &Path) {
+/// What the windows and the project bars show of the project of `root` changed (its name, short name, due
+/// date or colour): the titles of its windows, the menu and the project bars follow.
+pub fn relabelled(app: &AppHandle, root: &Path) {
     for window in of_project(app, root) {
         retitle(app, &window);
     }

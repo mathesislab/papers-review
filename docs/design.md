@@ -58,14 +58,16 @@ it holds nothing but the PDF copied in.
 
 One window per project, or one window for all of them with a bar to switch
 between projects, as set in Settings (`⌘,`); several windows when asked
-(File > Open Project in New Window…, `⇧⌘O`). All the windows of a project
-share its colour.
+(File > Open Project in New Window…, `⇧⌘O`). `⇧⌘[` and `⇧⌘]` (Window menu)
+show the tab before or after the one in front.
 
 - **Colour bar**: a thin bar along the top of the page, under the title bar,
-  in the project's colour, to tell the windows apart in Mission Control and
-  the window switcher: the pastel colours of Papers Desktop's window, by
-  name (`colour = "orange"` in `review.toml`). Right-click it: the colour, or
-  none. A new project takes the next colour not in use among those open.
+  in the app's colour, to tell its windows apart from others in Mission
+  Control and the window switcher: the pastel colours of Papers Desktop's
+  window, by name (Settings ▸ General, `window_colour`; none by default).
+  Right-click it: the colour, or none. A project has a colour of its own
+  (`colour = "orange"` in `review.toml`) for its tile and its dot among the
+  recent projects; a new one takes the next not in use among those open.
 - **Project bar** (Settings; on by default): a column at the left with a tile
   per project, in its colour with its short name (ten letters at most, on two
   lines when long) or initials, the due date under it, and down its left side
@@ -145,19 +147,35 @@ NSVisualEffectView under it.
 - CodeMirror 6, Markdown. Its font (system, serif or monospace) and size
   are set in Settings, as is the format of dates (2026-11-14, 14.11.2026 or
   11/14/2026); text files take the size, in monospace.
+- Settings ▸ Editor also has what `Tab` puts in at the cursor (2 spaces, 4
+  or a tab: 4 or a tab begin a block of code in Markdown; with lines selected it indents them, `⇧Tab` takes it out), the
+  readable line length (on by default: the text a column of 46em in the
+  middle, a margin on each side down to a narrow window, as in Obsidian) and
+  the line numbers (off by default).
+- The bar of the review pane, and of a file edited in a tab, has Ω (the
+  symbols, `⌘/`), the line numbers shown or hidden (in every editor), and
+  the words: of the whole, or of the section shown alone, and of the
+  selection (`56 of 1,234 words`).
+- A file changed on disk and read again changes only what differs: the
+  cursor and the undo history stay.
+- A selection made with the mouse scrolls at the top and foot of the editor
+  alike, faster the further into the edge and the longer it is held there
+  (CodeMirror's own speed goes with the distance past the edge, which the
+  pane at the foot of the screen hardly leaves).
 - A line that starts with a location (`p5, l136–138:`, `p5–6:`, `l153:`,
   `p. iii:`) has it coloured, as the headings are.
-- `⌘'` quotes the selection of the PDF at the cursor, as a paragraph of its
+- `⌘U` quotes the selection of the PDF at the cursor, as a paragraph of its
   own, with its page (the printed label, else the number) and its lines
   where the manuscript has line numbers: `**p. 5, l. 136:** "…"`,
   `**p. 5, ll. 136–138:** "…"`, `**pp. 5–6, ll. 210–228:** "…"`. The pane
   shows with the keys, to write what the quote is about; `Esc` gives them
   back to the PDF. The plugin gives the selection line by line with the
   words beside each line (`selection`); `quote.ts` takes the whole number
-  nearest each line, left of it first, and keeps the page alone when the
-  numbers do not fit the lines selected. Words split at a line end are made
+  nearest each line, left of it first, with no word but numbers beyond it
+  (a number in the text, `and 10000 m`, is none), and keeps the page alone
+  when the numbers do not fit the lines selected. Words split at a line end are made
   whole, ligatures undone. The numbers of a two-column layout are not read
-  yet: PDFKit glues them to the line's text. `⌘;` quotes it the same way
+  yet: PDFKit glues them to the line's text. `⌘Y` quotes it the same way
   without the quotation marks. `⌃L` inserts the location in view.
 - Symbols, in the Markdown editors (the review, a Markdown tab; not in code
   spans or blocks): typed sequences become one as the last character is
@@ -245,9 +263,9 @@ other page commands.
 ## Updates
 
 The app looks for a new version a while after the start and twice a day
-(Settings ▸ Updates, `check_updates`; Papers Review ▸ Check for Updates…
-looks now and tells the result in a dialog), and installs it, then
-restarts, only when asked (`update.rs`, as in Papers Desktop). The updates
+(Settings ▸ General ▸ Updates, `check_updates`; Papers Review ▸ Check for
+Updates… shows them there and looks now, as Papers Desktop does: no alert),
+and installs it, with its download in a bar, then restarts, only when asked (`update.rs`, as in Papers Desktop). The updates
 are signed with the updater key: the public key is `plugins.updater.pubkey`
 in `tauri.conf.json`, the private one the secret `TAURI_SIGNING_PRIVATE_KEY`
 of the repository (no password). A release is made by tagging `vX.Y.Z`

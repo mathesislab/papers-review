@@ -16,13 +16,14 @@
   // as a PDF, saved in the project and shown in the Finder, or as plain text, copied and saved (src/lib/export.ts).
 
   import { invoke } from "@tauri-apps/api/core";
-  import { listen } from "@tauri-apps/api/event";
+  import { listen } from "$lib/events";
   import { Menu, MenuItem } from "@tauri-apps/api/menu";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { keymap } from "@codemirror/view";
   import { onMount } from "svelte";
   import "$lib/theme.css";
-  import { insertQuote, insertSymbol, setEditorFont, showSection, wordsOf } from "$lib/editor";
+  import { PREFS, insertQuote, insertSymbol, prefsFrom, setEditorFont, showSection, wordCount, wordsOf } from "$lib/editor";
+  import EditorButtons from "$lib/EditorButtons.svelte";
   import { formatDate } from "$lib/due";
   import { exportName, pdfDocument, section, textDocument, toHtml, toPlainText, type Frame } from "$lib/export";
   import FileEditor, { type Status } from "$lib/FileEditor.svelte";
@@ -45,6 +46,8 @@
   let path = $state("");
   const name = $derived(path.split("/").pop() ?? "");
   let words = $state(0);
+  /** the words selected */
+  let selected = $state(0);
   let status = $state<Status>("saved");
   let error = $state("");
   /** the review file is not there (yet): said instead of the editor */
@@ -58,6 +61,8 @@
   let refs = $state<RefList>();
   /** the user's own sequences typed that become symbols (the settings) */
   let symbols = $state<[string, string][]>([]);
+  /** what the editor takes from the settings */
+  let prefs = $state(PREFS);
   /** the sections, as tabs, and the one shown alone (null: all of the text) */
   let tabs = $state<Section[]>([]);
   let active = $state<number | null>(null);
@@ -217,6 +222,7 @@
   const loadSettings = () =>
     invoke<Settings>("settings").then((s) => {
       symbols = s.symbols;
+      prefs = prefsFrom(s);
       setEditorFont(s.editor_font, s.editor_size);
     });
 
@@ -244,7 +250,7 @@
         else if (e.payload === "redo") editor?.redo();
         else editor?.undo();
       }),
-      // ⌘' and ⌘; in the page: a quote of the PDF at the cursor, in quotation marks or not
+      // ⌘U and ⌘Y in the page: a quote of the PDF at the cursor, in quotation marks or not
       listen<string>("review-insert", (e) => {
         const view = editor?.view();
         if (view) insertQuote(view, e.payload);
@@ -268,12 +274,19 @@
       invoke("pane_focus", { focused: false });
       editor?.flush();
     };
+    // a click or a field in the pane: the keys are the pane's, when the window's focus does not say so (the keys
+    // coming from the page of the same window)
+    const toPane = () => invoke("pane_focus", { focused: true });
     window.addEventListener("focus", focused);
     window.addEventListener("blur", blurred);
+    document.addEventListener("pointerdown", toPane, true);
+    document.addEventListener("focusin", toPane);
     return () => {
       for (const u of unlisteners) u.then((f) => f());
       window.removeEventListener("focus", focused);
       window.removeEventListener("blur", blurred);
+      document.removeEventListener("pointerdown", toPane, true);
+      document.removeEventListener("focusin", toPane);
     };
   });
 </script>
@@ -311,7 +324,7 @@
       {/if}
       {#if !missing}
         <span class="meta">
-          {words} words ·
+          {wordCount(words, selected)} ·
           {#if status === "error"}
             <span class="error" title={error}>not saved</span>
           {:else if exportError}
@@ -324,6 +337,9 @@
         </span>
       {:else}
         <span class="meta"></span>
+      {/if}
+      {#if !missing}
+        <EditorButtons symbols={true} lineNumbers={prefs.lineNumbers} onsymbols={() => editor?.list()} />
       {/if}
       <button class="export" onclick={exportMenu} disabled={missing} title="Export {target}" aria-label="Export {target}">
         <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
@@ -340,7 +356,7 @@
   <main>
     <!-- kept while the file is missing, to read it into when it is made -->
     <div class="editor" class:hidden={missing}>
-      <FileEditor bind:this={editor} {load} {save} {symbols} extensions={more} onchange={count} bind:status bind:error bind:path />
+      <FileEditor bind:this={editor} {load} {save} {symbols} {prefs} extensions={more} onchange={count} bind:status bind:error bind:path bind:selected />
     </div>
     {#if listing}
       {#key opened}

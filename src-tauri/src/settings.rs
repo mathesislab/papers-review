@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use review_core::Colour;
+
 use crate::state;
 
 const FILE: &str = "settings.json";
@@ -32,6 +34,20 @@ pub enum EditorFont {
     Mono,
 }
 
+/// What Tab puts in at the cursor in the editors: two spaces by default, as
+/// four or a tab begin a block of code in Markdown.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Indent {
+    /// two spaces
+    #[default]
+    Two,
+    /// four spaces
+    Four,
+    /// a tab character
+    Tab,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
@@ -45,6 +61,13 @@ pub struct Settings {
     /// the font of the editors and its size (points)
     pub editor_font: EditorFont,
     pub editor_size: f64,
+    /// what Tab puts in
+    pub indent: Indent,
+    /// the text of the editors a column of a readable width, a margin on
+    /// each side down to a narrow window
+    pub readable_width: bool,
+    /// the lines of the editors numbered
+    pub line_numbers: bool,
     /// the reviewer's name, for the header of the PDF export
     pub reviewer_name: String,
     /// the review signed with `reviewer_name`; off, it is anonymous
@@ -53,6 +76,9 @@ pub struct Settings {
     pub header_details: bool,
     /// the folder the folders of new reviews are made in; none: asked for with the first
     pub reviews_folder: Option<PathBuf>,
+    /// the colour of the bar at the top of the windows, to tell the app's
+    /// windows apart among others; none: no bar
+    pub window_colour: Colour,
     /// look for updates at start and twice a day; they are installed only when asked
     pub check_updates: bool,
 }
@@ -65,10 +91,14 @@ impl Default for Settings {
             date_format: DateFormat::default(),
             editor_font: EditorFont::default(),
             editor_size: 13.5,
+            indent: Indent::default(),
+            readable_width: true,
+            line_numbers: false,
             reviewer_name: String::new(),
             sign: false,
             header_details: false,
             reviews_folder: None,
+            window_colour: Colour::None,
             check_updates: true,
         }
     }
@@ -112,6 +142,22 @@ mod tests {
     }
 
     #[test]
+    fn tab_puts_in_two_spaces_unless_the_settings_say_otherwise() {
+        assert_eq!(Settings::default().indent, Indent::Two);
+        assert_eq!(serde_json::from_str::<Settings>("{}").unwrap().indent, Indent::Two);
+        assert_eq!(serde_json::from_str::<Settings>(r#"{"indent": "tab"}"#).unwrap().indent, Indent::Tab);
+    }
+
+    #[test]
+    fn the_text_is_a_readable_column_unless_the_settings_say_otherwise() {
+        assert!(Settings::default().readable_width);
+        assert!(serde_json::from_str::<Settings>("{}").unwrap().readable_width);
+        assert!(!serde_json::from_str::<Settings>(r#"{"readable_width": false}"#).unwrap().readable_width);
+        assert!(!Settings::default().line_numbers);
+        assert!(!serde_json::from_str::<Settings>("{}").unwrap().line_numbers);
+    }
+
+    #[test]
     fn the_review_is_anonymous_with_a_plain_header_unless_the_settings_say_otherwise() {
         let settings = Settings::default();
         assert_eq!((settings.reviewer_name.as_str(), settings.sign, settings.header_details), ("", false, false));
@@ -127,6 +173,14 @@ mod tests {
         assert_eq!(serde_json::from_str::<Settings>("{}").unwrap().reviews_folder, None);
         let set: Settings = serde_json::from_str(r#"{"reviews_folder": "/reviews"}"#).unwrap();
         assert_eq!(set.reviews_folder, Some(PathBuf::from("/reviews")));
+    }
+
+    #[test]
+    fn the_windows_have_no_colour_bar_unless_the_settings_give_one() {
+        assert_eq!(Settings::default().window_colour, Colour::None);
+        assert_eq!(serde_json::from_str::<Settings>("{}").unwrap().window_colour, Colour::None);
+        let set: Settings = serde_json::from_str(r#"{"window_colour": "green"}"#).unwrap();
+        assert_eq!(set.window_colour, Colour::Green);
     }
 
     #[test]
@@ -146,10 +200,14 @@ mod tests {
             date_format: DateFormat::Dmy,
             editor_font: EditorFont::Serif,
             editor_size: 16.0,
+            indent: Indent::Tab,
+            readable_width: false,
+            line_numbers: true,
             reviewer_name: "A. Reviewer".into(),
             sign: true,
             header_details: true,
             reviews_folder: Some("/reviews".into()),
+            window_colour: Colour::Teal,
             check_updates: false,
         };
         settings.save(&dir);

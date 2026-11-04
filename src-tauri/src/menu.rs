@@ -8,11 +8,13 @@ use tauri::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Emitter, EventTarget, Manager, Wry};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::{AppState, manuscript, pane, update, windows};
+use crate::{AppState, manuscript, pane, windows};
 
 /// The commands of the page, by the id of their item.
 const PAGE: &[&str] = &[
     "close-tab",
+    "previous-tab",
+    "next-tab",
     "files",
     "zoom-in",
     "zoom-out",
@@ -106,8 +108,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             &item("find-next", "Find Next", Some("CmdOrCtrl+G"))?,
             &item("find-previous", "Find Previous", Some("Shift+CmdOrCtrl+G"))?,
             &separator()?,
-            &item("quote", "Quote Selection", Some("CmdOrCtrl+'"))?,
-            &item("insert", "Insert Selection", Some("CmdOrCtrl+;"))?,
+            &item("quote", "Quote Selection", Some("CmdOrCtrl+U"))?,
+            &item("insert", "Insert Selection", Some("CmdOrCtrl+Y"))?,
             &separator()?,
             &item("symbols", "Symbols…", Some("CmdOrCtrl+/"))?,
             &item("references", "References…", Some("Shift+CmdOrCtrl+R"))?,
@@ -152,6 +154,9 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         &[
             &PredefinedMenuItem::minimize(app, None)?,
             &PredefinedMenuItem::maximize(app, None)?,
+            &separator()?,
+            &item("previous-tab", "Show Previous Tab", Some("Shift+CmdOrCtrl+["))?,
+            &item("next-tab", "Show Next Tab", Some("Shift+CmdOrCtrl+]"))?,
         ],
     )?;
     // the projects of the bar, ⌘1 to ⌘9 for the first nine
@@ -184,7 +189,7 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
         "open" => choose_project(app, false),
         "open-new" => choose_project(app, true),
         "settings" => windows::show_settings(app, None),
-        "check-updates" => update::ask(app),
+        "check-updates" => windows::show_settings(app, Some("updates")),
         "clear-recent" => {
             let state = app.state::<AppState>();
             state.saved.lock().unwrap().recent.clear();
@@ -252,10 +257,11 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
 
 /// Undo, Redo, Symbols…, Back and Forward: the review's own history, list of
 /// symbols or indent (⌘[ and ⌘] are indent less and more in the editor) when
-/// its pane has the keys (the editor keeps them, not WebKit), else the page of
-/// a project's window, which gives it to the file edited in focus or, for Undo
-/// and Redo, the field in focus; Back and Forward go to the PDF if no file is
-/// edited in focus.
+/// its pane has the keys (the editor keeps them, not WebKit; the pane and the
+/// page say which has them as they are clicked or focused), else the page of
+/// a project's window, which gives it to the file edited in front or, for
+/// Undo and Redo, a field of the page with the keys; Back and Forward go to
+/// the PDF when it is in front.
 fn edit(app: &AppHandle, name: &str) {
     let Some(window) = front(app) else {
         return;

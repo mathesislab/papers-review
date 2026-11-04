@@ -33,6 +33,15 @@ test("the number nearest the selected part, left before right", () => {
   assert.equal(lineNumber(line(5, "t", [["8", 301], ["9", 400]])), 8);
 });
 
+test("a number in the text is no line number: words lie beyond it", () => {
+  // "… 3000, and 10000 m), see details in [25]. The ECs", ECs selected at the end of a line without numbers
+  const text: [string, number][] = [["400,", 20], ["3000,", 40], ["and", 50], ["10000", 60], ["m),", 70], ["see", 80]];
+  assert.equal(lineNumber(line(7, "ECs", text)), null);
+  assert.equal(location(sel([line(7, "ECs", text)])), "p7");
+  // with a number in the margin beyond the words, that one
+  assert.equal(lineNumber(line(7, "ECs", [["212", 5], ...text])), 212);
+});
+
 test("words that are not whole numbers are no line numbers", () => {
   assert.equal(lineNumber(line(5, "t", [["the", 80], ["3.5", 85], ["123456", 90]])), null);
 });

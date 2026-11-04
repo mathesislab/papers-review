@@ -10,6 +10,7 @@
   --on-accent: #ffffff;
   --selection: rgba(47, 111, 222, 0.16);
   --sidebar: #eeeef1;
+  --menu-bg: #ffffff;
   --chip: rgba(0, 0, 0, 0.05);
   --viewer: #e4e4e9;
   /* a project without a colour, as a tile of the project bar */
@@ -37,6 +38,7 @@
     --accent: #3a78e6;
     --selection: rgba(58, 120, 230, 0.35);
     --sidebar: #2c2c2f;
+    --menu-bg: #323236;
     --chip: rgba(255, 255, 255, 0.07);
     --viewer: #1e1e20;
     --tile-none: #5b5b61;

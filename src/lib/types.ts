@@ -46,6 +46,12 @@ export type Settings = {
   /** the font of the editors and its size (points) */
   editor_font: EditorFont;
   editor_size: number;
+  /** what Tab puts in: two spaces, four, or a tab */
+  indent: Indent;
+  /** the text of the editors a column of a readable width, a margin on each side */
+  readable_width: boolean;
+  /** the lines of the editors numbered */
+  line_numbers: boolean;
   /** the reviewer's name, to sign the exports with */
   reviewer_name: string;
   /** sign the PDF with it; off: anonymous */
@@ -54,12 +60,17 @@ export type Settings = {
   header_details: boolean;
   /** the folder the folders of new reviews are made in; null: asked for with the first */
   reviews_folder: string | null;
+  /** the colour of the bar at the top of the windows; none: no bar */
+  window_colour: Colour;
   /** look for updates at start and twice a day; they are installed only when asked */
   check_updates: boolean;
 };
 
 /** mirrors settings::DateFormat: 2026-11-14, 14.11.2026, 11/14/2026 */
 export type DateFormat = "ymd" | "dmy" | "mdy";
+
+/** mirrors settings::Indent */
+export type Indent = "two" | "four" | "tab";
 
 /** mirrors settings::EditorFont */
 export type EditorFont = "system" | "serif" | "mono";

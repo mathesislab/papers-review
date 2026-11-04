@@ -19,13 +19,18 @@ const HYPHEN = /[-‐­]$/;
 const LOWER = /^\p{Ll}/u;
 
 /** The line number printed in the margin beside a line: the whole number nearest the selected part, one to the
- *  left before one to the right. */
+ *  left before one to the right, in a margin: no word but numbers further out on its side. A number in the text
+ *  ("and 10000 m") has words beyond it, and is none. */
 export function lineNumber(line: Line): number | null {
   const { x, width } = line.bounds;
   const side = (r: Run) => (r.x < x ? 0 : r.x > x + width ? 1 : 2);
   const gap = (r: Run) => (r.x < x ? x - r.x : r.x > x + width ? r.x - x - width : 0);
+  const isNumber = (r: Run) => NUMBER.test(r.text.trim());
+  const words = line.margin.filter((r) => !isNumber(r));
+  const inMargin = (r: Run) =>
+    side(r) === 0 ? !words.some((w) => w.x < r.x) : side(r) === 1 ? !words.some((w) => w.x > r.x) : false;
   const found = line.margin
-    .filter((r) => NUMBER.test(r.text.trim()))
+    .filter((r) => isNumber(r) && inMargin(r))
     .sort((a, b) => side(a) - side(b) || gap(a) - gap(b))[0];
   return found ? Number(found.text.trim()) : null;
 }
