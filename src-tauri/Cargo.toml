@@ -1,6 +1,6 @@
 [package]
 name = "papers-review"
-version = "0.3.1"
+version = "0.4.0"
 description = "Review and edit papers: a project folder, the PDF as Preview shows it, a Markdown review floating over it"
 authors = ["Alexander Robinson"]
 edition = "2024"
