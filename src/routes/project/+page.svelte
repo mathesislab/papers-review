@@ -419,7 +419,7 @@
     }
   }
 
-  /** ⌘': the selection of the PDF as a quote, into the review at its cursor; ⌘; the same without quotation marks. */
+  /** ⌘U: the selection of the PDF as a quote, into the review at its cursor; ⌘Y the same without quotation marks. */
   async function quoteSelection(plain = false) {
     const selection = await pdf?.selection();
     if (!selection) return;

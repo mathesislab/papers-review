@@ -250,7 +250,7 @@
         else if (e.payload === "redo") editor?.redo();
         else editor?.undo();
       }),
-      // ⌘' and ⌘; in the page: a quote of the PDF at the cursor, in quotation marks or not
+      // ⌘U and ⌘Y in the page: a quote of the PDF at the cursor, in quotation marks or not
       listen<string>("review-insert", (e) => {
         const view = editor?.view();
         if (view) insertQuote(view, e.payload);
