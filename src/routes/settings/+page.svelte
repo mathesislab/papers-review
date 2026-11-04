@@ -11,6 +11,7 @@
   import { open } from "@tauri-apps/plugin-dialog";
   import { onMount, tick } from "svelte";
   import "$lib/theme.css";
+  import { COLOURS } from "$lib/colour";
   import { DEFAULTS } from "$lib/symbols";
   import { Updates } from "$lib/updates.svelte";
   import type { DateFormat, EditorFont, Indent, Settings } from "$lib/types";
@@ -123,6 +124,13 @@
       <span>Open projects in one window, with a bar to switch between them</span>
     </label>
     <p class="note">Off: each project opens in a window of its own.</p>
+    <div class="field">
+      <label for="window-colour">Window colour</label>
+      <select id="window-colour" bind:value={settings.window_colour} onchange={save}>
+        {#each COLOURS as c (c.colour)}<option value={c.colour}>{c.name}</option>{/each}
+      </select>
+    </div>
+    <p class="note first">A bar at the top of the windows, to tell them apart among others.</p>
 
     <h2>New reviews</h2>
     <div class="field">

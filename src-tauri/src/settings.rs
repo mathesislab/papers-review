@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use review_core::Colour;
+
 use crate::state;
 
 const FILE: &str = "settings.json";
@@ -73,6 +75,9 @@ pub struct Settings {
     pub header_details: bool,
     /// the folder the folders of new reviews are made in; none: asked for with the first
     pub reviews_folder: Option<PathBuf>,
+    /// the colour of the bar at the top of the windows, to tell the app's
+    /// windows apart among others; none: no bar
+    pub window_colour: Colour,
     /// look for updates at start and twice a day; they are installed only when asked
     pub check_updates: bool,
 }
@@ -92,6 +97,7 @@ impl Default for Settings {
             sign: false,
             header_details: false,
             reviews_folder: None,
+            window_colour: Colour::None,
             check_updates: true,
         }
     }
@@ -169,6 +175,14 @@ mod tests {
     }
 
     #[test]
+    fn the_windows_have_no_colour_bar_unless_the_settings_give_one() {
+        assert_eq!(Settings::default().window_colour, Colour::None);
+        assert_eq!(serde_json::from_str::<Settings>("{}").unwrap().window_colour, Colour::None);
+        let set: Settings = serde_json::from_str(r#"{"window_colour": "green"}"#).unwrap();
+        assert_eq!(set.window_colour, Colour::Green);
+    }
+
+    #[test]
     fn updates_are_looked_for_unless_the_settings_say_otherwise() {
         assert!(Settings::default().check_updates);
         assert!(serde_json::from_str::<Settings>("{}").unwrap().check_updates);
@@ -192,6 +206,7 @@ mod tests {
             sign: true,
             header_details: true,
             reviews_folder: Some("/reviews".into()),
+            window_colour: Colour::Teal,
             check_updates: false,
         };
         settings.save(&dir);

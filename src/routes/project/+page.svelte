@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The page of a project's window: the colour bar (right-click: its colour), the project bar at the left when the
+  // The page of a project's window: the colour bar of the settings (right-click: its colour), the project bar at the left when the
   // setting is on (a tile per project to switch to; right-click: open in a new window, remove), the files (⌘⌥S hides
   // them), the files open in tabs, the one in front: a PDF in PDFKit, with its outline, page, zoom and find; a
   // Markdown, text or BibTeX file edited in place (FileEditor). How the window looked is kept between sessions (the
@@ -156,13 +156,16 @@
     notFound = findText !== "" && !(await pdf.find(findText, again, backwards));
   }
 
-  /** A right-click on the bar: the colour of the project, for all its windows (review.toml). */
+  /** the colour of the bar at the top of the window (the settings) */
+  const barColour = $derived(settings ? cssOf(settings.window_colour) : null);
+
+  /** A right-click on the bar: the colour of the bar of the app's windows (the settings). */
   async function colourMenu(e: MouseEvent) {
     e.preventDefault();
     const items = COLOURS.map((c) =>
       CheckMenuItem.new({
         text: c.name,
-        checked: project?.colour === c.colour,
+        checked: settings?.window_colour === c.colour,
         action: () => setColour(c.colour),
       }),
     );
@@ -170,11 +173,8 @@
   }
 
   async function setColour(colour: Colour) {
-    try {
-      await invoke("set_colour", { colour });
-    } catch (e) {
-      error = String(e);
-    }
+    const now = await invoke<Settings>("settings");
+    await invoke("set_settings", { settings: { ...now, window_colour: colour } });
   }
 
   async function load() {
@@ -564,16 +564,17 @@
   });
 </script>
 
-<!-- the project's colour, at the top, to tell its windows apart among others; a right-click chooses it -->
-{#if project && cssOf(project.colour)}
-  <div class="colour" style:background={cssOf(project.colour)} title="The colour of the project: right-click to choose" oncontextmenu={colourMenu} role="presentation"></div>
+<!-- the colour of the app's windows (the settings), at the top, to tell them apart among others; a right-click
+     chooses it -->
+{#if project && barColour}
+  <div class="colour" style:background={barColour} title="The colour of the windows (Settings): right-click to choose" oncontextmenu={colourMenu} role="presentation"></div>
 {/if}
 
 {#if project}
   <div
     class="window"
     class:nofiles={!layout.files}
-    class:coloured={cssOf(project.colour)}
+    class:coloured={barColour}
     style:grid-template-columns={`${showBar ? "92px " : ""}${layout.files ? `${layout.files_width}px ` : ""}1fr`}
   >
     {#if showBar}
