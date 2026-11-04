@@ -444,6 +444,14 @@
   }
 
   /** A command of the menu bar. */
+  /** The tab before or after the one in front shown, round from the last to the first (⇧⌘[ and ⇧⌘]). */
+  function stepTab(step: number) {
+    const n = layout.tabs.length;
+    if (n === 0) return;
+    const i = layout.front === null ? -1 : layout.tabs.indexOf(layout.front);
+    layout.front = layout.tabs[(((i < 0 ? (step > 0 ? -1 : 0) : i) + step) % n + n) % n];
+  }
+
   function command(id: string) {
     switch (id) {
       case "files":
@@ -452,6 +460,10 @@
       case "close-tab":
         if (layout.front) close(layout.front);
         else getCurrentWindow().close();
+        break;
+      case "previous-tab":
+      case "next-tab":
+        stepTab(id === "next-tab" ? 1 : -1);
         break;
       case "zoom-in":
         pdf?.zoom(1);

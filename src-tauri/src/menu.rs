@@ -13,6 +13,8 @@ use crate::{AppState, manuscript, pane, windows};
 /// The commands of the page, by the id of their item.
 const PAGE: &[&str] = &[
     "close-tab",
+    "previous-tab",
+    "next-tab",
     "files",
     "zoom-in",
     "zoom-out",
@@ -152,6 +154,9 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         &[
             &PredefinedMenuItem::minimize(app, None)?,
             &PredefinedMenuItem::maximize(app, None)?,
+            &separator()?,
+            &item("previous-tab", "Show Previous Tab", Some("Shift+CmdOrCtrl+["))?,
+            &item("next-tab", "Show Next Tab", Some("Shift+CmdOrCtrl+]"))?,
         ],
     )?;
     // the projects of the bar, ⌘1 to ⌘9 for the first nine
