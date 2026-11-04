@@ -1,9 +1,12 @@
 <script lang="ts">
-  // The Settings window (⌘,): whether the projects open in one window, with a bar to switch between them, or each in
-  // a window of its own; the folder new reviews are made in; how dates are written; the font and size of the editors; the exports of the review (the
+  // The Settings window (⌘,), set out as Papers Desktop's: a bar of tabs (⌘1…⌘3), the tab shown, which scrolls, and
+  // the line at its foot. General: the colour of the windows' bar, whether the projects open in one window with a bar
+  // to switch between them, the folder new reviews are made in, how dates are written; the exports of the review (the
   // reviewer's name, whether the PDF is signed with it, whether its header has the journal, the manuscript ID and the
-  // date); the updates (the version running, whether to look for them, Check Now, the one found to install); and the sequences typed in the review that become symbols: the defaults, each turned off if not wanted,
-  // and the user's own. Kept in the app's data folder (settings.json); the project windows are told as it changes.
+  // date); the updates (`#updates`: the version running, Check Now, the one found to install and its download, whether
+  // to look for them). Editor: the font and size of the editors, what Tab puts in, the readable line length, the line
+  // numbers. Symbols: the sequences typed in the review that become symbols, the defaults each turned off if not
+  // wanted, and the user's own. Kept in the app's data folder (settings.json); the windows are told as it changes.
 
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
@@ -11,10 +14,21 @@
   import { open } from "@tauri-apps/plugin-dialog";
   import { onMount, tick } from "svelte";
   import "$lib/theme.css";
+  import "$lib/settings.css";
   import { COLOURS } from "$lib/colour";
   import { DEFAULTS } from "$lib/symbols";
   import { Updates } from "$lib/updates.svelte";
-  import type { DateFormat, EditorFont, Indent, Settings } from "$lib/types";
+  import type { Colour, DateFormat, EditorFont, Indent, Settings } from "$lib/types";
+
+  /** the tabs, in the order of the bar and of their keys */
+  const TABS = [
+    { id: "general", name: "General" },
+    { id: "editor", name: "Editor" },
+    { id: "symbols", name: "Symbols" },
+  ] as const;
+  type Tab = (typeof TABS)[number]["id"];
+  /** the sections of the General tab the app may name (`settings#updates`): shown scrolled to */
+  const GENERAL_SECTIONS = ["updates"];
 
   const FORMATS: [DateFormat, string][] = [
     ["ymd", "2026-11-14"],
@@ -26,7 +40,6 @@
     ["serif", "Serif"],
     ["mono", "Monospace"],
   ];
-
   const INDENTS: [Indent, string][] = [
     ["four", "4 spaces"],
     ["two", "2 spaces"],
@@ -35,6 +48,7 @@
 
   let settings = $state<Settings | null>(null);
   const updates = new Updates();
+  let tab = $state<Tab>("general");
   /** the sequence and the replacement of a pair being added */
   let keys = $state("");
   let insert = $state("");
@@ -44,9 +58,9 @@
     if (settings) invoke("set_settings", { settings: $state.snapshot(settings) });
   }
 
-  function change(e: Event) {
+  function setColour(colour: Colour) {
     if (!settings) return;
-    settings.project_bar = (e.currentTarget as HTMLInputElement).checked;
+    settings.window_colour = colour;
     save();
   }
 
@@ -88,10 +102,18 @@
     save();
   }
 
-  /** Scroll to a section (its id): the window opens at one after an update, and the menu may ask for one. */
+  /** Show a section the app names: a tab, or a section of the General tab, scrolled to; the updates also look for
+   *  one unless found (Check for Updates… of the menu). */
   async function show(section: string) {
-    await tick();
-    document.getElementById(section)?.scrollIntoView();
+    if (GENERAL_SECTIONS.includes(section)) {
+      tab = "general";
+      await tick();
+      document.getElementById(section)?.scrollIntoView({ block: "start" });
+      if (section === "updates") updates.lookFor();
+      return;
+    }
+    const named = TABS.find((t) => t.id === section);
+    if (named) tab = named.id;
   }
 
   onMount(() => {
@@ -106,8 +128,14 @@
     return () => unlisten.forEach((u) => u.then((f) => f()));
   });
 
-  /** Esc with no field in focus: the window closes (a field gives up the focus first). */
+  /** ⌘1…⌘3 show a tab. Esc with no field in focus closes the window (a field gives up the focus first). */
   function key(e: KeyboardEvent) {
+    const n = e.metaKey && !e.shiftKey && !e.altKey && !e.ctrlKey ? Number(e.code.replace("Digit", "")) : NaN;
+    if (n >= 1 && n <= TABS.length) {
+      e.preventDefault();
+      tab = TABS[n - 1].id;
+      return;
+    }
     if (e.key !== "Escape") return;
     const field = document.activeElement;
     if (field instanceof HTMLElement && field !== document.body) field.blur();
@@ -117,259 +145,393 @@
 
 <svelte:window onkeydown={key} />
 
-<main>
-  {#if settings}
-    <label class="option">
-      <input type="checkbox" checked={settings.project_bar} onchange={change} />
-      <span>Open projects in one window, with a bar to switch between them</span>
-    </label>
-    <p class="note">Off: each project opens in a window of its own.</p>
-    <div class="field">
-      <label for="window-colour">Window colour</label>
-      <select id="window-colour" bind:value={settings.window_colour} onchange={save}>
-        {#each COLOURS as c (c.colour)}<option value={c.colour}>{c.name}</option>{/each}
-      </select>
-    </div>
-    <p class="note first">A bar at the top of the windows, to tell them apart among others.</p>
-
-    <h2>New reviews</h2>
-    <div class="field">
-      <label for="reviews-folder">Reviews folder</label>
-      <span id="reviews-folder" class="folder" class:unset={!settings.reviews_folder} title={settings.reviews_folder ?? ""}>{settings.reviews_folder ?? "Not chosen yet"}</span>
-      <button onclick={chooseReviews}>Choose…</button>
-    </div>
-    <p class="note first">New reviews from a manuscript are made in it, a folder each.</p>
-
-    <h2>Dates</h2>
-    <div class="field">
-      <label for="date-format">Date format</label>
-      <select id="date-format" bind:value={settings.date_format} onchange={save}>
-        {#each FORMATS as [format, example] (format)}<option value={format}>{example}</option>{/each}
-      </select>
+{#if settings}
+  <main class="settings">
+    <div class="tabs" role="tablist" aria-label="Settings">
+      {#each TABS as t, i (t.id)}
+        <button
+          role="tab"
+          id="tab-{t.id}"
+          aria-selected={tab === t.id}
+          aria-controls="panel-{t.id}"
+          class:on={tab === t.id}
+          title="⌘{i + 1}"
+          onclick={() => (tab = t.id)}>{t.name}</button
+        >
+      {/each}
     </div>
 
-    <h2>Editor</h2>
-    <div class="field">
-      <label for="editor-font">Font</label>
-      <select id="editor-font" bind:value={settings.editor_font} onchange={save}>
-        {#each FONTS as [font, name] (font)}<option value={font}>{name}</option>{/each}
-      </select>
-    </div>
-    <div class="field">
-      <label for="editor-size">Size</label>
-      <input id="editor-size" type="range" min="11" max="20" step="0.5" bind:value={settings.editor_size} onchange={save} />
-      <span class="size">{settings.editor_size} pt</span>
-    </div>
-    <div class="field">
-      <label for="indent">Tab inserts</label>
-      <select id="indent" bind:value={settings.indent} onchange={save}>
-        {#each INDENTS as [indent, name] (indent)}<option value={indent}>{name}</option>{/each}
-      </select>
-    </div>
-    <label class="option">
-      <input type="checkbox" bind:checked={settings.readable_width} onchange={save} />
-      <span>Readable line length</span>
-    </label>
-    <p class="note">The text a column in the middle, with a margin on each side; off: as wide as the window.</p>
-    <label class="option">
-      <input type="checkbox" bind:checked={settings.line_numbers} onchange={save} />
-      <span>Line numbers</span>
-    </label>
-    <p class="note first">The review and the text files of a project.</p>
+    <div class="panel" role="tabpanel" id="panel-general" aria-labelledby="tab-general" hidden={tab !== "general"}>
+      <section>
+        <h2>General</h2>
+        <div class="row">
+          <span>
+            <span class="label">Window colour</span>
+            <span class="hint">A thin bar at the top of the windows, to tell them apart; also a right-click on the bar</span>
+          </span>
+          <span class="swatches" role="radiogroup" aria-label="Window colour">
+            {#each COLOURS as c (c.colour)}
+              <button
+                class="swatch"
+                class:on={settings.window_colour === c.colour}
+                class:none={!c.css}
+                style:--c={c.css}
+                role="radio"
+                aria-checked={settings.window_colour === c.colour}
+                title={c.name}
+                aria-label={c.name}
+                onclick={() => setColour(c.colour)}
+              ></button>
+            {/each}
+          </span>
+        </div>
+        <label class="row">
+          <span>
+            <span class="label">Projects in one window</span>
+            <span class="hint">With a bar to switch between them; off: each in a window of its own</span>
+          </span>
+          <input type="checkbox" class="switch" bind:checked={settings.project_bar} onchange={save} />
+        </label>
+        <div class="row">
+          <span class="grow">
+            <span class="label">Reviews folder</span>
+            <span class="hint folder" class:unset={!settings.reviews_folder} title={settings.reviews_folder ?? ""}>
+              {settings.reviews_folder ?? "Not chosen yet: asked for with the first review"}
+            </span>
+          </span>
+          <button onclick={chooseReviews}>Choose…</button>
+        </div>
+        <label class="row">
+          <span>
+            <span class="label">Date format</span>
+            <span class="hint">The due dates of the projects</span>
+          </span>
+          <select bind:value={settings.date_format} onchange={save}>
+            {#each FORMATS as [format, example] (format)}<option value={format}>{example}</option>{/each}
+          </select>
+        </label>
+      </section>
 
-    <h2>Export</h2>
-    <div class="field">
-      <label for="reviewer-name">Reviewer</label>
-      <input id="reviewer-name" class="name" bind:value={settings.reviewer_name} onchange={save} placeholder="Your name" autocomplete="off" spellcheck="false" />
+      <section>
+        <h2>Export</h2>
+        <label class="row">
+          <span class="label">Reviewer</span>
+          <input class="text name" bind:value={settings.reviewer_name} onchange={save} placeholder="Your name" autocomplete="off" spellcheck="false" />
+        </label>
+        <label class="row">
+          <span>
+            <span class="label">Sign the reviews with my name</span>
+            <span class="hint">Off: the PDF is anonymous</span>
+          </span>
+          <input type="checkbox" class="switch" bind:checked={settings.sign} onchange={save} />
+        </label>
+        <label class="row">
+          <span>
+            <span class="label">Header with journal, manuscript ID and date</span>
+            <span class="hint">Off: the PDF is headed by the project's heading alone</span>
+          </span>
+          <input type="checkbox" class="switch" bind:checked={settings.header_details} onchange={save} />
+        </label>
+      </section>
+
+      <section id="updates">
+        <h2>Updates</h2>
+        <div class="row">
+          <span>
+            <span class="label">Version {updates.version}</span>
+            <span class="hint" class:error={updates.updating === "failed"}>{updates.status}</span>
+          </span>
+          {#if updates.update}
+            <button class="primary" disabled={updates.updating === "installing"} onclick={updates.install}>
+              Install {updates.update.version} and Restart
+            </button>
+          {:else}
+            <button disabled={updates.updating === "checking"} onclick={updates.check}>Check for Updates Now</button>
+          {/if}
+        </div>
+        {#if updates.updating === "installing"}
+          <progress value={updates.progress.done} max={updates.progress.total ?? undefined}></progress>
+        {/if}
+        {#if updates.installed}
+          <p class="news">Updated from {updates.installed.from}.</p>
+        {/if}
+        <label class="row">
+          <span>
+            <span class="label">Check for updates automatically</span>
+            <span class="hint">At start and twice a day; installed only when you ask</span>
+          </span>
+          <input type="checkbox" class="switch" bind:checked={settings.check_updates} onchange={save} />
+        </label>
+      </section>
     </div>
-    <label class="option">
-      <input type="checkbox" bind:checked={settings.sign} onchange={save} />
-      <span>Sign the reviews with my name</span>
-    </label>
-    <p class="note">Off: the PDF is anonymous.</p>
-    <label class="option">
-      <input type="checkbox" bind:checked={settings.header_details} onchange={save} />
-      <span>Header with journal, manuscript ID and date</span>
-    </label>
-    <p class="note">Off: the PDF is headed by the project's heading alone.</p>
 
-    <h2 id="updates">Updates</h2>
-    <div class="field">
-      <span class="version">Version {updates.version}</span>
-      <span class="status" class:error={updates.updating === "failed"}>{updates.status}</span>
-      {#if updates.update}
-        <button disabled={updates.updating === "installing"} onclick={updates.install}>
-          Install Version {updates.update.version} and Restart
-        </button>
-      {:else}
-        <button disabled={updates.updating === "checking"} onclick={updates.check}>Check Now</button>
-      {/if}
+    <div class="panel" role="tabpanel" id="panel-editor" aria-labelledby="tab-editor" hidden={tab !== "editor"}>
+      <section>
+        <h2>Editor</h2>
+        <label class="row">
+          <span>
+            <span class="label">Font</span>
+            <span class="hint">The review and the text files of a project</span>
+          </span>
+          <select bind:value={settings.editor_font} onchange={save}>
+            {#each FONTS as [font, name] (font)}<option value={font}>{name}</option>{/each}
+          </select>
+        </label>
+        <label class="row">
+          <span class="label">Size</span>
+          <span class="size">
+            <input type="range" min="11" max="20" step="0.5" bind:value={settings.editor_size} onchange={save} />
+            <span class="points">{settings.editor_size} pt</span>
+          </span>
+        </label>
+        <label class="row">
+          <span>
+            <span class="label">Tab inserts</span>
+            <span class="hint">With lines selected, Tab indents them and ⇧Tab takes it out</span>
+          </span>
+          <select bind:value={settings.indent} onchange={save}>
+            {#each INDENTS as [indent, name] (indent)}<option value={indent}>{name}</option>{/each}
+          </select>
+        </label>
+        <label class="row">
+          <span>
+            <span class="label">Readable line length</span>
+            <span class="hint">The text a column in the middle, with a margin on each side; off: as wide as the window</span>
+          </span>
+          <input type="checkbox" class="switch" bind:checked={settings.readable_width} onchange={save} />
+        </label>
+        <label class="row">
+          <span>
+            <span class="label">Line numbers</span>
+            <span class="hint">Also the button in the bar of the review and of a file</span>
+          </span>
+          <input type="checkbox" class="switch" bind:checked={settings.line_numbers} onchange={save} />
+        </label>
+      </section>
     </div>
-    {#if updates.updating === "installing"}
-      <progress value={updates.progress.done} max={updates.progress.total ?? undefined}></progress>
-    {/if}
-    {#if updates.installed}
-      <p class="note first">Updated from {updates.installed.from}.</p>
-    {/if}
-    <label class="option">
-      <input type="checkbox" bind:checked={settings.check_updates} onchange={save} />
-      <span>Check for updates automatically</span>
-    </label>
-    <p class="note">At start and twice a day; a new version is installed only when you ask.</p>
 
-    <h2>Typed symbols</h2>
-    <p class="note first">
-      In the review, a sequence typed becomes its symbol as its last character is typed; ⌘Z gives back what was typed.
-      Tab after a LaTeX name (\alpha) gives its symbol; ⌘/ lists them.
-    </p>
-
-    <h3>Your own</h3>
-    <ul>
-      {#each settings.symbols.filter(([, v]) => v) as [sequence, symbol] (sequence)}
-        <li>
-          <code>{sequence}</code>
+    <div class="panel" role="tabpanel" id="panel-symbols" aria-labelledby="tab-symbols" hidden={tab !== "symbols"}>
+      <section>
+        <h2>Typed symbols</h2>
+        <p class="intro">
+          In the review, a sequence typed becomes its symbol as its last character is typed; ⌘Z gives back what was
+          typed. Tab after a LaTeX name (<code>\alpha</code>) gives its symbol; ⌘/ or the Ω button lists them.
+        </p>
+        <h3>Your own</h3>
+        <ul class="pairs">
+          {#each settings.symbols.filter(([, v]) => v) as [sequence, symbol] (sequence)}
+            <li>
+              <code>{sequence}</code>
+              <span class="arrow">→</span>
+              <span class="symbol">{symbol}</span>
+              <button class="remove" onclick={() => remove(sequence)} title="Remove" aria-label="Remove {sequence}">✕</button>
+            </li>
+          {:else}
+            <li class="none">None yet</li>
+          {/each}
+        </ul>
+        <form
+          onsubmit={(e) => {
+            e.preventDefault();
+            add();
+          }}
+        >
+          <input class="text" bind:value={keys} placeholder="Typed" spellcheck="false" autocomplete="off" />
           <span class="arrow">→</span>
-          <span class="symbol">{symbol}</span>
-          <button onclick={() => remove(sequence)} title="Remove" aria-label="Remove {sequence}">✕</button>
-        </li>
-      {/each}
-    </ul>
-    <form
-      onsubmit={(e) => {
-        e.preventDefault();
-        add();
-      }}
-    >
-      <input bind:value={keys} placeholder="Typed" spellcheck="false" autocomplete="off" />
-      <span class="arrow">→</span>
-      <input bind:value={insert} placeholder="Becomes" spellcheck="false" autocomplete="off" />
-      <button type="submit" disabled={!addable}>Add</button>
-    </form>
-    <p class="note first">At least two characters. A sequence that is a default gives it another symbol.</p>
+          <input class="text" bind:value={insert} placeholder="Becomes" spellcheck="false" autocomplete="off" />
+          <button type="submit" disabled={!addable}>Add</button>
+        </form>
+        <p class="hint">At least two characters. A sequence that is a default gives it another symbol.</p>
+      </section>
 
-    <h3>Defaults</h3>
-    <ul>
-      {#each DEFAULTS as rule (rule.keys)}
-        <li>
-          <label>
-            <input type="checkbox" checked={!off(rule.keys)} onchange={(e) => turn(rule.keys, e.currentTarget.checked)} />
-            <code>{rule.keys}</code>
-            <span class="arrow">→</span>
-            <span class="symbol">{rule.insert}</span>
-          </label>
-        </li>
-      {/each}
-    </ul>
-    <p class="note first">Powers (<code>^2</code>) follow a letter, a digit or <code>)</code>; indices (<code>_2</code>) a letter.</p>
-  {/if}
-</main>
+      <section>
+        <h2>Defaults</h2>
+        <ul class="pairs">
+          {#each DEFAULTS as rule (rule.keys)}
+            <li>
+              <label>
+                <input type="checkbox" checked={!off(rule.keys)} onchange={(e) => turn(rule.keys, e.currentTarget.checked)} />
+                <code>{rule.keys}</code>
+                <span class="arrow">→</span>
+                <span class="symbol">{rule.insert}</span>
+              </label>
+            </li>
+          {/each}
+        </ul>
+        <p class="hint">Powers (<code>^2</code>) follow a letter, a digit or <code>)</code>; indices (<code>_2</code>) a letter.</p>
+      </section>
+    </div>
+
+    <footer>Changes apply at once.</footer>
+  </main>
+{/if}
 
 <style>
-  main {
-    padding: 28px 32px;
-  }
-  .option,
-  li label {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-  }
-  .field + .option,
-  .note + .option {
-    margin-top: 10px;
-  }
-  input[type="checkbox"] {
+  :global(html, body) {
     margin: 0;
-    flex: none;
-  }
-  .note {
-    color: var(--muted);
-    margin: 6px 0 0 22px;
-  }
-  .note.first {
-    margin-left: 0;
-  }
-  h2 {
+    background: var(--bg);
+    color: var(--fg);
     font-size: 13px;
-    margin: 26px 0 0;
-    padding-top: 14px;
-    border-top: 1px solid var(--line);
+    cursor: default;
+    -webkit-user-select: none;
+    user-select: none;
   }
-  .field {
+
+  main {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 8px;
+    flex-direction: column;
+    height: 100vh;
   }
-  .field label {
-    width: 100px;
+
+  /* the bar of tabs: the one shown lifted, in the accent */
+  .tabs {
+    flex: none;
+    display: flex;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--line);
+    background: var(--sidebar);
+  }
+  .tabs button {
+    padding: 4px 12px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: none;
     color: var(--muted);
   }
-  .folder {
+  .tabs button:hover {
+    color: var(--fg);
+  }
+  .tabs button.on {
+    border-color: var(--line);
+    background: var(--menu-bg);
+    color: var(--accent);
+  }
+
+  /* a tab: its cards, scrolled on their own */
+  .panel {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px 22px;
+  }
+  .panel[hidden] {
+    display: none;
+  }
+
+  footer {
+    flex: none;
+    padding: 8px 22px 10px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 11.5px;
+    text-align: center;
+  }
+
+  .grow {
     flex: 1;
     min-width: 0;
-    white-space: nowrap;
+  }
+  /* the folder's path, its end kept in view */
+  .folder {
     overflow: hidden;
+    white-space: nowrap;
     text-overflow: ellipsis;
     direction: rtl;
     text-align: left;
   }
   .folder.unset {
-    color: var(--muted);
     direction: ltr;
   }
-  .version {
-    white-space: nowrap;
-  }
-  .status {
-    flex: 1;
-    min-width: 0;
-    color: var(--muted);
-  }
-  .status.error {
-    color: var(--error);
-  }
-  progress {
-    width: 100%;
-    margin-top: 8px;
-  }
-  select {
-    font: inherit;
-    color: var(--fg);
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    padding: 1px 4px;
-  }
-  input[type="range"] {
-    width: 160px;
-    margin: 0;
+  .text.name {
+    font-family: inherit;
+    font-size: inherit;
+    -webkit-user-select: text;
+    user-select: text;
   }
   .size {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  input[type="range"] {
+    width: 150px;
+    margin: 0;
+  }
+  .points {
     min-width: 42px;
+    color: var(--muted);
     font-variant-numeric: tabular-nums;
   }
-  h3 {
+
+  progress {
+    width: 100%;
+    margin: 2px 0 8px;
+    accent-color: var(--accent);
+  }
+  .news {
+    margin: 0 0 6px;
     font-size: 12px;
     color: var(--muted);
-    font-weight: 600;
-    margin: 16px 0 4px;
   }
-  ul {
+
+  /* the colours of the windows' bar: a dot each, the one chosen ringed; none crossed */
+  .swatches {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  .swatch {
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    background: var(--c);
+    box-shadow: 0 0 0 1px var(--border);
+    cursor: pointer;
+  }
+  .swatch.none {
+    background: linear-gradient(135deg, transparent 45%, var(--muted) 45%, var(--muted) 55%, transparent 55%);
+  }
+  .swatch.on {
+    border-color: var(--bg);
+    box-shadow: 0 0 0 2px var(--fg);
+  }
+
+  /* the symbols */
+  .intro {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .pairs {
     list-style: none;
-    margin: 0;
+    margin: 4px 0 8px;
     padding: 0;
     columns: 2;
   }
-  li {
+  .pairs li,
+  .pairs label {
     display: flex;
     align-items: baseline;
     gap: 8px;
     padding: 1px 0;
     break-inside: avoid;
   }
-  code {
-    font: 12px ui-monospace, Menlo, monospace;
+  .pairs .none {
+    color: var(--muted);
+  }
+  .pairs input[type="checkbox"] {
+    margin: 0;
+  }
+  .pairs .remove {
+    margin-left: auto;
   }
   .arrow {
     color: var(--muted);
@@ -377,42 +539,15 @@
   .symbol {
     font-size: 14px;
   }
-  li button {
-    margin-left: auto;
-  }
   form {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 8px;
-    margin-top: 6px;
+    margin: 4px 0 6px;
   }
-  .field .name {
-    width: 220px;
-    -webkit-user-select: text;
-    user-select: text;
-  }
-  form input {
+  form .text {
     width: 90px;
     -webkit-user-select: text;
     user-select: text;
-  }
-  button {
-    font: inherit;
-    color: var(--fg);
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    padding: 1px 8px;
-  }
-  button:disabled {
-    color: var(--muted);
-  }
-  li button {
-    border: none;
-    color: var(--muted);
-    padding: 0 6px;
-  }
-  li button:hover {
-    background: var(--chip);
   }
 </style>

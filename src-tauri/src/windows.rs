@@ -58,8 +58,8 @@ pub fn show_settings(app: &AppHandle, section: Option<&str>) {
     };
     let _ = WebviewWindowBuilder::new(app, SETTINGS, WebviewUrl::App(url.into()))
         .title("Settings")
-        .inner_size(520.0, 640.0)
-        .min_inner_size(440.0, 300.0)
+        .inner_size(560.0, 720.0)
+        .min_inner_size(480.0, 360.0)
         .center()
         .build();
 }

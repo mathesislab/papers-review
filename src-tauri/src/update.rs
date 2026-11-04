@@ -7,7 +7,6 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
 use crate::AppState;
@@ -111,53 +110,6 @@ pub async fn install(app: &AppHandle) -> Result<(), String> {
         eprintln!("papers-review: cannot leave the note of the update: {e}");
     }
     app.restart()
-}
-
-/// Check for Updates… of the menu: look now, then tell the result in a
-/// dialog, which offers to install the version found.
-pub fn ask(app: &AppHandle) {
-    let app = app.clone();
-    tauri::async_runtime::spawn(async move {
-        let title = "Check for Updates";
-        match check(&app).await {
-            Ok(Some(found)) => {
-                let handle = app.clone();
-                app.dialog()
-                    .message(format!("Papers Review {} is available.", found.version))
-                    .title(title)
-                    .buttons(MessageDialogButtons::OkCancelCustom(
-                        "Install and Restart".into(),
-                        "Later".into(),
-                    ))
-                    .show(move |install_now| {
-                        if install_now {
-                            tauri::async_runtime::spawn(async move {
-                                if let Err(e) = install(&handle).await {
-                                    handle
-                                        .dialog()
-                                        .message(format!("Cannot install the update: {e}"))
-                                        .title(title)
-                                        .show(|_| {});
-                                }
-                            });
-                        }
-                    });
-            }
-            Ok(None) => {
-                let version = app.package_info().version.to_string();
-                app.dialog()
-                    .message(format!("You have the latest version ({version})."))
-                    .title(title)
-                    .show(|_| {});
-            }
-            Err(e) => {
-                app.dialog()
-                    .message(format!("Cannot look for updates: {e}"))
-                    .title(title)
-                    .show(|_| {});
-            }
-        }
-    });
 }
 
 /// Look for updates now and then, unless the settings say not to.

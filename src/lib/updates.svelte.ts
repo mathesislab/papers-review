@@ -71,6 +71,12 @@ export class Updates {
     }
   };
 
+  /** Look for an update, unless one is found already or is being looked for or installed (Check for Updates… of the
+   *  menu, which shows the settings at their updates). */
+  lookFor() {
+    if (!this.update && this.updating !== "checking" && this.updating !== "installing") this.check();
+  }
+
   /** Download and install the update; the app then restarts. */
   install = async () => {
     this.updating = "installing";
