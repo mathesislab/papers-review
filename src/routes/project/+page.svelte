@@ -21,7 +21,8 @@
   import { label } from "$lib/bar";
   import { COLOURS, cssOf } from "$lib/colour";
   import { daysLeft, formatDate, shortDate, urgency } from "$lib/due";
-  import { PREFS, prefsFrom, setEditorFont } from "$lib/editor";
+  import { PREFS, prefsFrom, setEditorFont, wordCount, wordsOf } from "$lib/editor";
+  import EditorButtons from "$lib/EditorButtons.svelte";
   import FileEditor, { type Status } from "$lib/FileEditor.svelte";
   import Files from "$lib/Files.svelte";
   import InfoCard from "$lib/InfoCard.svelte";
@@ -189,6 +190,9 @@
 
   /** what the editor takes from the settings */
   const prefs = $derived(settings ? prefsFrom(settings) : PREFS);
+  /** the words of the file edited, and of its selection */
+  let words = $state(0);
+  let selected = $state(0);
 
   async function loadSettings() {
     settings = await invoke<Settings>("settings");
@@ -712,7 +716,9 @@
         <!-- the file in front, edited: its name, whether it is written -->
         <div class="tools">
           <span class="name" title={edited.path}>{edited.name}</span>
+          <EditorButtons framed symbols={edited.kind === "markdown"} lineNumbers={prefs.lineNumbers} onsymbols={() => editor?.list()} />
           <span class="state">
+            {wordCount(words, selected)} ·
             {#if status === "error"}<span class="error" title={writeError}>not saved</span>{:else}{status === "saved" ? "saved" : "editing"}{/if}
           </span>
           {@render actions(edited)}
@@ -752,6 +758,8 @@
                   mono={edited.kind !== "markdown"}
                   symbols={settings?.symbols}
                   {prefs}
+                  onchange={(text) => (words = wordsOf(text))}
+                  bind:selected
                   bind:status
                   bind:error={writeError}
                 />

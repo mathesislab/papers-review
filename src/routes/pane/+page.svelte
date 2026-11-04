@@ -22,7 +22,8 @@
   import { keymap } from "@codemirror/view";
   import { onMount } from "svelte";
   import "$lib/theme.css";
-  import { PREFS, insertQuote, insertSymbol, prefsFrom, setEditorFont, showSection, wordsOf } from "$lib/editor";
+  import { PREFS, insertQuote, insertSymbol, prefsFrom, setEditorFont, showSection, wordCount, wordsOf } from "$lib/editor";
+  import EditorButtons from "$lib/EditorButtons.svelte";
   import { formatDate } from "$lib/due";
   import { exportName, pdfDocument, section, textDocument, toHtml, toPlainText, type Frame } from "$lib/export";
   import FileEditor, { type Status } from "$lib/FileEditor.svelte";
@@ -45,6 +46,8 @@
   let path = $state("");
   const name = $derived(path.split("/").pop() ?? "");
   let words = $state(0);
+  /** the words selected */
+  let selected = $state(0);
   let status = $state<Status>("saved");
   let error = $state("");
   /** the review file is not there (yet): said instead of the editor */
@@ -314,7 +317,7 @@
       {/if}
       {#if !missing}
         <span class="meta">
-          {words} words ·
+          {wordCount(words, selected)} ·
           {#if status === "error"}
             <span class="error" title={error}>not saved</span>
           {:else if exportError}
@@ -327,6 +330,9 @@
         </span>
       {:else}
         <span class="meta"></span>
+      {/if}
+      {#if !missing}
+        <EditorButtons symbols={true} lineNumbers={prefs.lineNumbers} onsymbols={() => editor?.list()} />
       {/if}
       <button class="export" onclick={exportMenu} disabled={missing} title="Export {target}" aria-label="Export {target}">
         <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
@@ -343,7 +349,7 @@
   <main>
     <!-- kept while the file is missing, to read it into when it is made -->
     <div class="editor" class:hidden={missing}>
-      <FileEditor bind:this={editor} {load} {save} {symbols} {prefs} extensions={more} onchange={count} bind:status bind:error bind:path />
+      <FileEditor bind:this={editor} {load} {save} {symbols} {prefs} extensions={more} onchange={count} bind:status bind:error bind:path bind:selected />
     </div>
     {#if listing}
       {#key opened}

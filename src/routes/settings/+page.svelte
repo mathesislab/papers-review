@@ -163,6 +163,10 @@
       <span>Readable line length</span>
     </label>
     <p class="note">The text a column in the middle, with a margin on each side; off: as wide as the window.</p>
+    <label class="option">
+      <input type="checkbox" bind:checked={settings.line_numbers} onchange={save} />
+      <span>Line numbers</span>
+    </label>
     <p class="note first">The review and the text files of a project.</p>
 
     <h2>Export</h2>

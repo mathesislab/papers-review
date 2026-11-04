@@ -63,6 +63,8 @@ pub struct Settings {
     /// the text of the editors a column of a readable width, a margin on
     /// each side down to a narrow window
     pub readable_width: bool,
+    /// the lines of the editors numbered
+    pub line_numbers: bool,
     /// the reviewer's name, for the header of the PDF export
     pub reviewer_name: String,
     /// the review signed with `reviewer_name`; off, it is anonymous
@@ -85,6 +87,7 @@ impl Default for Settings {
             editor_size: 13.5,
             indent: Indent::default(),
             readable_width: true,
+            line_numbers: false,
             reviewer_name: String::new(),
             sign: false,
             header_details: false,
@@ -143,6 +146,8 @@ mod tests {
         assert!(Settings::default().readable_width);
         assert!(serde_json::from_str::<Settings>("{}").unwrap().readable_width);
         assert!(!serde_json::from_str::<Settings>(r#"{"readable_width": false}"#).unwrap().readable_width);
+        assert!(!Settings::default().line_numbers);
+        assert!(!serde_json::from_str::<Settings>("{}").unwrap().line_numbers);
     }
 
     #[test]
@@ -182,6 +187,7 @@ mod tests {
             editor_size: 16.0,
             indent: Indent::Tab,
             readable_width: false,
+            line_numbers: true,
             reviewer_name: "A. Reviewer".into(),
             sign: true,
             header_details: true,

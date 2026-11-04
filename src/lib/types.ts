@@ -50,6 +50,8 @@ export type Settings = {
   indent: Indent;
   /** the text of the editors a column of a readable width, a margin on each side */
   readable_width: boolean;
+  /** the lines of the editors numbered */
+  line_numbers: boolean;
   /** the reviewer's name, to sign the exports with */
   reviewer_name: string;
   /** sign the PDF with it; off: anonymous */
