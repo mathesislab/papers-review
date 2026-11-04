@@ -16,7 +16,7 @@
   // as a PDF, saved in the project and shown in the Finder, or as plain text, copied and saved (src/lib/export.ts).
 
   import { invoke } from "@tauri-apps/api/core";
-  import { listen } from "@tauri-apps/api/event";
+  import { listen } from "$lib/events";
   import { Menu, MenuItem } from "@tauri-apps/api/menu";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { keymap } from "@codemirror/view";

@@ -9,7 +9,7 @@
   // wanted, and the user's own. Kept in the app's data folder (settings.json); the windows are told as it changes.
 
   import { invoke } from "@tauri-apps/api/core";
-  import { listen } from "@tauri-apps/api/event";
+  import { listen } from "$lib/events";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { open } from "@tauri-apps/plugin-dialog";
   import { onMount, tick } from "svelte";

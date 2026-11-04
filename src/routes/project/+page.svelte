@@ -8,7 +8,8 @@
   // asks for the name, due date and review file of a new project (a folder without a review.toml).
 
   import { invoke } from "@tauri-apps/api/core";
-  import { emitTo, listen } from "@tauri-apps/api/event";
+  import { emitTo } from "@tauri-apps/api/event";
+  import { listen } from "$lib/events";
   import { CheckMenuItem, Menu, MenuItem } from "@tauri-apps/api/menu";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { getCurrentWindow } from "@tauri-apps/api/window";

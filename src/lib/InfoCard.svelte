@@ -6,7 +6,7 @@
   // it; the linked files change as they are added or taken out.
 
   import { invoke } from "@tauri-apps/api/core";
-  import { listen } from "@tauri-apps/api/event";
+  import { listen } from "$lib/events";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
   import { addFiles } from "./add";
