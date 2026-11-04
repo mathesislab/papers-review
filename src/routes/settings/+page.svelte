@@ -301,10 +301,7 @@
           <input type="checkbox" class="switch" bind:checked={settings.readable_width} onchange={save} />
         </label>
         <label class="row">
-          <span>
-            <span class="label">Line numbers</span>
-            <span class="hint">Also the button in the bar of the review and of a file</span>
-          </span>
+          <span class="label">Line numbers</span>
           <input type="checkbox" class="switch" bind:checked={settings.line_numbers} onchange={save} />
         </label>
       </section>
