@@ -68,7 +68,9 @@ show the tab before or after the one in front.
   Right-click it: the colour, or none. A project has a colour of its own
   (`colour = "orange"` in `review.toml`) for its tile and its dot among the
   recent projects; a new one takes the next not in use among those open.
-- **Project bar** (Settings; on by default): a column at the left with a tile
+- **Project bar** (Settings; on by default; the component is papers-write's,
+  `papers-write/project`, the due date given to it as the tile's detail and
+  level): a column at the left with a tile
   per project, in its colour with its short name (ten letters at most, on two
   lines when long) or initials, the due date under it, and down its left side
   a bar for how near that is (green, yellow within a week, orange within

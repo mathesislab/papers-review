@@ -7,7 +7,7 @@
   import { open as choose } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
   import "$lib/theme.css";
-  import { cssOf } from "$lib/colour";
+  import { cssOf } from "papers-write/project";
   import type { Recent } from "$lib/types";
 
   let recent = $state<Recent[]>([]);
