@@ -87,11 +87,10 @@ test("html: the location a line starts with in a span", () => {
 
 test("section: the text of a round, or all", () => {
   const text = "# Review\n\nintro\n\n## Round 1\n\na\n\n## Round 2\n\nb\n";
-  assert.equal(section(text, 1), "## Round 2\n\nb\n");
-  assert.equal(section(text, 0), "## Round 1\n\na\n\n");
-  assert.equal(section(text, null), text);
-  assert.equal(section(text, 5), text);
-  assert.equal(section("no sections\n", 0), "no sections\n");
+  const at = (heading: string, to = text.length) => ({ from: text.indexOf(heading), to });
+  assert.equal(section(text, at("## Round 2")), "## Round 2\n\nb\n");
+  assert.equal(section(text, at("## Round 1", text.indexOf("## Round 2"))), "## Round 1\n\na\n\n");
+  assert.equal(section(text), text);
 });
 
 test("names: the review file and the section", () => {

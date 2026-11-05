@@ -144,9 +144,13 @@ NSVisualEffectView under it.
 
 ## Writing the review
 
-- CodeMirror 6, Markdown. Its font (system, serif or monospace) and size
-  are set in Settings, as is the format of dates (2026-11-14, 14.11.2026 or
-  11/14/2026); text files take the size, in monospace.
+- CodeMirror 6, Markdown. The editor is papers-write's (`papers-write/editor`,
+  an npm git dependency pinned to a tag; the files moved there with their
+  history); the page and line of a quote coloured and the commands of the
+  references list are given to it from here (`src/lib/locations.ts`). Its
+  font (system, serif or monospace) and size are set in Settings, as is the
+  format of dates (2026-11-14, 14.11.2026 or 11/14/2026); text files take
+  the size, in monospace.
 - Settings ▸ Editor also has what `Tab` puts in at the cursor (2 spaces, 4
   or a tab: 4 or a tab begin a block of code in Markdown; with lines selected it indents them, `⇧Tab` takes it out), the
   readable line length (on by default: the text a column of 46em in the

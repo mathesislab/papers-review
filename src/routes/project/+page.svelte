@@ -22,9 +22,9 @@
   import { label } from "$lib/bar";
   import { COLOURS, cssOf } from "$lib/colour";
   import { daysLeft, formatDate, shortDate, urgency } from "$lib/due";
-  import { PREFS, prefsFrom, setEditorFont, wordCount, wordsOf } from "$lib/editor";
+  import { FileEditor, PREFS, prefsFrom, setEditorFont, wordCount, wordsOf, type Status } from "papers-write/editor";
   import EditorButtons from "$lib/EditorButtons.svelte";
-  import FileEditor, { type Status } from "$lib/FileEditor.svelte";
+  import { locations } from "$lib/locations";
   import Files from "$lib/Files.svelte";
   import InfoCard from "$lib/InfoCard.svelte";
   import NewProjectCard from "$lib/NewProjectCard.svelte";
@@ -787,6 +787,7 @@
                   load={() => read(path)}
                   save={write}
                   mono={edited.kind !== "markdown"}
+                  extensions={edited.kind === "markdown" ? locations : []}
                   symbols={settings?.symbols}
                   {prefs}
                   onchange={(text) => (words = wordsOf(text))}

@@ -16,7 +16,7 @@
   import "$lib/theme.css";
   import "$lib/settings.css";
   import { COLOURS } from "$lib/colour";
-  import { DEFAULTS } from "$lib/symbols";
+  import { DEFAULTS } from "papers-write/editor";
   import { Updates } from "$lib/updates.svelte";
   import type { Colour, DateFormat, EditorFont, Indent, Settings } from "$lib/types";
 

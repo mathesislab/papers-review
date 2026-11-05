@@ -22,13 +22,11 @@
   import { keymap } from "@codemirror/view";
   import { onMount } from "svelte";
   import "$lib/theme.css";
-  import { PREFS, insertQuote, insertSymbol, prefsFrom, setEditorFont, showSection, wordCount, wordsOf } from "$lib/editor";
+  import { FileEditor, RefList, PREFS, insertQuote, insertSymbol, prefsFrom, sections, setEditorFont, showSection, wordCount, wordsOf, type Found, type Section, type Status } from "papers-write/editor";
   import EditorButtons from "$lib/EditorButtons.svelte";
   import { formatDate } from "$lib/due";
   import { exportName, pdfDocument, section, textDocument, toHtml, toPlainText, type Frame } from "$lib/export";
-  import FileEditor, { type Status } from "$lib/FileEditor.svelte";
-  import RefList from "$lib/RefList.svelte";
-  import { sections, type Section } from "$lib/sections";
+  import { locations } from "$lib/locations";
   import type { ProjectInfo, Settings } from "$lib/types";
 
   type Side = "bottom" | "right";
@@ -106,9 +104,10 @@
     try {
       await editor?.flush();
       const all = text();
-      const markdown = section(all, active);
+      const sectioned = active === null ? undefined : sections(all)[active];
+      const markdown = section(all, sectioned);
       if (!markdown.trim()) throw "There is nothing to export";
-      const name = exportName(path, active === null ? null : (sections(all)[active]?.title ?? null));
+      const name = exportName(path, active === null ? null : (sectioned?.title ?? null));
       const [info, settings] = await Promise.all([invoke<ProjectInfo>("project_info"), invoke<Settings>("settings")]);
       const frame: Frame = {
         heading: info.heading ?? "",
@@ -172,11 +171,15 @@
     missing = !review.exists;
     return review;
   };
+  /** the references, for the list: the app's commands */
+  const search = (query: string, limit: number) => invoke<Found>("references", { query, limit });
+  const closest = (text: string, limit: number) => invoke<Found>("closest_references", { text, limit });
+  const sources = () => invoke<string[]>("reference_sources");
   const save = (path: string, text: string) => invoke<void>("save_review", { path, text });
 
   /** Escape: the keys back to the PDF, the pane left as it is. */
   const release = keymap.of([{ key: "Escape", run: () => (invoke("pane_release"), true) }]);
-  const more = [release];
+  const more = [release, ...locations];
 
   /** The references listed, closest to the text of a reference selected in the PDF if there is one. Asked again
    *  without a text, the list that is open stays as it is. */
@@ -360,7 +363,7 @@
     </div>
     {#if listing}
       {#key opened}
-        <RefList bind:this={refs} text={reference} oninsert={cited} onopen={openPdf} onclose={closeList} />
+        <RefList bind:this={refs} text={reference} {search} {closest} {sources} oninsert={cited} onopen={openPdf} onclose={closeList} />
       {/key}
     {/if}
     {#if missing}
