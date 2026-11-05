@@ -236,7 +236,8 @@ to its text until something is typed. The key on the paper marked:
 
 - `↵` puts a citation in at the cursor: "Feldmann and Levermann (2015)",
   "Robinson et al. (2012)"; `⇧↵` the full reference, as Copernicus sets it;
-- `⌘.` puts in `[@key]`, `⌘L` `\cite{key}`;
+- `⌘.` puts in `[@key]` (Edit ▸ Cite as [@key]: a menu item, as macOS takes
+  `⌘.` for Cancel before the page sees it), `⌘L` `\cite{key}`;
 - `⌘↵` opens its PDF in a tab of the project (without a PDF, nothing);
 - `Esc` closes the list.
 

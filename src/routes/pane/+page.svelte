@@ -260,6 +260,8 @@
       }),
       // ⇧⌘R in the page: the references, with the text of the reference selected in the PDF
       listen<{ text: string }>("references", (e) => references(e.payload.text)),
+      // ⌘. of the menu (Cite as [@key]): the paper marked in the list, as [@key]
+      listen("cite-key", () => refs?.cite("pandoc")),
       // another file as the review: what was typed goes to the one before, then the new one is read
       listen("review-switched", async () => {
         await editor?.flush();
