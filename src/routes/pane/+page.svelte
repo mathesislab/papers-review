@@ -30,6 +30,8 @@
   import type { ProjectInfo, Settings } from "$lib/types";
 
   type Side = "bottom" | "right";
+  /** what the review pane shows while the review is empty */
+  const PLACEHOLDER = "Your review, in Markdown: ## for its sections, a section a round, say.";
   type Placed = { side: Side; size: number; collapsed: boolean };
   type Review = { path: string; name: string; text: string; exists: boolean };
 
@@ -361,7 +363,7 @@
   <main>
     <!-- kept while the file is missing, to read it into when it is made -->
     <div class="editor" class:hidden={missing}>
-      <FileEditor bind:this={editor} {load} {save} {symbols} {prefs} extensions={more} onchange={count} bind:status bind:error bind:path bind:selected />
+      <FileEditor bind:this={editor} {load} {save} {symbols} {prefs} extensions={more} placeholder={PLACEHOLDER} onchange={count} bind:status bind:error bind:path bind:selected />
     </div>
     {#if listing}
       {#key opened}
