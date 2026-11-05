@@ -8,7 +8,7 @@
 
   import { invoke } from "@tauri-apps/api/core";
   import { onMount } from "svelte";
-  import { SHORT, initials } from "./bar";
+  import { SHORT, initials } from "papers-write/project";
   import "./card.css";
   import { DEFAULT_HEADING } from "./export";
   import DateField from "./DateField.svelte";

@@ -10,8 +10,8 @@
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
   import { addFiles } from "./add";
-  import { SHORT, initials } from "./bar";
-  import { COLOURS } from "./colour";
+  import { SHORT, initials } from "papers-write/project";
+  import { COLOURS } from "papers-write/project";
   import "./card.css";
   import { DEFAULT_HEADING } from "./export";
   import DateField from "./DateField.svelte";

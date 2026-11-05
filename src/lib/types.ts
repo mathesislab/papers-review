@@ -1,12 +1,13 @@
 // What the app tells the pages (mirrors src-tauri/src/lib.rs and state.rs).
 
 import type { EditorFont, Indent } from "papers-write/editor";
+import type { Colour } from "papers-write/project";
 
 // The types of the editor and of the references are papers-write's; kept importable from here.
 export type { EditorFont, Found, Hit, Indent, Item, Span, YearCount } from "papers-write/editor";
 
-/** mirrors review_core::Colour */
-export type Colour = "blue" | "teal" | "green" | "yellow" | "orange" | "red" | "pink" | "purple" | "graphite" | "none";
+// The colour of a project is papers-write's (mirrors review_core::Colour).
+export type { Colour };
 
 /** mirrors review_core::Kind */
 export type Kind = "folder" | "pdf" | "markdown" | "text" | "bib" | "other";

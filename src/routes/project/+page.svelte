@@ -19,8 +19,7 @@
   import type { Entry } from "tauri-plugin-pdfkit-api";
   import "$lib/theme.css";
   import { addFiles, addPaths } from "$lib/add";
-  import { label } from "$lib/bar";
-  import { COLOURS, cssOf } from "$lib/colour";
+  import { COLOURS, ProjectBar, cssOf, type Tile } from "papers-write/project";
   import { daysLeft, formatDate, shortDate, urgency } from "$lib/due";
   import { FileEditor, PREFS, prefsFrom, setEditorFont, wordCount, wordsOf, type Status } from "papers-write/editor";
   import EditorButtons from "$lib/EditorButtons.svelte";
@@ -255,6 +254,21 @@
   }
 
   /** The name of a tile and what is due, for its tooltip. */
+  const LEVELS = { far: "ok", near: "soon", close: "near", due: "due" } as const;
+
+  /** A project of the bar as a tile of the project bar: the due date as its detail, how near it is as its level. */
+  const tileOf = (item: BarItem): Tile => ({
+    id: item.root,
+    name: item.name,
+    short: item.short,
+    colour: item.colour,
+    current: item.root === project?.root,
+    detail: item.due ? shortDate(item.due) : undefined,
+    level: item.due ? LEVELS[urgency(daysLeft(item.due))] : null,
+    missing: item.missing,
+    tooltip: tooltip(item),
+  });
+
   const tooltip = (item: BarItem) =>
     [item.name, item.missing ? "not found" : item.due ? `Due ${formatDate(item.due, settings?.date_format ?? "ymd")}` : ""].filter(Boolean).join("\n");
 
@@ -608,34 +622,14 @@
     style:grid-template-columns={`${showBar ? "92px " : ""}${layout.files ? `${layout.files_width}px ` : ""}1fr`}
   >
     {#if showBar}
-      <!-- the project bar: a tile per project, the current one marked, with its due date and a bar for how near it is -->
-      <aside class="projects" aria-label="Projects">
-        {#each bar as item (item.root)}
-          {@const name = label(item.name, item.short)}
-          <button
-            class="tile"
-            class:current={item.root === project.root}
-            class:missing={item.missing}
-            title={tooltip(item)}
-            aria-label={item.name}
-            onclick={() => switchTo(item.root)}
-            oncontextmenu={(e) => tileMenu(e, item)}
-          >
-            <span
-              class="chip"
-              class:dated={item.due}
-              style:background={cssOf(item.colour) ?? "var(--tile-none)"}
-              style:--urgency={item.due ? `var(--due-${urgency(daysLeft(item.due))})` : null}
-            >
-              <span class="name" style:font-size="{name.size}px">{#each name.lines as line}<span>{line}</span>{/each}</span>
-              {#if item.due}<span class="when">{shortDate(item.due)}</span>{/if}
-            </span>
-          </button>
-        {/each}
-        <button class="tile add" title="Open Project… (⌘O)" aria-label="Open Project" onclick={() => invoke("choose_project")}>
-          <span class="chip">+</span>
-        </button>
-      </aside>
+      <!-- the project bar (papers-write's): a tile per project, the current one marked, with its due date and a bar for how near it is -->
+      <ProjectBar
+        items={bar.map(tileOf)}
+        onswitch={switchTo}
+        onmenu={(id, e) => tileMenu(e, bar.find((item) => item.root === id)!)}
+        onadd={() => invoke("choose_project")}
+        addTitle="Open Project… (⌘O)"
+      />
     {/if}
     {#if layout.files}
       <div class="files">
@@ -859,107 +853,6 @@
   }
   .window.coloured {
     padding-top: 6px;
-  }
-  .projects {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    min-height: 0;
-    padding: 10px 0;
-    overflow-y: auto;
-    scrollbar-width: none;
-    background: var(--sidebar);
-    border-right: 1px solid var(--line);
-  }
-  .tile {
-    position: relative;
-    flex: none;
-    display: flex;
-    justify-content: center;
-    padding: 0 8px;
-    background: none;
-    border: none;
-    font: inherit;
-  }
-  /* the tile of the project in view: a mark at the bar's edge, a ring round the tile */
-  .tile.current::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 6px;
-    bottom: 6px;
-    width: 3px;
-    border-radius: 0 3px 3px 0;
-    background: var(--accent);
-  }
-  .tile.current .chip {
-    box-shadow:
-      0 0 0 2px var(--sidebar),
-      0 0 0 4px var(--accent);
-  }
-  .tile.missing {
-    opacity: 0.45;
-  }
-  .chip {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    width: 76px;
-    height: 52px;
-    box-sizing: border-box;
-    position: relative;
-    padding: 4px 4px 4px 13px;
-    overflow: hidden;
-    border-radius: 10px;
-    color: rgba(0, 0, 0, 0.78);
-  }
-  /* a bar down its left side in the colour of how near the due date is */
-  .chip::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 8px;
-    background: var(--urgency, transparent);
-  }
-  /* a line between the bar and the tile's colour */
-  .chip.dated::before {
-    border-right: 1px solid rgba(0, 0, 0, 0.35);
-  }
-  /* the short name, on one line or two */
-  .name {
-    font-weight: 600;
-    line-height: 1.1;
-    text-align: center;
-    white-space: nowrap;
-  }
-  .name span {
-    display: block;
-  }
-  /* the due date: dark, small as it is, on the light colours of the tiles */
-  .when {
-    color: rgba(0, 0, 0, 0.68);
-    font-size: 13px;
-    font-weight: 600;
-    line-height: 1;
-    white-space: nowrap;
-  }
-  .tile:not(.current):hover .chip {
-    filter: brightness(0.94);
-  }
-  .tile.add .chip {
-    box-sizing: border-box;
-    border: 1px dashed var(--border);
-    color: var(--muted);
-    font-size: 18px;
-    font-weight: 400;
-  }
-  .tile.add:hover .chip {
-    background: var(--chip);
   }
   .files {
     position: relative;
