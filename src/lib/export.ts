@@ -4,7 +4,6 @@
 
 import { markdownLanguage } from "@codemirror/lang-markdown";
 import { locationPrefix } from "./quote.ts";
-import { sections } from "./sections.ts";
 
 type Node = ReturnType<typeof markdownLanguage.parser.parse>["topNode"];
 
@@ -25,9 +24,8 @@ type Block =
 /** What a PDF is headed with when the project sets no heading. */
 export const DEFAULT_HEADING = "Manuscript review";
 
-/** The text of the section `index` (of `sections`), or all of it (null, or a text with no sections). */
-export function section(text: string, index: number | null): string {
-  const found = index === null ? undefined : sections(text)[index];
+/** The text of a section (one of `sections` of the text, from the editor), or all of it (none). */
+export function section(text: string, found?: { from: number; to: number }): string {
   return found ? text.slice(found.from, found.to) : text;
 }
 

@@ -144,9 +144,13 @@ NSVisualEffectView under it.
 
 ## Writing the review
 
-- CodeMirror 6, Markdown. Its font (system, serif or monospace) and size
-  are set in Settings, as is the format of dates (2026-11-14, 14.11.2026 or
-  11/14/2026); text files take the size, in monospace.
+- CodeMirror 6, Markdown. The editor is papers-write's (`papers-write/editor`,
+  an npm git dependency pinned to a tag; the files moved there with their
+  history); the page and line of a quote coloured and the commands of the
+  references list are given to it from here (`src/lib/locations.ts`). Its
+  font (system, serif or monospace) and size are set in Settings, as is the
+  format of dates (2026-11-14, 14.11.2026 or 11/14/2026); text files take
+  the size, in monospace.
 - Settings ▸ Editor also has what `Tab` puts in at the cursor (2 spaces, 4
   or a tab: 4 or a tab begin a block of code in Markdown; with lines selected it indents them, `⇧Tab` takes it out), the
   readable line length (on by default: the text a column of 46em in the
@@ -232,7 +236,8 @@ to its text until something is typed. The key on the paper marked:
 
 - `↵` puts a citation in at the cursor: "Feldmann and Levermann (2015)",
   "Robinson et al. (2012)"; `⇧↵` the full reference, as Copernicus sets it;
-- `⌘.` puts in `[@key]`, `⌘L` `\cite{key}`;
+- `⌘.` puts in `[@key]` (Edit ▸ Cite as [@key]: a menu item, as macOS takes
+  `⌘.` for Cancel before the page sees it), `⌘L` `\cite{key}`;
 - `⌘↵` opens its PDF in a tab of the project (without a PDF, nothing);
 - `Esc` closes the list.
 

@@ -113,6 +113,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             &separator()?,
             &item("symbols", "Symbols…", Some("CmdOrCtrl+/"))?,
             &item("references", "References…", Some("Shift+CmdOrCtrl+R"))?,
+            &item("cite-key", "Cite as [@key]", Some("CmdOrCtrl+."))?,
         ],
     )?;
     let view = Submenu::with_items(
@@ -211,6 +212,13 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
             if let Some(window) = front(app).filter(|w| windows::root_of(app, w.label()).is_some()) {
                 let kind = if id == "export-pdf" { "pdf" } else { "text" };
                 let _ = app.emit_to(EventTarget::webview(pane::label(window.label())), "export", kind);
+            }
+        }
+        // ⌘. in the references list: macOS takes it for Cancel before the page sees the key, so it comes as a menu
+        // item, to the pane, where the list is
+        "cite-key" => {
+            if let Some(window) = front(app).filter(|w| windows::root_of(app, w.label()).is_some()) {
+                let _ = app.emit_to(EventTarget::webview(pane::label(window.label())), "cite-key", ());
             }
         }
         "close-window" => {
