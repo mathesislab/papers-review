@@ -58,8 +58,17 @@ it holds nothing but the PDF copied in.
 
 One window per project, or one window for all of them with a bar to switch
 between projects, as set in Settings (`⌘,`); several windows when asked
-(File > Open Project in New Window…, `⇧⌘O`). `⇧⌘[` and `⇧⌘]` (Window menu)
-show the tab before or after the one in front.
+(File > Open Project in New Window…, `⇧⌘O`). The windows and their tabs are
+papers-tabs's (`crates/tabs` of papers-write), as in Papers Write: a page per
+tab (a web view, a child of the window), the tabs of each project a set, the
+window showing one project at a time, the other tabs hidden but alive (the
+PDF at its page, the text and its undo). A project with no file open has one
+tab of its files alone, which takes the next file opened; closing the last
+file's tab leaves that one, closing it closes the project in the window.
+`⌘W` closes the tab in front (a text edited is written first); `⇧⌘[` and
+`⇧⌘]` (Window menu) show the tab before or after it. The windows open as the
+app quits open again at the next start, each project with its tabs; a window
+closed by hand does not, its projects keep their tabs for the next time.
 
 - **Colour bar**: a thin bar along the top of the page, under the title bar,
   in the app's colour, to tell its windows apart from others in Mission
@@ -77,13 +86,15 @@ show the tab before or after the one in front.
   three days, red when due or past), the current
   one marked (a click on it shows or hides the files); `+` opens another. A
   click switches the window to the project (its
-  page loads again, the review pane follows, writing what was typed to the
+  tabs as left, or as saved; the review pane follows, writing what was typed to the
   old review first); right-click: Open in New Window, Remove from Bar. Open
   Project adds to the bar and switches the window in front, or brings
   forward the window that shows the project. The bar is kept in `state.json`
-  and listed in the Window menu (`⌘1` to `⌘9`); removing the project of a
-  window switches it to a neighbour, or closes it when none is left.
-- **Files** (sidebar, `⌘⌥S`, or the button at the left of the tabs): a box at
+  and listed in the Window menu (`⌘1` to `⌘9`); removing a project from it
+  closes its tabs: the window shows the project before it, or closes when none
+  is left.
+- **Files** (sidebar, `⌘⌥S`, or the button at the left of the tabs; shown or not and
+  its width the same in all the project's tabs, kept per project): a box at
   the top with the project's name, journal and manuscript ID, and due date
   with the days left (a click on it, or its ⓘ, opens the project's info);
   under Folder, the project's folder and its files as a tree, a line along
@@ -112,9 +123,10 @@ show the tab before or after the one in front.
   review pane, monospace unless Markdown): written half a second after the
   typing stops and as it loses the keys, read again when changed on disk
   (Reload or Keep mine with changes not yet written); a file that is not
-  UTF-8 keeps its name and Open in Default App. Tabs for the files open; that
-  of a paper outside the project has a `+` before its `✕`, Add to the
-  Project…: linked, or copied, and the tab then shows the copy, at its page.
+  UTF-8 keeps its name and Open in Default App. A tab per file open (the strip
+  is papers-write's); that of a paper outside the project has a `+` before its
+  close button, Add to the Project…: linked, or copied, and the tab then shows
+  the copy, at its page.
 - **Go menu**: Back (`⌘[`) and Forward (`⌘]`) in the PDF's history, Previous
   and Next Page (`⌥⌘↑`, `⌥⌘↓`), First and Last Page, Go to Page… (`⌥⌘G`, the
   tools bar's page field). `⌘[` and `⌘]` are indent less and more in an
@@ -126,8 +138,8 @@ show the tab before or after the one in front.
   hides it when it is open, wherever the keys are (they go back to the PDF),
   else shows it with them. Hidden, nothing remains. A click on its header (not on a
   button or tab), or its arrow, collapses it to that header (a strip on the
-  right), the keys back to the PDF, and brings it back; `⌘J` expands it too. One window of a project holds its
-  pane at a time.
+  right), the keys back to the PDF, and brings it back; `⌘J` expands it too. A window has one pane, of
+  the project it shows, placed by the tab in front.
 - **The review**: any Markdown file of the project (`review` in
   `review.toml`, `review.md` without; Edit in Review Pane on a Markdown
   file), marked with a `review` pill in the files. Written half a second after the typing
@@ -138,9 +150,10 @@ show the tab before or after the one in front.
   section alone, the rest of the file hidden (it stays one file), All the
   whole of it.
 
-The PDF view lies above the page of the window (a native view over the web
-view), so the page cannot draw over it. The pane is a second web view above
-the first (Tauri's multiwebview, the `unstable` feature), opaque and square
+The PDF view lies above the page of its tab (a native view over the web
+view), so the page cannot draw over it. The pane is a web view above the pages
+(Tauri's multiwebview, the `unstable` feature; brought above each page as it
+comes, AppKit stacking views as they are added), opaque and square
 (the web view is not transparent); translucency would need an
 NSVisualEffectView under it.
 
@@ -263,9 +276,9 @@ The Search Papers service of Papers Desktop also works from here.
 Commands: `references(query, limit)` (words matching from the start of a
 word) and `closest_references(text, limit)` give papers-core's `Found`;
 `reference_sources()` lists the files searched; `open_reference_pdf(path)`
-tells the page of the calling window to open the PDF in a tab (`open-file`).
-Edit ▸ References… (⇧⌘R) goes to the page of the window in front, as the
-other page commands.
+opens the PDF in a tab of the project (its own, if one shows it already).
+Edit ▸ References… (⇧⌘R) goes to the tab in front of the window in front, as
+the other page commands.
 
 ## Updates
 

@@ -16,8 +16,8 @@ Part of the papers family:
 [Papers Desktop](https://github.com/mathesislab/papers-desktop),
 [papers-rs](https://github.com/mathesislab/papers-rs).
 
-**State**: the first steps. A window per project: its files, the files open in
-tabs, the PDF in PDFKit (page, zoom, find), the colour bar; a start window.
+**State**: the first steps. A window per project, or one switched between projects: its files, the files open in
+tabs (a page each, as in Papers Write), the PDF in PDFKit (page, zoom, find), the colour bar; a start window.
 The plans are in [docs/design.md](docs/design.md), the mock-ups in
 [docs/mockups/review.html](docs/mockups/review.html).
 
