@@ -17,9 +17,12 @@ pub enum Kind {
     Folder,
     Pdf,
     Markdown,
+    /// LaTeX: a document, a style or a class
+    Latex,
     /// text to read as it is: code, data descriptions, configuration
     Text,
     Bib,
+    Image,
     Other,
 }
 
@@ -50,8 +53,10 @@ pub fn kind(path: &Path) -> Kind {
         "pdf" => Kind::Pdf,
         "md" | "markdown" => Kind::Markdown,
         "bib" => Kind::Bib,
+        "tex" | "sty" | "cls" => Kind::Latex,
+        "png" | "jpg" | "jpeg" | "gif" | "svg" | "eps" | "tif" | "tiff" => Kind::Image,
         "txt" | "text" | "csv" | "tsv" | "json" | "yaml" | "yml" | "toml" | "xml" | "nml" | "cfg"
-        | "ini" | "log" | "tex" | "jl" | "py" | "r" | "m" | "f" | "f90" | "f95" | "c" | "h"
+        | "ini" | "log" | "jl" | "py" | "r" | "m" | "f" | "f90" | "f95" | "c" | "h"
         | "cpp" | "rs" | "sh" | "ncl" => Kind::Text,
         "" if path
             .file_name()
@@ -215,7 +220,8 @@ mod tests {
         assert_eq!(kind(Path::new("x/refs.bib")), Kind::Bib);
         assert_eq!(kind(Path::new("x/run.jl")), Kind::Text);
         assert_eq!(kind(Path::new("x/README")), Kind::Text);
-        assert_eq!(kind(Path::new("x/fig.png")), Kind::Other);
+        assert_eq!(kind(Path::new("x/fig.png")), Kind::Image);
+        assert_eq!(kind(Path::new("x/paper.tex")), Kind::Latex);
     }
 
     #[test]

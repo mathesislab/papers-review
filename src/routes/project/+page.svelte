@@ -85,7 +85,7 @@
   /** the find field, and its text */
   let findInput = $state<HTMLInputElement>();
   /** The kinds of file edited in their tab. */
-  const EDITED: Kind[] = ["markdown", "text", "bib"];
+  const EDITED: Kind[] = ["markdown", "latex", "text", "bib"];
   /** the file in front, edited, and its editor */
   let editor = $state<FileEditor>();
   let status = $state<Status>("saved");
@@ -780,7 +780,8 @@
                   bind:this={editor}
                   load={() => read(path)}
                   save={write}
-                  mono={edited.kind !== "markdown"}
+                  mono={edited.kind !== "markdown" && edited.kind !== "latex"}
+                  latex={edited.kind === "latex"}
                   extensions={edited.kind === "markdown" ? locations : []}
                   symbols={settings?.symbols}
                   {prefs}
