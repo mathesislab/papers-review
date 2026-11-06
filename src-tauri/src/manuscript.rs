@@ -16,7 +16,7 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 
 use crate::settings::Settings;
-use crate::state::Layout;
+use papers_tabs::Layout;
 use crate::{AppState, windows};
 
 /// The most DOIs of the text asked of Crossref.
@@ -223,14 +223,10 @@ pub fn start(app: &AppHandle, pdf: &Path) -> Result<(), String> {
             }
         }
     }
-    let layout = Layout {
-        tabs: vec![copy.clone()],
-        front: Some(copy),
-        ..Layout::default()
-    };
-    state.saved.lock().unwrap().layouts.insert(root.clone(), layout);
+    let layout = Layout { files: vec![copy.clone()], front: Some(copy) };
+    state.saved.lock().unwrap().tabs.insert(root.clone(), layout);
     windows::open_project(app, &root).inspect_err(|_| {
-        state.saved.lock().unwrap().layouts.remove(&root);
+        state.saved.lock().unwrap().tabs.remove(&root);
         windows::release(app, &root);
     })
 }
@@ -249,7 +245,7 @@ pub fn begin(app: &AppHandle, pdf: PathBuf) {
 /// A new review from a manuscript cancelled: its saved layout goes, and its folder, holding nothing but the PDF
 /// copied in, goes to the Trash (taken back from there if need be).
 pub fn undo(app: &AppHandle, root: &Path, pdf: &Path) {
-    app.state::<AppState>().saved.lock().unwrap().layouts.remove(root);
+    app.state::<AppState>().saved.lock().unwrap().tabs.remove(root);
     if holds_only(root, pdf)
         && let Err(e) = crate::trash::trash(root)
     {

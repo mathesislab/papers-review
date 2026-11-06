@@ -128,26 +128,20 @@ pub fn unload(app: &AppHandle, root: &Path) {
     app.state::<AppState>().references.lock().unwrap().remove(root);
 }
 
-/// The pages and panes of the project's windows told that the references were read again.
+/// The pages and the pane of the project's window told that the references were read again.
 fn tell(app: &AppHandle, root: &Path) {
-    for window in windows::of_project(app, root) {
-        for label in [windows::page(&window), pane::label(&window)] {
-            let _ = app.emit_to(EventTarget::webview(label), "references-changed", ());
-        }
+    let panes = windows::of_project(app, root).into_iter().map(|w| pane::label(&w));
+    for label in papers_tabs::pages_of_project(app, root).into_iter().chain(panes) {
+        let _ = app.emit_to(EventTarget::webview(label), "references-changed", ());
     }
 }
 
-/// A PDF of a reference opened in a tab of the page of `window`.
-pub fn open_pdf(app: &AppHandle, window: &str, path: &Path) -> Result<(), String> {
+/// A PDF of a reference opened in a tab of the project of `root` (the PDF may lie outside it).
+pub fn open_pdf(app: &AppHandle, root: &Path, path: &Path) -> Result<(), String> {
     if !path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) || !path.is_file() {
         return Err(format!("{}: not a PDF file", path.display()));
     }
-    app.emit_to(
-        EventTarget::webview(windows::page(window)),
-        "open-file",
-        path.to_string_lossy().into_owned(),
-    )
-    .map_err(|e| e.to_string())
+    windows::open_file(app, root, path, None)
 }
 
 /// The `.bib` files of the project of `root`, and of its papers library.

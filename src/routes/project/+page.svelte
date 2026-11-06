@@ -1,11 +1,13 @@
 <script lang="ts">
-  // The page of a project's window: the colour bar of the settings (right-click: its colour), the project bar at the left when the
-  // setting is on (a tile per project to switch to; right-click: open in a new window, remove), the files (⌘⌥S hides
-  // them), the files open in tabs, the one in front: a PDF in PDFKit, with its outline, page, zoom and find; a
-  // Markdown, text or BibTeX file edited in place (FileEditor). How the window looked is kept between sessions (the
-  // app's state.json); the commands of the menu bar come as `menu`. The window switched to another project loads this
-  // page again. The project's info (⌘I) is a card over the top of it, the PDF hidden meanwhile; so is the card that
-  // asks for the name, due date and review file of a new project (a folder without a review.toml).
+  // A tab of a project's window (papers-tabs: a page per tab, the others hidden but alive): the colour bar of the
+  // settings (right-click: its colour), the project bar at the left when the setting is on (a tile per project to
+  // switch to; right-click: open in a new window, remove), the files (⌘⌥S hides them; shown or not and their width the
+  // same in all the project's tabs, ProjectSidebar), the tabs of the project (Tabs), and the file of this tab: a PDF in
+  // PDFKit, with its outline, page, zoom and find; a Markdown, text or BibTeX file edited in place (FileEditor); or
+  // none, the project's files alone. A file chosen opens in its tab, or this one when it shows none. The commands of
+  // the menu bar come as `menu` to the tab in front. The project's info (⌘I) is a card over the top of it, the PDF
+  // hidden meanwhile; so is the card that asks for the name, due date and review file of a new project (a folder
+  // without a review.toml).
 
   import { invoke } from "@tauri-apps/api/core";
   import { emitTo } from "@tauri-apps/api/event";
@@ -19,7 +21,7 @@
   import type { Entry } from "tauri-plugin-pdfkit-api";
   import "$lib/theme.css";
   import { addFiles, addPaths } from "$lib/add";
-  import { COLOURS, ProjectBar, TabStrip, cssOf, type Tile } from "papers-write/project";
+  import { COLOURS, ProjectBar, ProjectSidebar, Tabs, cssOf, type Tile } from "papers-write/project";
   import { daysLeft, formatDate, shortDate, urgency } from "$lib/due";
   import { FileEditor, PREFS, prefsFrom, setEditorFont, wordCount, wordsOf, type Status } from "papers-write/editor";
   import EditorButtons from "$lib/EditorButtons.svelte";
@@ -29,7 +31,7 @@
   import NewProjectCard from "$lib/NewProjectCard.svelte";
   import PdfView from "$lib/PdfView.svelte";
   import { quote, quoteText } from "$lib/quote";
-  import type { BarItem, Colour, Kind, Layout, Node, Project, Settings } from "$lib/types";
+  import type { BarItem, Colour, Kind, Node, Project, Settings } from "$lib/types";
 
   let project = $state<Project | null>(null);
   let settings = $state<Settings | null>(null);
@@ -37,10 +39,13 @@
   let bar = $state<BarItem[]>([]);
   const showBar = $derived(settings?.project_bar ?? false);
   let error = $state("");
-  let layout = $state<Layout>({ files: true, files_width: 240, tabs: [], front: null, pages: {} });
-  /** the layout read: written back only after, to the project it was read for */
-  let ready = false;
-  let layoutRoot = "";
+  /** the file of this tab (none: the project's files alone), and the page of it in view as last left (a PDF) */
+  let file = $state<string | null>(null);
+  let startPage = $state(1);
+  /** the files panel, as all the project's tabs show it */
+  const side = new ProjectSidebar();
+  /** whether this tab is the one in front of its window */
+  let inFront = $state(true);
 
   /** every file of the project, by its path */
   const nodes = $derived.by(() => {
@@ -58,12 +63,12 @@
     return all;
   });
 
-  /** the files opened from outside the project (a paper of the references), by their path */
-  let outside = $state<Record<string, Node>>({});
-  /** the file of a path: of the project, or opened from outside it */
-  const nodeOf = (path: string) => nodes.get(path) ?? outside[path];
+  /** the file of a path: of the project, or a PDF from outside it (a paper of the references) */
+  const nodeOf = (path: string): Node => nodes.get(path) ?? { name: path.split("/").pop() ?? path, path, kind: "pdf" };
+  /** whether this tab's file is from outside the project */
+  const outside = $derived(!!project && !!file && !nodes.has(file));
 
-  const front = $derived(layout.front ? nodeOf(layout.front) : undefined);
+  const front = $derived(file ? nodeOf(file) : undefined);
 
   /** the PDF in front, its page count and page in view */
   let pdf = $state<PdfView>();
@@ -79,7 +84,7 @@
   let showOutline = $state(false);
   // the outline of the file before is not this one's
   $effect(() => {
-    layout.front;
+    file;
     outline = [];
   });
   /** the find field, and its text */
@@ -95,7 +100,7 @@
   const edited = $derived(front && EDITED.includes(front.kind) && !unreadable[front.path] ? front : undefined);
   // the status of the file before is not this one's
   $effect(() => {
-    layout.front;
+    file;
     [status, writeError] = ["saved", ""];
   });
   // the file in front watched for changes on disk while it is edited
@@ -111,7 +116,8 @@
   let viewer = $state<HTMLDivElement>();
 
   $effect(() => {
-    if (!viewer) return;
+    // told again when this tab comes to the front
+    if (!viewer || !inFront) return;
     const area = viewer;
     const tell = () => {
       const box = area.getBoundingClientRect();
@@ -125,13 +131,17 @@
   let findText = $state("");
   let notFound = $state(false);
 
+  /** the page in view kept, a moment after it is turned to */
+  let pageTimer: ReturnType<typeof setTimeout> | undefined;
   function turned(path: string, page: number) {
-    layout.pages[path] = page;
-    if (path === layout.front) current = page;
+    if (path !== file) return;
+    current = page;
+    clearTimeout(pageTimer);
+    pageTimer = setTimeout(() => invoke("set_pdf_page", { path, page }), 300);
   }
 
   function recorded(path: string, h: { back: boolean; forward: boolean }) {
-    if (path === layout.front) history = h;
+    if (path === file) history = h;
   }
 
   /** The field for a page shown, with the page in view selected. */
@@ -181,8 +191,6 @@
     try {
       const next = await invoke<Project>("project");
       project = next;
-      // a new project, defined now: its layout is kept from here on
-      if (!next.new && layoutRoot === next.root) ready = true;
     } catch (e) {
       error = String(e);
     }
@@ -203,22 +211,18 @@
     bar = await invoke<BarItem[]>("bar");
   }
 
-  /** The layout and the file in front written now, to the project they are of: a switch or a close would lose the
-   *  write waiting. */
-  async function flush() {
-    clearTimeout(timer);
-    await Promise.all([
-      editor?.flush(),
-      ready ? invoke("set_layout", { root: layoutRoot, layout: $state.snapshot(layout) }) : undefined,
-    ]);
+  /** The file of this tab read again (it was given another, or none); the text edited before written first. */
+  async function readFile() {
+    await editor?.flush();
+    const next = await invoke<string | null>("page_file");
+    startPage = next && nodeOf(next).kind === "pdf" ? await invoke<number>("pdf_page", { path: next }) : 1;
+    file = next;
   }
 
-  /** The window switched to the project of a tile (the page loads again as it is done), or, for its own, the files
-   *  shown or hidden. */
+  /** The window switched to the project of a tile (its tabs as left), or, for its own, the files shown or hidden. */
   async function switchTo(root: string) {
     if (root === project?.root) return command("files");
     try {
-      await flush();
       await invoke("switch_project", { root });
     } catch (e) {
       await message(String(e), { title: "Switch Project", kind: "error" });
@@ -232,6 +236,8 @@
   $effect(() => {
     invoke("page_covered", { covered });
   });
+  /** the PDF hidden while this tab is not in front too, or it would keep the keys */
+  const pdfCovered = $derived(covered || !inFront);
 
   function openCard() {
     if (!project?.new) card = true;
@@ -272,26 +278,9 @@
   const tooltip = (item: BarItem) =>
     [item.name, item.missing ? "not found" : item.due ? `Due ${formatDate(item.due, settings?.date_format ?? "ymd")}` : ""].filter(Boolean).join("\n");
 
-  /** A file to the front, in a tab of its own. */
+  /** A file to the front: its tab, or this one when it shows none. */
   function open(node: Node) {
-    if (!layout.tabs.includes(node.path)) layout.tabs.push(node.path);
-    layout.front = node.path;
-  }
-
-  /** A PDF of a path anywhere, in a tab: as a file of the project if it is one, else as one outside it (not
-   *  restored with the layout). */
-  function openFile(path: string) {
-    if (!nodes.has(path)) outside[path] = { name: path.split("/").pop() ?? path, path, kind: "pdf" };
-    open(nodeOf(path)!);
-  }
-
-  function close(path: string) {
-    const i = layout.tabs.indexOf(path);
-    if (i < 0) return;
-    delete unreadable[path];
-    delete outside[path];
-    layout.tabs.splice(i, 1);
-    if (layout.front === path) layout.front = layout.tabs[Math.min(i, layout.tabs.length - 1)] ?? null;
+    invoke("open_file", { path: node.path }).catch((e) => fail("Open", e));
   }
 
   /** The narrowest and widest the files panel is dragged. */
@@ -302,11 +291,12 @@
   function resize(e: PointerEvent) {
     const edge = e.currentTarget as HTMLElement;
     edge.setPointerCapture(e.pointerId);
-    const [start, width] = [e.clientX, layout.files_width];
+    const [start, width] = [e.clientX, side.width];
     const move = (m: PointerEvent) => {
-      layout.files_width = Math.round(Math.min(FILES_WIDTH.max, Math.max(FILES_WIDTH.min, width + m.clientX - start)));
+      side.set({ width: Math.round(Math.min(FILES_WIDTH.max, Math.max(FILES_WIDTH.min, width + m.clientX - start))) }, false);
     };
     const up = () => {
+      side.keep();
       edge.removeEventListener("pointermove", move);
       edge.removeEventListener("pointerup", up);
     };
@@ -367,8 +357,7 @@
     try {
       const path = await invoke<string>("new_file", { folder, name });
       await load();
-      const node = nodes.get(path);
-      if (node) open(node);
+      await invoke("open_file", { path });
     } catch (e) {
       await fail("New Markdown File", e);
     }
@@ -383,20 +372,18 @@
     }
   }
 
-  /** A paper opened from outside the project, added to it: linked, it stays where it is, and is a linked file of the
-   *  project once that is loaded; copied, its tab shows the copy, in the project's folder, at the same page. */
+  /** The paper of this tab, from outside the project, added to it: linked, it stays where it is, and is a linked
+   *  file of the project once that is loaded; copied, the tab shows the copy, in the project's folder, at the same
+   *  page. */
   async function addOutside(path: string) {
     try {
       const done = await addPaths([path], null);
       if (!done) return;
       await load();
-      delete outside[path];
       if (done === "link") return;
       const copy = `${project?.root}/${path.split("/").pop()}`;
-      layout.tabs[layout.tabs.indexOf(path)] = copy;
-      if (layout.front === path) layout.front = copy;
-      if (path in layout.pages) layout.pages[copy] = layout.pages[path];
-      delete layout.pages[path];
+      await invoke("set_pdf_page", { path: copy, page: current });
+      await invoke("page_shows", { path: copy });
     } catch (e) {
       await fail("Add to the Project", e);
     }
@@ -417,16 +404,10 @@
     }
   }
 
-  /** A path gone from the project: its tabs close. */
-  function closeUnder(path: string) {
-    for (const tab of [...layout.tabs]) if (tab === path || tab.startsWith(`${path}/`)) close(tab);
-  }
-
   /** A linked file or folder out of the project; it stays where it is. */
   async function unlink(node: Node) {
     try {
       await invoke("unlink", { path: node.path });
-      closeUnder(node.path);
     } catch (e) {
       await fail("Remove Link", e);
     }
@@ -438,7 +419,6 @@
     if (!sure) return;
     try {
       await invoke("trash", { path: node.path });
-      closeUnder(node.path);
     } catch (e) {
       await fail("Move to Trash", e);
     }
@@ -469,26 +449,10 @@
   }
 
   /** A command of the menu bar. */
-  /** The tab before or after the one in front shown, round from the last to the first (⇧⌘[ and ⇧⌘]). */
-  function stepTab(step: number) {
-    const n = layout.tabs.length;
-    if (n === 0) return;
-    const i = layout.front === null ? -1 : layout.tabs.indexOf(layout.front);
-    layout.front = layout.tabs[(((i < 0 ? (step > 0 ? -1 : 0) : i) + step) % n + n) % n];
-  }
-
   function command(id: string) {
     switch (id) {
       case "files":
-        layout.files = !layout.files;
-        break;
-      case "close-tab":
-        if (layout.front) close(layout.front);
-        else getCurrentWindow().close();
-        break;
-      case "previous-tab":
-      case "next-tab":
-        stepTab(id === "next-tab" ? 1 : -1);
+        side.set({ shown: !side.shown });
         break;
       case "zoom-in":
         pdf?.zoom(1);
@@ -543,29 +507,23 @@
     (async () => {
       await Promise.all([loadSettings(), loadBar()]);
       await load();
-      if (!project) return;
-      const saved = await invoke<Layout>("layout");
-      // the files gone since are not opened again
-      saved.tabs = saved.tabs.filter((t) => nodes.has(t));
-      if (saved.front && !saved.tabs.includes(saved.front)) saved.front = saved.tabs[0] ?? null;
-      layout = saved;
-      layoutRoot = project.root;
-      // the layout of a new project is not kept: it may be given up, and leave nothing
-      ready = !project.new;
+      await readFile();
     })();
+    const stopSide = side.start();
     const unlisten = listen<string>("menu", (e) => command(e.payload));
     // the colour or the files changed, from this window or another of the project
     const unlistenChanged = listen("project-changed", () => load());
     // the review pane hidden: the keys back to the PDF
     const unlistenHidden = listen("pane-hidden", () => pdf?.focus());
-    // the window switched to another project: what is waiting to be written goes first
-    const unlistenSwitched = listen("project-switched", async () => {
-      await flush();
-      location.reload();
+    // this tab given another file, or none
+    const unlistenOpened = listen("opened", () => readFile());
+    // this tab closing: what was typed written first
+    const unlistenClosing = listen("closing", async () => {
+      await editor?.flush();
+      invoke("close_page");
     });
+    const unlistenShown = listen<boolean>("tab-shown", (e) => (inFront = e.payload));
     const unlistenBar = listen("bar-changed", () => loadBar());
-    // the PDF of a paper chosen in the references
-    const unlistenOpen = listen<string>("open-file", (e) => openFile(e.payload));
     const unlistenEdit = listen<string>("edit", (e) => edit(e.payload));
     // a click or a field in the page: the keys are the page's, not the pane's (which hears no blur when the keys go
     // from it to the page), for the menu's Undo, Redo, Back and Forward
@@ -584,9 +542,11 @@
       document.removeEventListener("pointerdown", toPage, true);
       document.removeEventListener("focusin", toPage);
       unlistenDrop.then((f) => f());
-      unlistenSwitched.then((f) => f());
+      stopSide();
+      unlistenOpened.then((f) => f());
+      unlistenClosing.then((f) => f());
+      unlistenShown.then((f) => f());
       unlistenBar.then((f) => f());
-      unlistenOpen.then((f) => f());
       unlistenEdit.then((f) => f());
       unlistenFile.then((f) => f());
       unlistenSettings.then((f) => f());
@@ -596,16 +556,6 @@
     };
   });
 
-  // the layout kept, a moment after it changes
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  $effect(() => {
-    const snapshot = $state.snapshot(layout);
-    if (!ready) return;
-    clearTimeout(timer);
-    // the project named, as the window may show another by then
-    const root = layoutRoot;
-    timer = setTimeout(() => invoke("set_layout", { root, layout: snapshot }), 300);
-  });
 </script>
 
 <!-- the colour of the app's windows (the settings), at the top, to tell them apart among others; a right-click
@@ -617,9 +567,9 @@
 {#if project}
   <div
     class="window"
-    class:nofiles={!layout.files}
+    class:nofiles={!side.shown}
     class:coloured={barColour}
-    style:grid-template-columns={`${showBar ? "92px " : ""}${layout.files ? `${layout.files_width}px ` : ""}1fr`}
+    style:grid-template-columns={`${showBar ? "92px " : ""}${side.shown ? `${side.width}px ` : ""}1fr`}
   >
     {#if showBar}
       <!-- the project bar (papers-write's): a tile per project, the current one marked, with its due date and a bar for how near it is -->
@@ -631,7 +581,7 @@
         addTitle="Open Project… (⌘O)"
       />
     {/if}
-    {#if layout.files}
+    {#if side.shown}
       <div class="files">
         <Files
           root={project.root}
@@ -642,7 +592,7 @@
           dateFormat={settings?.date_format ?? "ymd"}
           files={project.files}
           linked={project.linked}
-          front={layout.front}
+          front={file}
           review={project.review}
           onopen={open}
           onreview={(node) => editReview(node.path)}
@@ -661,7 +611,7 @@
     <section class="main">
       <div class="bar">
         <!-- the files panel, shown or hidden as by ⌘⌥S -->
-        <button class="toggle" class:on={layout.files} onclick={() => command("files")} title="Show or Hide Files (⌘⌥S)" aria-label="Show or Hide Files">
+        <button class="toggle" class:on={side.shown} onclick={() => command("files")} title="Show or Hide Files (⌘⌥S)" aria-label="Show or Hide Files">
           <svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
             <rect x="0.65" y="0.65" width="14.7" height="12.7" rx="2.5" />
             <line x1="5.65" y1="1" x2="5.65" y2="13" />
@@ -671,21 +621,17 @@
           </svg>
         </button>
         <div class="tabs">
-          <TabStrip
-            tabs={layout.tabs.map((path) => ({ id: path, title: nodeOf(path)?.name ?? path, tooltip: path }))}
-            front={layout.front}
-            least={1}
-            onselect={(path) => (layout.front = path)}
-            onclose={close}
-          >
+          <!-- the tabs of the project; a lone tab of the files alone is no tab to show -->
+          <Tabs least={file ? 1 : 2}>
             {#snippet extra(tab)}
-              {#if tab.id in outside}
-                <button onclick={() => addOutside(tab.id)} title="Add to the Project…" aria-label="Add to the Project">
+              {#if tab.id === getCurrentWebview().label && outside && file}
+                {@const path = file}
+                <button onclick={() => addOutside(path)} title="Add to the Project…" aria-label="Add to the Project">
                   <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M6 2v8M2 6h8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
                 </button>
               {/if}
             {/snippet}
-          </TabStrip>
+          </Tabs>
         </div>
       </div>
       {#if front?.kind === "pdf"}
@@ -766,14 +712,14 @@
               <PdfView
                 bind:this={pdf}
                 path={front.path}
-                page={layout.pages[front.path] ?? 1}
-                {covered}
+                page={startPage}
+                covered={pdfCovered}
                 onpage={turned}
                 onhistory={recorded}
                 onopen={(c, o) => {
                   count = c;
                   outline = o;
-                  current = layout.pages[front.path] ?? 1;
+                  current = startPage;
                   history = { back: false, forward: false };
                 }}
               />
@@ -807,7 +753,7 @@
           {:else}
             <div class="other">
               <p class="muted">{project.name}</p>
-              <p class="muted">Choose a file{layout.files ? "" : " (⌘⌥S shows them)"}.</p>
+              <p class="muted">Choose a file{side.shown ? "" : " (⌘⌥S shows them)"}.</p>
             </div>
           {/if}
         </div>
