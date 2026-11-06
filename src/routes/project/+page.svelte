@@ -19,7 +19,7 @@
   import type { Entry } from "tauri-plugin-pdfkit-api";
   import "$lib/theme.css";
   import { addFiles, addPaths } from "$lib/add";
-  import { COLOURS, ProjectBar, cssOf, type Tile } from "papers-write/project";
+  import { COLOURS, ProjectBar, TabStrip, cssOf, type Tile } from "papers-write/project";
   import { daysLeft, formatDate, shortDate, urgency } from "$lib/due";
   import { FileEditor, PREFS, prefsFrom, setEditorFont, wordCount, wordsOf, type Status } from "papers-write/editor";
   import EditorButtons from "$lib/EditorButtons.svelte";
@@ -671,15 +671,21 @@
           </svg>
         </button>
         <div class="tabs">
-          {#each layout.tabs as path (path)}
-            <div class="tab" class:front={path === layout.front}>
-              <button class="label" onclick={() => (layout.front = path)} title={path}>{nodeOf(path)?.name ?? path}</button>
-              {#if path in outside}
-                <button class="adopt" onclick={() => addOutside(path)} title="Add to the Project…" aria-label="Add to the Project">+</button>
+          <TabStrip
+            tabs={layout.tabs.map((path) => ({ id: path, title: nodeOf(path)?.name ?? path, tooltip: path }))}
+            front={layout.front}
+            least={1}
+            onselect={(path) => (layout.front = path)}
+            onclose={close}
+          >
+            {#snippet extra(tab)}
+              {#if tab.id in outside}
+                <button onclick={() => addOutside(tab.id)} title="Add to the Project…" aria-label="Add to the Project">
+                  <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M6 2v8M2 6h8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
+                </button>
               {/if}
-              <button class="close" onclick={() => close(path)} title="Close Tab (⌘W)">✕</button>
-            </div>
-          {/each}
+            {/snippet}
+          </TabStrip>
         </div>
       </div>
       {#if front?.kind === "pdf"}
@@ -884,8 +890,9 @@
   .tabs {
     flex: 1;
     display: flex;
+    align-items: center;
     min-width: 0;
-    overflow-x: auto;
+    padding: 0 6px;
   }
   .toggle {
     flex: none;
@@ -1008,45 +1015,6 @@
   }
   .entry:hover {
     background: var(--chip);
-  }
-  .tab {
-    display: flex;
-    align-items: center;
-    max-width: 220px;
-    border-right: 1px solid var(--line);
-  }
-  .tab.front {
-    background: var(--bg);
-  }
-  .tab button {
-    font: inherit;
-    color: inherit;
-    background: none;
-    border: none;
-  }
-  .label {
-    padding: 0 4px 0 12px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  /* the tab's ✕, and the + of a paper from outside the project (not `.add`: that is the bar's + tile) */
-  .close,
-  .adopt {
-    color: var(--muted);
-    font-size: 10px;
-    padding: 0 8px;
-    visibility: hidden;
-  }
-  .adopt {
-    padding-right: 0;
-    font-size: 14px;
-  }
-  .tab:hover .close,
-  .tab.front .close,
-  .tab:hover .adopt,
-  .tab.front .adopt {
-    visibility: visible;
   }
   .viewer {
     position: relative;
