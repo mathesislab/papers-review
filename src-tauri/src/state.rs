@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use papers_tabs::{Layout, SavedWindow, Sidebar};
+use papers_tabs::{Layout, SavedWindow, Sidebar, Sidebars};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
@@ -25,10 +25,9 @@ pub struct Saved {
     pub windows: Vec<SavedWindow>,
     /// the tabs of each project as last left
     pub tabs: BTreeMap<PathBuf, Layout>,
-    /// the sidebar (the files) of each project
-    pub sidebars: BTreeMap<PathBuf, Sidebar>,
-    /// the sidebar of a project shown for the first time: the last one changed
-    pub sidebar: Sidebar,
+    /// the sidebar (the files) of each project, and the last one changed (`sidebars` and `sidebar` in the file)
+    #[serde(flatten)]
+    pub sidebars: Sidebars,
     /// the page in view of each PDF (from 1)
     pub pages: BTreeMap<PathBuf, usize>,
     /// the review pane of each project
@@ -125,7 +124,7 @@ impl Saved {
         for (root, old) in self.layouts.drain() {
             self.tabs.entry(root.clone()).or_insert(Layout { files: old.tabs, front: old.front });
             let sidebar = Sidebar { shown: old.files.unwrap_or(true), width: old.files_width.unwrap_or(240.0), tab: None };
-            self.sidebars.entry(root).or_insert(sidebar);
+            self.sidebars.sidebars.entry(root).or_insert(sidebar);
             for (pdf, page) in old.pages {
                 self.pages.entry(pdf).or_insert(page);
             }
@@ -189,7 +188,7 @@ mod tests {
         assert_eq!(saved.windows, [window("/a"), window("/b")]);
         let a = Path::new("/a");
         assert_eq!(saved.tabs[a], Layout { files: vec!["/a/x.pdf".into()], front: Some("/a/x.pdf".into()) });
-        assert_eq!(saved.sidebars[a], Sidebar { shown: false, width: 300.0, tab: None });
+        assert_eq!(saved.sidebars.sidebars[a], Sidebar { shown: false, width: 300.0, tab: None });
         assert_eq!(saved.pages[Path::new("/a/x.pdf")], 4);
         let text = serde_json::to_string(&saved).unwrap();
         assert!(!text.contains("layouts") && !text.contains("\"open\""));
@@ -200,11 +199,11 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("papers-review-state-{}", std::process::id()));
         let mut saved = Saved::default();
         saved.remembered(Path::new("/p"));
-        saved.sidebars.insert(PathBuf::from("/p"), Sidebar { shown: false, ..Sidebar::default() });
+        saved.sidebars.sidebars.insert(PathBuf::from("/p"), Sidebar { shown: false, ..Sidebar::default() });
         saved.save(&dir);
         let loaded = Saved::load(&dir);
         assert_eq!(loaded.recent, saved.recent);
-        assert!(!loaded.sidebars[Path::new("/p")].shown);
+        assert!(!loaded.sidebars.sidebars[Path::new("/p")].shown);
         fs::write(dir.join(FILE), "{").unwrap();
         assert!(Saved::load(&dir).recent.is_empty());
         let _ = fs::remove_dir_all(&dir);

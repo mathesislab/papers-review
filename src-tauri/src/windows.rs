@@ -8,7 +8,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
-use papers_tabs::{Host, Layout, SavedWindow, Sidebar, Target, WindowStyle, Windows};
+use papers_tabs::{Host, Layout, SavedWindow, Sidebars, Target, WindowStyle, Windows};
 use review_core::{Colour, Project};
 use tauri::{AppHandle, Emitter, EventTarget, Manager, WebviewUrl, WebviewWindowBuilder, Window};
 
@@ -477,21 +477,16 @@ impl Host for Review {
         }
     }
 
-    fn sidebar(&self, app: &AppHandle, root: Option<&Path>) -> Sidebar {
+    fn with_sidebars(&self, app: &AppHandle, f: &mut dyn FnMut(&mut Sidebars)) {
         let state = app.state::<AppState>();
-        let saved = state.saved.lock().unwrap();
-        root.and_then(|r| saved.sidebars.get(r)).unwrap_or(&saved.sidebar).clone()
-    }
-
-    fn set_sidebar(&self, app: &AppHandle, root: Option<&Path>, sidebar: Sidebar) {
-        let state = app.state::<AppState>();
-        {
+        let changed = {
             let mut saved = state.saved.lock().unwrap();
-            if let Some(root) = root {
-                saved.sidebars.insert(root.to_path_buf(), sidebar.clone());
-            }
-            saved.sidebar = sidebar;
+            let before = saved.sidebars.clone();
+            f(&mut saved.sidebars);
+            saved.sidebars != before
+        };
+        if changed {
+            state.save();
         }
-        state.save();
     }
 }
