@@ -1,7 +1,7 @@
 // What the app tells the pages (mirrors src-tauri/src/lib.rs and state.rs).
 
 import type { EditorFont, Indent } from "papers-write/editor";
-import type { Colour } from "papers-write/project";
+import type { Colour, Kind, Node } from "papers-write/project";
 
 // The types of the editor and of the references are papers-write's; kept importable from here.
 export type { EditorFont, Found, Hit, Indent, Item, Span, YearCount } from "papers-write/editor";
@@ -9,11 +9,8 @@ export type { EditorFont, Found, Hit, Indent, Item, Span, YearCount } from "pape
 // The colour of a project is papers-write's (mirrors review_core::Colour).
 export type { Colour };
 
-/** mirrors review_core::Kind */
-export type Kind = "folder" | "pdf" | "markdown" | "text" | "bib" | "other";
-
-/** mirrors review_core::Node */
-export type Node = { name: string; path: string; kind: Kind; children?: Node[]; missing?: boolean };
+// A file of a project and what it is are papers-write's (mirrors review_core::Kind and Node, as write_core's).
+export type { Kind, Node };
 
 /** mirrors ProjectView */
 export type Project = {
@@ -38,9 +35,6 @@ export type Project = {
 
 /** mirrors Recent */
 export type Recent = { root: string; name: string; colour: Colour; missing: boolean };
-
-/** mirrors state::Layout */
-export type Layout = { files: boolean; files_width: number; tabs: string[]; front: string | null; pages: Record<string, number> };
 
 /** mirrors settings::Settings */
 export type Settings = {

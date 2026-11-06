@@ -1,6 +1,6 @@
-//! papers-review: a window per review project (a folder), or one window with a
-//! bar to switch between projects (a setting), a start window and a Settings
-//! window. The project of a window is found by its label (`windows`).
+//! papers-review: a window per review project (a folder), or one window with a bar to switch between projects (a
+//! setting), a start window and a Settings window. A project's window holds a page per tab (papers-tabs, as Papers
+//! Write has them); the project of a page is the one it was made for (`windows`).
 
 pub mod export;
 mod files;
@@ -26,25 +26,25 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State, Webview, WindowEvent};
 
 use settings::Settings;
-use state::{Layout, Saved};
+use state::Saved;
 use update::{Available, Installed, Updates};
 
 pub struct AppState {
     /// the projects open, by their folder
     pub projects: Mutex<HashMap<PathBuf, Project>>,
-    /// the project of each window, by the window's label
-    pub windows: Mutex<HashMap<String, PathBuf>>,
+    /// what each page shows, by its label
+    pub pages: Mutex<HashMap<String, windows::Page>>,
     pub saved: Mutex<Saved>,
     pub settings: Mutex<Settings>,
     /// the app's data folder, where `saved` and `settings` are written
     data: PathBuf,
-    /// the number of the next window
+    /// the number of the next page, or export window
     next: AtomicUsize,
     /// the review panes, as they are now
     pub panes: Mutex<pane::Panes>,
     /// the review of each project open, watched
     pub watchers: Mutex<HashMap<PathBuf, notify::RecommendedWatcher>>,
-    /// the files open in the tabs of each window, watched
+    /// the files open in the tabs, watched for each page
     pub file_watchers: Mutex<files::Watched>,
     /// the PDF exports waiting for their hidden window, by its label
     pub exports: Mutex<HashMap<String, export::Pending>>,
@@ -164,9 +164,12 @@ pub fn bar_items(roots: &[PathBuf]) -> Vec<BarItem> {
         .collect()
 }
 
-/// The project of the window of a page.
+/// The project of a page (a tab), or the one its window shows (the review pane).
 fn root_of(webview: &Webview) -> Result<PathBuf, String> {
-    windows::root_of(webview.app_handle(), webview.window().label())
+    let app = webview.app_handle();
+    windows::page(app, webview.label())
+        .map(|p| p.root)
+        .or_else(|| windows::root_of(app, webview.window().label()))
         .ok_or_else(|| format!("{}: no project in this window", webview.label()))
 }
 
@@ -231,7 +234,8 @@ fn bar(state: State<'_, AppState>) -> Vec<BarItem> {
     bar_items(&bar)
 }
 
-/// The window of the calling page switched to the project of `root`.
+/// The window of the calling page switched to the project of `root` (its tabs as left), or the window that shows
+/// it brought forward.
 #[tauri::command]
 fn switch_project(app: AppHandle, webview: Webview, root: PathBuf) -> Result<(), String> {
     windows::switch(&app, webview.window().label(), &root)
@@ -411,6 +415,7 @@ fn unlink(app: AppHandle, webview: Webview, state: State<'_, AppState>, path: Pa
         .ok_or("the project is not open")?
         .unlink(&path)
         .map_err(|e| e.to_string())?;
+    windows::close_under(&app, &root, &path);
     windows::changed(&app, &root);
     Ok(())
 }
@@ -440,45 +445,61 @@ fn new_file(
 /// The text of a file of the project.
 #[tauri::command]
 fn read_file(app: AppHandle, webview: Webview, path: PathBuf) -> Result<String, String> {
-    files::read(&app, webview.window().label(), &path)
+    files::read(&app, &root_of(&webview)?, &path)
 }
 
 /// A file of the project written, atomically.
 #[tauri::command]
 fn write_file(app: AppHandle, webview: Webview, path: PathBuf, text: String) -> Result<(), String> {
-    files::write(&app, webview.window().label(), &path, &text)
+    files::write(&app, &root_of(&webview)?, &path, &text)
 }
 
-/// A file of the project open in a tab: a change made to it elsewhere comes to the page as `file-changed`.
+/// The file of the page, edited: a change made to it elsewhere comes to the page as `file-changed`.
 #[tauri::command]
 fn watch_file(app: AppHandle, webview: Webview, path: PathBuf) -> Result<(), String> {
-    files::watch(&app, webview.window().label(), &path)
+    files::watch(&app, webview.label(), &root_of(&webview)?, &path)
 }
 
-/// The tab of a file closed.
+/// The file of the page no longer edited.
 #[tauri::command]
 fn unwatch_file(app: AppHandle, webview: Webview, path: PathBuf) {
-    files::unwatch(&app, webview.window().label(), &path);
+    files::unwatch(&app, webview.label(), &path);
 }
 
-/// How the window of the project looked.
+/// The file the page shows; none: the project's files alone.
 #[tauri::command]
-fn layout(webview: Webview, state: State<'_, AppState>) -> Result<Layout, String> {
-    let root = root_of(&webview)?;
-    let saved = state.saved.lock().unwrap();
-    Ok(saved.layouts.get(&root).cloned().unwrap_or_default())
+fn page_file(app: AppHandle, webview: Webview) -> Option<PathBuf> {
+    windows::page(&app, webview.label())?.path
 }
 
-/// How the window of `root` looks, written. The page names its project: its write comes a moment after the change,
-/// when the window may show another project.
+/// A file of the project opened from the page's files: its tab, or the page itself when it shows none.
 #[tauri::command]
-fn set_layout(state: State<'_, AppState>, root: PathBuf, layout: Layout) {
-    let changed = {
-        let mut saved = state.saved.lock().unwrap();
-        let changed = saved.layouts.get(&root) != Some(&layout);
-        saved.layouts.insert(root, layout);
-        changed
-    };
+fn open_file(app: AppHandle, webview: Webview, path: PathBuf) -> Result<(), String> {
+    windows::open_file(&app, &root_of(&webview)?, &path, Some(webview.label()))
+}
+
+/// The page shows another file from now on (a paper from outside the project, copied into it).
+#[tauri::command]
+fn page_shows(app: AppHandle, webview: Webview, path: PathBuf) {
+    windows::shows(&app, webview.label(), Some(&path));
+}
+
+/// The page's text written (`closing`): its tab closes.
+#[tauri::command]
+fn close_page(app: AppHandle, webview: Webview) {
+    windows::finish_closing(&app, webview.label());
+}
+
+/// The page in view of a PDF, as last left (from 1).
+#[tauri::command]
+fn pdf_page(state: State<'_, AppState>, path: PathBuf) -> usize {
+    state.saved.lock().unwrap().pages.get(&path).copied().unwrap_or(1)
+}
+
+/// The page in view of a PDF, kept.
+#[tauri::command]
+fn set_pdf_page(state: State<'_, AppState>, path: PathBuf, page: usize) {
+    let changed = state.saved.lock().unwrap().pages.insert(path, page) != Some(page);
     if changed {
         state.save();
     }
@@ -501,10 +522,10 @@ fn set_colour(app: AppHandle, webview: Webview, state: State<'_, AppState>, colo
     Ok(())
 }
 
-/// The viewer of a project's page moved or changed size: the pane follows.
+/// The viewer of a project's page moved or changed size: the pane follows, if the page is in front.
 #[tauri::command]
 fn pane_area(app: AppHandle, webview: Webview, area: pane::Area) {
-    pane::set_area(&app, webview.window().label(), area);
+    pane::set_area(&app, webview.label(), area);
 }
 
 /// The pane's hide button.
@@ -546,7 +567,7 @@ fn quote(app: AppHandle, webview: Webview, text: String) {
 /// A card of the page shown or gone: the pane, above the page, hides meanwhile.
 #[tauri::command]
 fn page_covered(app: AppHandle, webview: Webview, covered: bool) {
-    pane::set_covered(&app, webview.window().label(), covered);
+    pane::set_covered(&app, webview.label(), covered);
 }
 
 /// The pane's edge dragged to `size` (points); `done` when let go.
@@ -644,10 +665,10 @@ async fn reference_sources(app: AppHandle, webview: Webview) -> Result<Vec<PathB
     Ok(refs::sources_of(&app, &root))
 }
 
-/// The PDF of a reference opened in a tab of the page of the calling window (`open-file`, the path).
+/// The PDF of a reference opened in a tab of the project of the calling pane.
 #[tauri::command]
 fn open_reference_pdf(app: AppHandle, webview: Webview, path: PathBuf) -> Result<(), String> {
-    refs::open_pdf(&app, webview.window().label(), &path)
+    refs::open_pdf(&app, &root_of(&webview)?, &path)
 }
 
 /// A file or folder of the project (not a linked one) moved to the Trash.
@@ -659,6 +680,7 @@ fn trash(app: AppHandle, webview: Webview, path: PathBuf) -> Result<(), String> 
         return Err(format!("{}: not a file of the project", path.display()));
     }
     trash::trash(&path)?;
+    windows::close_under(&app, &root, &path);
     windows::changed(&app, &root);
     Ok(())
 }
@@ -704,7 +726,7 @@ pub fn run() {
             let data = app.path().app_data_dir()?;
             app.manage(AppState {
                 projects: Mutex::new(HashMap::new()),
-                windows: Mutex::new(HashMap::new()),
+                pages: Mutex::new(HashMap::new()),
                 saved: Mutex::new(Saved::load(&data)),
                 settings: Mutex::new(Settings::load(&data)),
                 data,
@@ -716,6 +738,7 @@ pub fn run() {
                 references: Mutex::new(HashMap::new()),
                 started: Mutex::new(HashMap::new()),
             });
+            app.manage(papers_tabs::Tabs::new(windows::Review));
             app.manage(Updates::new(app.handle()));
             app.set_menu(menu::build(app.handle())?)?;
             app.on_menu_event(menu::on_event);
@@ -728,8 +751,8 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| match event {
-            WindowEvent::CloseRequested { .. } => windows::closing(window.app_handle(), window.label()),
-            WindowEvent::Destroyed => windows::closed(window.app_handle(), window.label()),
+            WindowEvent::Focused(true) => papers_tabs::window_focused(window.app_handle(), window.label()),
+            WindowEvent::Destroyed => papers_tabs::window_closed(window.app_handle(), window.label()),
             _ => {}
         })
         .invoke_handler(tauri::generate_handler![
@@ -755,8 +778,20 @@ pub fn run() {
             write_file,
             watch_file,
             unwatch_file,
-            layout,
-            set_layout,
+            page_file,
+            open_file,
+            page_shows,
+            close_page,
+            pdf_page,
+            set_pdf_page,
+            papers_tabs::commands::tab_strip,
+            papers_tabs::commands::select_tab,
+            papers_tabs::commands::close_tab,
+            papers_tabs::commands::sidebar,
+            papers_tabs::commands::set_sidebar,
+            papers_tabs::commands::folders,
+            papers_tabs::commands::set_folders,
+            papers_tabs::commands::page_ready,
             set_colour,
             pane_area,
             pane_hide,
@@ -796,6 +831,8 @@ pub fn run() {
                 has_visible_windows: false,
                 ..
             } => windows::show_start(app),
+            // quitting: the windows close, but stay saved as open
+            RunEvent::ExitRequested { .. } => papers_tabs::quitting(app),
             // folders dropped on the Dock icon, or opened with the app, are projects; PDFs are manuscripts to review
             #[cfg(target_os = "macos")]
             RunEvent::Opened { urls } => {

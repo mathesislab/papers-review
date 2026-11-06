@@ -1,12 +1,12 @@
-//! What the app keeps between sessions, in its data folder (`state.json`):
-//! the projects opened last, the windows open as it quit, the projects in the
-//! project bar, and how each project's window looked. Not in `review.toml`: how the app looked is not
-//! the project's.
+//! What the app keeps between sessions, in its data folder (`state.json`): the projects opened last, the projects in
+//! the project bar, the windows open as it quit and each project's tabs (papers-tabs), its sidebar, its review pane,
+//! and the page in view of each PDF. Not in `review.toml`: how the app looked is not the project's.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use papers_tabs::{Layout, SavedWindow, Sidebar, Sidebars};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
@@ -19,27 +19,36 @@ const RECENT: usize = 20;
 pub struct Saved {
     /// the projects opened, the last first
     pub recent: Vec<PathBuf>,
-    /// the projects whose window was open as the app quit
-    pub open: Vec<PathBuf>,
     /// the projects in the project bar, in order
     pub bar: Vec<PathBuf>,
-    pub layouts: HashMap<PathBuf, Layout>,
+    /// the windows open as the app quit, each with its projects, to open again at the next start
+    pub windows: Vec<SavedWindow>,
+    /// the tabs of each project as last left
+    pub tabs: BTreeMap<PathBuf, Layout>,
+    /// the sidebar (the files) of each project, and the last one changed (`sidebars` and `sidebar` in the file)
+    #[serde(flatten)]
+    pub sidebars: Sidebars,
+    /// the page in view of each PDF (from 1)
+    pub pages: BTreeMap<PathBuf, usize>,
     /// the review pane of each project
     pub panes: HashMap<PathBuf, PaneLayout>,
+    /// from before the tabs were pages (papers-tabs): the projects whose window was open as the app quit, and how
+    /// each project's window looked; read once, into the above
+    #[serde(skip_serializing)]
+    open: Vec<PathBuf>,
+    #[serde(skip_serializing)]
+    layouts: HashMap<PathBuf, OldLayout>,
 }
 
-/// How a project's window looked.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// How a project's window looked before the tabs were pages.
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
-pub struct Layout {
-    /// the files panel shown, and its width (points)
-    pub files: bool,
-    pub files_width: f64,
-    /// the files open in tabs, and the one in front
-    pub tabs: Vec<PathBuf>,
-    pub front: Option<PathBuf>,
-    /// the page in view of each PDF open (from 1)
-    pub pages: HashMap<PathBuf, usize>,
+struct OldLayout {
+    files: Option<bool>,
+    files_width: Option<f64>,
+    tabs: Vec<PathBuf>,
+    front: Option<PathBuf>,
+    pages: HashMap<PathBuf, usize>,
 }
 
 /// The side of the viewer the review pane lies on.
@@ -74,18 +83,6 @@ impl Default for PaneLayout {
     }
 }
 
-impl Default for Layout {
-    fn default() -> Self {
-        Layout {
-            files: true,
-            files_width: 240.0,
-            tabs: Vec::new(),
-            front: None,
-            pages: HashMap::new(),
-        }
-    }
-}
-
 /// What `dir` keeps in `file`; the default when it is missing or broken.
 pub fn read<T: DeserializeOwned + Default>(dir: &Path, file: &str) -> T {
     fs::read_to_string(dir.join(file))
@@ -110,17 +107,28 @@ pub fn write<T: Serialize>(dir: &Path, file: &str, value: &T) {
 impl Saved {
     /// What `dir` keeps; nothing when the file is missing or broken.
     pub fn load(dir: &Path) -> Saved {
-        read(dir, FILE)
+        let mut saved: Saved = read(dir, FILE);
+        saved.migrate();
+        saved
     }
 
     pub fn save(&self, dir: &Path) {
         write(dir, FILE, self);
     }
 
-    /// A project opened: first of the recent ones, and open.
-    pub fn opened(&mut self, root: &Path) {
-        self.remembered(root);
-        self.shown(root);
+    /// What `dir` kept before the tabs were pages, turned into what it keeps now.
+    fn migrate(&mut self) {
+        if self.windows.is_empty() {
+            self.windows = self.open.drain(..).map(|root| SavedWindow { projects: vec![root] }).collect();
+        }
+        for (root, old) in self.layouts.drain() {
+            self.tabs.entry(root.clone()).or_insert(Layout { files: old.tabs, front: old.front });
+            let sidebar = Sidebar { shown: old.files.unwrap_or(true), width: old.files_width.unwrap_or(240.0), tab: None };
+            self.sidebars.sidebars.entry(root).or_insert(sidebar);
+            for (pdf, page) in old.pages {
+                self.pages.entry(pdf).or_insert(page);
+            }
+        }
     }
 
     /// A project made first of the recent ones. A new project is not, until it is defined.
@@ -128,28 +136,6 @@ impl Saved {
         self.recent.retain(|r| r != root);
         self.recent.insert(0, root.to_path_buf());
         self.recent.truncate(RECENT);
-    }
-
-    /// A project in a window: open, to open again at the next start.
-    pub fn shown(&mut self, root: &Path) {
-        if !self.open.iter().any(|o| o == root) {
-            self.open.push(root.to_path_buf());
-        }
-    }
-
-    /// A project's window closed by hand: it does not open at the next start.
-    pub fn closed(&mut self, root: &Path) {
-        self.open.retain(|o| o != root);
-    }
-
-    /// A window switched from the project `old` to `new`: `new` is open where
-    /// `old` was.
-    pub fn switched(&mut self, old: &Path, new: &Path) {
-        self.open.retain(|o| o != new);
-        match self.open.iter_mut().find(|o| *o == old) {
-            Some(slot) => *slot = new.to_path_buf(),
-            None => self.open.push(new.to_path_buf()),
-        }
     }
 
     /// A project put in the project bar, at the end, unless it is there.
@@ -165,45 +151,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn opened_projects_come_first_once_and_closed_ones_stay_recent() {
+    fn remembered_projects_come_first_once() {
         let mut saved = Saved::default();
         let (a, b) = (Path::new("/a"), Path::new("/b"));
-        saved.opened(a);
-        saved.opened(b);
-        saved.opened(a);
-        assert_eq!(saved.recent, [a, b]);
-        assert_eq!(saved.open, [a, b]);
-        saved.closed(a);
-        assert_eq!(saved.open, [b]);
-        assert_eq!(saved.recent, [a, b]);
-    }
-
-    #[test]
-    fn a_switched_window_keeps_its_place_among_the_open_projects() {
-        let mut saved = Saved::default();
-        let (a, b, c) = (Path::new("/a"), Path::new("/b"), Path::new("/c"));
-        saved.opened(a);
-        saved.opened(b);
-        saved.switched(a, c);
-        assert_eq!(saved.open, [c, b]);
-        // the recent ones are the caller's to say: a new project is not one yet
-        assert_eq!(saved.recent, [b, a]);
-        saved.remembered(c);
-        assert_eq!(saved.recent, [c, b, a]);
-        saved.switched(c, b);
-        assert_eq!(saved.open, [b]);
-    }
-
-    #[test]
-    fn a_project_shown_is_open_but_not_recent_until_remembered() {
-        let mut saved = Saved::default();
-        let a = Path::new("/a");
-        saved.shown(a);
-        saved.shown(a);
-        assert_eq!(saved.open, [a]);
-        assert!(saved.recent.is_empty());
         saved.remembered(a);
-        assert_eq!(saved.recent, [a]);
+        saved.remembered(b);
+        saved.remembered(a);
+        assert_eq!(saved.recent, [a, b]);
     }
 
     #[test]
@@ -218,21 +172,38 @@ mod tests {
 
     #[test]
     fn a_state_file_from_before_the_bar_has_an_empty_one() {
-        let saved: Saved = serde_json::from_str(r#"{"recent": ["/a"], "open": ["/a"]}"#).unwrap();
+        let saved: Saved = serde_json::from_str(r#"{"recent": ["/a"]}"#).unwrap();
         assert!(saved.bar.is_empty());
-        assert_eq!(saved.open, [Path::new("/a")]);
+    }
+
+    #[test]
+    fn a_state_file_from_before_the_tabs_were_pages_keeps_its_windows_tabs_files_and_pages() {
+        let mut saved: Saved = serde_json::from_str(
+            r#"{"open": ["/a", "/b"], "layouts": {"/a": {"files": false, "files_width": 300, "tabs": ["/a/x.pdf"],
+                "front": "/a/x.pdf", "pages": {"/a/x.pdf": 4}}}}"#,
+        )
+        .unwrap();
+        saved.migrate();
+        let window = |p: &str| SavedWindow { projects: vec![PathBuf::from(p)] };
+        assert_eq!(saved.windows, [window("/a"), window("/b")]);
+        let a = Path::new("/a");
+        assert_eq!(saved.tabs[a], Layout { files: vec!["/a/x.pdf".into()], front: Some("/a/x.pdf".into()) });
+        assert_eq!(saved.sidebars.sidebars[a], Sidebar { shown: false, width: 300.0, tab: None });
+        assert_eq!(saved.pages[Path::new("/a/x.pdf")], 4);
+        let text = serde_json::to_string(&saved).unwrap();
+        assert!(!text.contains("layouts") && !text.contains("\"open\""));
     }
 
     #[test]
     fn saved_and_loaded_back_a_broken_file_is_nothing() {
         let dir = std::env::temp_dir().join(format!("papers-review-state-{}", std::process::id()));
         let mut saved = Saved::default();
-        saved.opened(Path::new("/p"));
-        saved.layouts.insert(PathBuf::from("/p"), Layout { files: false, ..Layout::default() });
+        saved.remembered(Path::new("/p"));
+        saved.sidebars.sidebars.insert(PathBuf::from("/p"), Sidebar { shown: false, ..Sidebar::default() });
         saved.save(&dir);
         let loaded = Saved::load(&dir);
         assert_eq!(loaded.recent, saved.recent);
-        assert!(!loaded.layouts[Path::new("/p")].files);
+        assert!(!loaded.sidebars.sidebars[Path::new("/p")].shown);
         fs::write(dir.join(FILE), "{").unwrap();
         assert!(Saved::load(&dir).recent.is_empty());
         let _ = fs::remove_dir_all(&dir);

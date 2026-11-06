@@ -2870,6 +2870,7 @@ dependencies = [
  "papers-core",
  "papers-review-core",
  "papers-rs",
+ "papers-tabs",
  "serde",
  "serde_json",
  "tauri",
@@ -2908,6 +2909,17 @@ dependencies = [
  "sha2",
  "tempfile",
  "unicode-normalization",
+]
+
+[[package]]
+name = "papers-tabs"
+version = "0.1.0"
+source = "git+https://github.com/mathesislab/papers-write?tag=v0.4.0#5c9853268a837226c77dfcda3cffce3e0199c70f"
+dependencies = [
+ "objc2",
+ "objc2-app-kit",
+ "serde",
+ "tauri",
 ]
 
 [[package]]

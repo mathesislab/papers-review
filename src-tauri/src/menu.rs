@@ -1,6 +1,6 @@
-//! The menu bar. The commands of a project's page go to the page of the
-//! window in front (event `menu`, the id of the item); the export commands go
-//! to its review pane (event `export`); the others are the app's.
+//! The menu bar. The commands of the tabs are papers-tabs's; those of a project's page go to the page in front of
+//! the window in front (event `menu`, the id of the item); the export commands go to its review pane (event
+//! `export`); the others are the app's.
 
 use std::path::PathBuf;
 
@@ -12,9 +12,6 @@ use crate::{AppState, manuscript, pane, windows};
 
 /// The commands of the page, by the id of their item.
 const PAGE: &[&str] = &[
-    "close-tab",
-    "previous-tab",
-    "next-tab",
     "files",
     "zoom-in",
     "zoom-out",
@@ -241,24 +238,26 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
                 .parse::<usize>()
                 .ok()
                 .and_then(|i| app.state::<AppState>().saved.lock().unwrap().bar.get(i).cloned());
-            let window = windows::project_window(app);
-            if let (Some(root), Some(window)) = (root, window)
-                && let Err(e) = windows::switch(app, &window, &root)
-            {
+            let switched = match (root, papers_tabs::front_window(app)) {
+                (Some(root), Some(window)) => windows::switch(app, &window, &root),
+                (Some(root), None) => windows::open_project(app, &root),
+                _ => Ok(()),
+            };
+            if let Err(e) = switched {
                 app.dialog().message(e).title("Switch Project").show(|_| {});
             }
         }
-        _ if PAGE.contains(&id) => match front(app) {
-            Some(window) if window.label() == windows::START || window.label() == windows::SETTINGS => {
-                if id == "close-tab" {
-                    let _ = window.close();
-                }
+        // the tabs are papers-tabs's: ⌘W closes the tab in front (a window without tabs, the start or Settings)
+        "close-tab" => papers_tabs::close_front(app),
+        "previous-tab" => papers_tabs::step(app, -1),
+        "next-tab" => papers_tabs::step(app, 1),
+        // the rest to the page in front, when a project's window is
+        _ if PAGE.contains(&id) => {
+            let ours = papers_tabs::key_window(app).is_some_and(|w| windows::root_of(app, &w).is_some());
+            if ours && let Some(page) = papers_tabs::front_page(app) {
+                let _ = app.emit_to(EventTarget::webview(page.label()), "menu", id);
             }
-            Some(window) => {
-                let _ = app.emit_to(EventTarget::webview(windows::page(window.label())), "menu", id);
-            }
-            None => {}
-        },
+        }
         _ => {}
     }
 }
@@ -275,9 +274,9 @@ fn edit(app: &AppHandle, name: &str) {
         return;
     };
     let label = window.label();
-    if let Some(page) = app.get_webview(&windows::page(label)) {
+    if let Some(page) = papers_tabs::front_of(app, label) {
         let pane_has_keys = app.state::<AppState>().panes.lock().unwrap().focused.contains(label);
-        let target = if pane_has_keys { pane::label(label) } else { page.label().to_string() };
+        let target = if pane_has_keys { pane::label(label) } else { page };
         let _ = app.emit_to(EventTarget::webview(target), "edit", name);
     } else if matches!(name, "undo" | "redo")
         && let Some(webview) = app.get_webview(label)

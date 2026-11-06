@@ -1,16 +1,14 @@
-//! The review pane: a web view of its own in a project's window, over the
-//! viewer, at the bottom or on the right; above the page, and so above the
-//! PDF view that lies in the page. The page tells where the viewer is
-//! (`pane_area`); the pane's side, size and whether it is shown are kept per
-//! project (state.json). Collapsed, it is no more than its header bar
-//! (`HEADER`), along the bottom of the viewer or down its right side. One
-//! window of a project holds its pane at a time.
+//! The review pane: a web view of its own in a project's window, of the project the window shows, over the viewer,
+//! at the bottom or on the right; above the pages (the tabs), and so above the PDF view that lies in a page. The
+//! page in front tells where the viewer is (`pane_area`); the pane's side, size and whether it is shown are kept per
+//! project (state.json). Collapsed, it is no more than its header bar (`HEADER`), along the bottom of the viewer or
+//! down its right side.
 
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, EventTarget, LogicalPosition, LogicalSize, Manager, Rect};
+use tauri::{AppHandle, Emitter, EventTarget, LogicalPosition, LogicalSize, Manager, Rect, WebviewBuilder, WebviewUrl, Window};
 
 use crate::state::{PaneLayout, Side};
 use crate::{AppState, windows};
@@ -43,15 +41,13 @@ pub struct Area {
 /// What the app knows of the panes beyond what it keeps between sessions.
 #[derive(Debug, Default)]
 pub struct Panes {
-    /// the viewer of each window, as its page told
+    /// the viewer of each window, as its page in front told
     pub areas: HashMap<String, Area>,
     /// the windows whose pane has the keys
     pub focused: HashSet<String>,
-    /// the window of each project that holds its pane
-    pub holder: HashMap<PathBuf, String>,
     /// where the pane of each window was placed last, for its page as it loads
     pub placed: HashMap<String, Placed>,
-    /// the windows whose page shows a card, which the pane would cover
+    /// the pages that show a card, which the pane would cover
     pub covered: HashSet<String>,
 }
 
@@ -102,26 +98,21 @@ fn bounds(area: Area, layout: &PaneLayout) -> (f64, f64, f64, f64) {
     }
 }
 
-/// The pane of `window` where its layout and the viewer say: shown in the
-/// window that holds the project's pane, hidden elsewhere.
+/// The pane of `window` where its layout and the viewer say; hidden while the page in front shows a card.
 pub fn place(app: &AppHandle, window: &str) {
-    let Some((root, layout)) = layout_of(app, window) else {
+    let Some((_, layout)) = layout_of(app, window) else {
         return;
     };
     let Some(pane) = app.get_webview(&label(window)) else {
         return;
     };
     let state = app.state::<AppState>();
-    let (area, held) = {
-        let mut panes = state.panes.lock().unwrap();
-        // a pane to show and no window holding it yet: this one
-        if layout.shown && !panes.holder.contains_key(&root) {
-            panes.holder.insert(root.clone(), window.to_string());
-        }
-        let held = panes.holder.get(&root).is_some_and(|w| w == window) && !panes.covered.contains(window);
-        (panes.areas.get(window).copied(), held)
+    let front = papers_tabs::front_of(app, window);
+    let (area, covered) = {
+        let panes = state.panes.lock().unwrap();
+        (panes.areas.get(window).copied(), front.is_some_and(|f| panes.covered.contains(&f)))
     };
-    let Some(area) = area.filter(|_| layout.shown && held) else {
+    let Some(area) = area.filter(|_| layout.shown && !covered) else {
         let _ = pane.hide();
         return;
     };
@@ -161,18 +152,51 @@ pub fn placement(app: &AppHandle, window: &str) -> Option<Placed> {
     app.state::<AppState>().panes.lock().unwrap().placed.get(window).cloned()
 }
 
-/// The windows of the project of `window`, placed again.
-fn place_project(app: &AppHandle, window: &str) {
-    let Some(root) = windows::root_of(app, window) else {
-        return;
-    };
-    for other in windows::of_project(app, &root) {
-        place(app, &other);
+/// The pane made for a window as its first page comes (above it), or brought above the pages as another comes.
+pub fn over_pages(app: &AppHandle, window: &Window) {
+    match app.get_webview(&label(window.label())) {
+        Some(pane) => raise(&pane),
+        None => {
+            let made = window.add_child(
+                WebviewBuilder::new(label(window.label()), WebviewUrl::App("pane".into())),
+                LogicalPosition::new(0.0, 0.0),
+                LogicalSize::new(1.0, 1.0),
+            );
+            // placed and shown once the page tells where its viewer is
+            match made {
+                Ok(pane) => {
+                    let _ = pane.hide();
+                }
+                Err(e) => eprintln!("{e}"),
+            }
+        }
     }
 }
 
-/// The viewer of a window's page moved or changed size.
-pub fn set_area(app: &AppHandle, window: &str, area: Area) {
+/// A web view brought above the others of its window: AppKit stacks a window's views in the order they were added.
+fn raise(webview: &tauri::Webview) {
+    #[cfg(target_os = "macos")]
+    let _ = webview.with_webview(|platform| {
+        use objc2_app_kit::{NSView, NSWindowOrderingMode};
+        // the web view lives while its window does, and this runs on the main thread
+        let view = unsafe { &*(platform.inner() as *const NSView) };
+        if let Some(parent) = unsafe { view.superview() } {
+            parent.addSubview_positioned_relativeTo(view, NSWindowOrderingMode::Above, None);
+        }
+    });
+    #[cfg(not(target_os = "macos"))]
+    let _ = webview;
+}
+
+/// The viewer of the page `page` moved or changed size: the pane follows, if the page is in front.
+pub fn set_area(app: &AppHandle, page: &str, area: Area) {
+    let Some(window) = papers_tabs::window_of(app, page) else {
+        return;
+    };
+    if papers_tabs::front_of(app, &window).as_deref() != Some(page) {
+        return;
+    }
+    let window = window.as_str();
     let changed = {
         let state = app.state::<AppState>();
         let mut panes = state.panes.lock().unwrap();
@@ -186,29 +210,25 @@ pub fn set_area(app: &AppHandle, window: &str, area: Area) {
 /// ⌘J: the pane hidden when it is open in this window, wherever the keys are;
 /// else shown with them (expanded if collapsed).
 pub fn toggle(app: &AppHandle, window: &str) {
-    let Some((root, layout)) = layout_of(app, window) else {
+    let Some((_, layout)) = layout_of(app, window) else {
         return;
     };
-    let state = app.state::<AppState>();
-    let held = state.panes.lock().unwrap().holder.get(&root).is_some_and(|w| w == window);
-    if layout.shown && held && !layout.collapsed {
+    if layout.shown && !layout.collapsed {
         hide(app, window);
     } else {
         show(app, window);
     }
 }
 
-/// The pane shown and expanded in this window, with the keys (hidden in the project's other windows).
+/// The pane shown and expanded in this window, with the keys.
 pub fn show(app: &AppHandle, window: &str) {
     let Some((root, mut layout)) = layout_of(app, window) else {
         return;
     };
-    let state = app.state::<AppState>();
     layout.shown = true;
     layout.collapsed = false;
-    state.panes.lock().unwrap().holder.insert(root.clone(), window.to_string());
     keep(app, root, layout);
-    place_project(app, window);
+    place(app, window);
     if let Some(pane) = app.get_webview(&label(window)) {
         let _ = pane.set_focus();
     }
@@ -221,7 +241,7 @@ pub fn hide(app: &AppHandle, window: &str) {
     };
     layout.shown = false;
     keep(app, root, layout);
-    place_project(app, window);
+    place(app, window);
     keys_to_page(app, window);
 }
 
@@ -237,28 +257,33 @@ pub fn insert(app: &AppHandle, window: &str, text: &str) {
     let _ = app.emit_to(EventTarget::webview(label(window)), "review-insert", text);
 }
 
-/// A card of the page shown or gone: the pane hidden meanwhile, then placed
-/// again as it was.
-pub fn set_covered(app: &AppHandle, window: &str, covered: bool) {
+/// A card of a page shown or gone: the pane hidden meanwhile when the page is in front, then placed again as it
+/// was.
+pub fn set_covered(app: &AppHandle, page: &str, covered: bool) {
     {
         let state = app.state::<AppState>();
         let mut panes = state.panes.lock().unwrap();
         if covered {
-            panes.covered.insert(window.to_string());
+            panes.covered.insert(page.to_string());
         } else {
-            panes.covered.remove(window);
+            panes.covered.remove(page);
         }
     }
-    place(app, window);
+    if let Some(window) = papers_tabs::window_of(app, page) {
+        place(app, &window);
+    }
 }
 
-/// The keys from the pane back to the page (and its PDF).
+/// The keys from the pane back to the page in front (and its PDF).
 fn keys_to_page(app: &AppHandle, window: &str) {
     app.state::<AppState>().panes.lock().unwrap().focused.remove(window);
-    if let Some(page) = app.get_webview(&windows::page(window)) {
+    let Some(front) = papers_tabs::front_of(app, window) else {
+        return;
+    };
+    if let Some(page) = app.get_webview(&front) {
         let _ = page.set_focus();
     }
-    let _ = app.emit_to(EventTarget::webview(windows::page(window)), "pane-hidden", ());
+    let _ = app.emit_to(EventTarget::webview(front), "pane-hidden", ());
 }
 
 /// The pane's collapse button: the pane collapsed to its header bar, the keys
@@ -317,15 +342,14 @@ pub fn set_focused(app: &AppHandle, window: &str, focused: bool) {
     }
 }
 
-/// A window switched from the project `old` to another: it holds no pane of the
-/// old one any more, the old project's other windows are placed again (one may
-/// hold its pane now), and the pane of the new project is placed in this one.
-pub fn switched(app: &AppHandle, window: &str, old: &Path) {
-    app.state::<AppState>().panes.lock().unwrap().holder.retain(|_, w| w != window);
-    for other in windows::of_project(app, old) {
-        place(app, &other);
-    }
+/// A window switched to another project: the pane placed as that project keeps it.
+pub fn switched(app: &AppHandle, window: &str) {
     place(app, window);
+}
+
+/// A page gone: whether it showed a card.
+pub fn page_closed(app: &AppHandle, page: &str) {
+    app.state::<AppState>().panes.lock().unwrap().covered.remove(page);
 }
 
 /// A window gone: what was known of its pane goes.
@@ -334,9 +358,7 @@ pub fn closed(app: &AppHandle, window: &str) {
     let mut panes = state.panes.lock().unwrap();
     panes.areas.remove(window);
     panes.focused.remove(window);
-    panes.holder.retain(|_, w| w != window);
     panes.placed.remove(window);
-    panes.covered.remove(window);
 }
 
 #[cfg(test)]

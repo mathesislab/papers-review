@@ -1,9 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-<rect width="1024" height="1024" rx="230" fill="#A23B2E"/>
-<rect x="356" y="146" width="452" height="590" rx="26" fill="#fff"/>
-<rect x="216" y="288" width="452" height="590" rx="26" fill="#fff" stroke="#A23B2E" stroke-width="44" paint-order="stroke"/>
-<rect x="290" y="420" width="304" height="46" fill="#A23B2E"/>
-<rect x="290" y="532" width="304" height="46" fill="#A23B2E"/>
-<rect x="290" y="644" width="230" height="46" fill="#A23B2E"/>
-<path d="M470 760 l60 60 l120 -140" fill="none" stroke="#A23B2E" stroke-width="54" stroke-linecap="round" stroke-linejoin="round"/>
+<rect id="background" width="1024" height="1024" rx="230" fill="#A23B2E"/>
+<rect id="back-sheet" x="356" y="146" width="452" height="590" rx="26" fill="#fff"/>
+<rect id="front-sheet" x="216" y="288" width="452" height="590" rx="26" fill="#fff" stroke="#A23B2E" stroke-width="44" paint-order="stroke"/>
+<g id="lines" fill="#A23B2E">
+<rect x="290" y="420" width="304" height="46"/>
+<rect x="290" y="532" width="304" height="46"/>
+<rect x="290" y="644" width="176" height="46"/>
+</g>
+<circle id="badge" cx="660" cy="760" r="170" fill="#A23B2E" stroke="#fff" stroke-width="40"/>
+<path id="check" d="M572 764 l62 62 l122 -142" fill="none" stroke="#fff" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
