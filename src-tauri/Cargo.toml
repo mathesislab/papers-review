@@ -27,7 +27,7 @@ notify = "8"
 tauri-plugin-pdfkit = { git = "https://github.com/mathesislab/tauri-plugin-pdfkit", tag = "v0.4.0" }
 papers-review-core = { version = "0.1.0", path = "../crates/core" }
 # the windows and their tabs, as Papers Write has them
-papers-tabs = { git = "https://github.com/mathesislab/papers-write", rev = "85a8b3ee78308fe35431a6c676d33be6ecbfa458" }
+papers-tabs = { git = "https://github.com/mathesislab/papers-write", tag = "v0.4.0" }
 # the references: the .bib files loaded and searched (papers-core, in papers-desktop), and where papers keeps its
 # library (papers-rs, at the commit papers-desktop builds with)
 papers-core = { git = "https://github.com/mathesislab/papers-desktop", tag = "v0.9.0" }

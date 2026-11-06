@@ -2914,7 +2914,7 @@ dependencies = [
 [[package]]
 name = "papers-tabs"
 version = "0.1.0"
-source = "git+https://github.com/mathesislab/papers-write?rev=85a8b3ee78308fe35431a6c676d33be6ecbfa458#85a8b3ee78308fe35431a6c676d33be6ecbfa458"
+source = "git+https://github.com/mathesislab/papers-write?tag=v0.4.0#5c9853268a837226c77dfcda3cffce3e0199c70f"
 dependencies = [
  "objc2",
  "objc2-app-kit",
