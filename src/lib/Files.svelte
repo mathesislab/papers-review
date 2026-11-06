@@ -21,6 +21,7 @@
     files,
     linked,
     front,
+    open = $bindable([]),
     review,
     onopen,
     onreview,
@@ -45,6 +46,8 @@
     linked: Node[];
     /** the file in front */
     front: string | null;
+    /** the folders open in the tree (none at first) */
+    open?: string[];
     /** the file of the review */
     review: string;
     onopen: (node: Node) => void;
@@ -101,6 +104,7 @@
       {files}
       {linked}
       {front}
+      bind:open
       badge={(node) => (node.path === review ? { label: "review", title: "The review (⌘J)" } : null)}
       extra={(node) => (node.kind === "markdown" ? [{ text: "Edit in Review Pane", action: () => onreview(node) }] : [])}
       {onopen}

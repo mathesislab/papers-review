@@ -21,7 +21,7 @@
   import type { Entry } from "tauri-plugin-pdfkit-api";
   import "$lib/theme.css";
   import { addFiles, addPaths } from "$lib/add";
-  import { COLOURS, ProjectBar, ProjectSidebar, Tabs, cssOf, type Tile } from "papers-write/project";
+  import { COLOURS, ProjectBar, ProjectFrame, ProjectSidebar, cssOf, part, ready, type TabItem, type Tile } from "papers-write/project";
   import { daysLeft, formatDate, shortDate, urgency } from "$lib/due";
   import { FileEditor, PREFS, prefsFrom, setEditorFont, wordCount, wordsOf, type Status } from "papers-write/editor";
   import EditorButtons from "$lib/EditorButtons.svelte";
@@ -283,26 +283,6 @@
     invoke("open_file", { path: node.path }).catch((e) => fail("Open", e));
   }
 
-  /** The narrowest and widest the files panel is dragged. */
-  const FILES_WIDTH = { min: 160, max: 520 };
-
-  /** The right edge of the files panel dragged: its width follows. The PDF lies over the page, but the drag stays
-   *  with the edge: AppKit sends the moves to the view the press went to. */
-  function resize(e: PointerEvent) {
-    const edge = e.currentTarget as HTMLElement;
-    edge.setPointerCapture(e.pointerId);
-    const [start, width] = [e.clientX, side.width];
-    const move = (m: PointerEvent) => {
-      side.set({ width: Math.round(Math.min(FILES_WIDTH.max, Math.max(FILES_WIDTH.min, width + m.clientX - start))) }, false);
-    };
-    const up = () => {
-      side.keep();
-      edge.removeEventListener("pointermove", move);
-      edge.removeEventListener("pointerup", up);
-    };
-    edge.addEventListener("pointermove", move);
-    edge.addEventListener("pointerup", up);
-  }
 
   /** A file read for its editor; one that cannot be read is shown as the others are, by its name. */
   async function read(path: string) {
@@ -503,12 +483,21 @@
     }
   }
 
+  /** the PDF opened, the text read, the first time: for the tab to be shown (`ready`) */
+  const pdfIn = part();
+  const textIn = part();
+
   onMount(() => {
-    (async () => {
-      await Promise.all([loadSettings(), loadBar()]);
-      await load();
-      await readFile();
-    })();
+    ready(
+      (async () => {
+        await Promise.all([loadSettings(), loadBar()]);
+        await load();
+        await readFile();
+        await tick();
+        if (front?.kind === "pdf") await pdfIn.promise;
+        else if (edited) await textIn.promise;
+      })(),
+    );
     const stopSide = side.start();
     const unlisten = listen<string>("menu", (e) => command(e.payload));
     // the colour or the files changed, from this window or another of the project
@@ -558,82 +547,83 @@
 
 </script>
 
-<!-- the colour of the app's windows (the settings), at the top, to tell them apart among others; a right-click
-     chooses it -->
-{#if project && barColour}
-  <div class="colour" style:background={barColour} title="The colour of the windows (Settings): right-click to choose" oncontextmenu={colourMenu} role="presentation"></div>
-{/if}
+<!-- the project bar (papers-write's): a tile per project, the current one marked, with its due date and a bar for how
+     near it is -->
+{#snippet tiles()}
+  <ProjectBar
+    items={bar.map(tileOf)}
+    onswitch={switchTo}
+    onmenu={(id, e) => tileMenu(e, bar.find((item) => item.root === id)!)}
+    onadd={() => invoke("choose_project")}
+    addTitle="Open Project… (⌘O)"
+  />
+{/snippet}
 
+<!-- the files of the project, at the left -->
+{#snippet filesPanel()}
+  {#if project}
+    <Files
+      root={project.root}
+      name={project.name}
+      journal={project.journal}
+      manuscript={project.manuscript}
+      due={project.due}
+      dateFormat={settings?.date_format ?? "ymd"}
+      files={project.files}
+      linked={project.linked}
+      front={file}
+      review={project.review}
+      bind:open={() => side.folders, (folders) => side.setFolders(folders)}
+      onopen={open}
+      onreview={(node) => editReview(node.path)}
+      oninfo={openCard}
+      onnew={newFile}
+      onadd={add}
+      onreveal={(path) => revealItemInDir(path).catch((e) => fail("Reveal in Finder", e))}
+      ondefault={(path) => openPath(path).catch((e) => fail("Open in Default App", e))}
+      onunlink={unlink}
+      ontrash={trash}
+    />
+  {/if}
+{/snippet}
+
+<!-- the files panel, shown or hidden as by ⌘⌥S -->
+{#snippet filesToggle()}
+  <button class="toggle" class:on={side.shown} onclick={() => command("files")} title="Show or Hide Files (⌘⌥S)" aria-label="Show or Hide Files">
+    <svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
+      <rect x="0.65" y="0.65" width="14.7" height="12.7" rx="2.5" />
+      <line x1="5.65" y1="1" x2="5.65" y2="13" />
+      <line x1="2.4" y1="4" x2="4" y2="4" stroke-linecap="round" />
+      <line x1="2.4" y1="6" x2="4" y2="6" stroke-linecap="round" />
+      <line x1="2.4" y1="8" x2="4" y2="8" stroke-linecap="round" />
+    </svg>
+  </button>
+{/snippet}
+
+<!-- on the tab of a file from outside the project: its + adds it -->
+{#snippet addButton(tab: TabItem)}
+  {#if tab.id === getCurrentWebview().label && outside && file}
+    {@const path = file}
+    <button onclick={() => addOutside(path)} title="Add to the Project…" aria-label="Add to the Project">
+      <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M6 2v8M2 6h8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
+    </button>
+  {/if}
+{/snippet}
+
+<!-- the colour of the app's windows (the settings), at the top, to tell them apart among others (a right-click
+     chooses it); the tabs of the project, a lone tab of the files alone no tab to show -->
 {#if project}
-  <div
-    class="window"
-    class:nofiles={!side.shown}
-    class:coloured={barColour}
-    style:grid-template-columns={`${showBar ? "92px " : ""}${side.shown ? `${side.width}px ` : ""}1fr`}
+  <ProjectFrame
+    {side}
+    colour={barColour}
+    colourTitle="The colour of the windows (Settings): right-click to choose"
+    oncolourmenu={colourMenu}
+    least={file ? 1 : 2}
+    extra={addButton}
+    bar={showBar ? tiles : undefined}
+    sidebar={filesPanel}
+    lead={filesToggle}
   >
-    {#if showBar}
-      <!-- the project bar (papers-write's): a tile per project, the current one marked, with its due date and a bar for how near it is -->
-      <ProjectBar
-        items={bar.map(tileOf)}
-        onswitch={switchTo}
-        onmenu={(id, e) => tileMenu(e, bar.find((item) => item.root === id)!)}
-        onadd={() => invoke("choose_project")}
-        addTitle="Open Project… (⌘O)"
-      />
-    {/if}
-    {#if side.shown}
-      <div class="files">
-        <Files
-          root={project.root}
-          name={project.name}
-          journal={project.journal}
-          manuscript={project.manuscript}
-          due={project.due}
-          dateFormat={settings?.date_format ?? "ymd"}
-          files={project.files}
-          linked={project.linked}
-          front={file}
-          review={project.review}
-          onopen={open}
-          onreview={(node) => editReview(node.path)}
-          oninfo={openCard}
-          onnew={newFile}
-          onadd={add}
-          onreveal={(path) => revealItemInDir(path).catch((e) => fail("Reveal in Finder", e))}
-          ondefault={(path) => openPath(path).catch((e) => fail("Open in Default App", e))}
-          onunlink={unlink}
-          ontrash={trash}
-        />
-        <!-- its right edge, dragged, sets its width -->
-        <div class="splitter" onpointerdown={resize} role="separator" aria-orientation="vertical"></div>
-      </div>
-    {/if}
-    <section class="main">
-      <div class="bar">
-        <!-- the files panel, shown or hidden as by ⌘⌥S -->
-        <button class="toggle" class:on={side.shown} onclick={() => command("files")} title="Show or Hide Files (⌘⌥S)" aria-label="Show or Hide Files">
-          <svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
-            <rect x="0.65" y="0.65" width="14.7" height="12.7" rx="2.5" />
-            <line x1="5.65" y1="1" x2="5.65" y2="13" />
-            <line x1="2.4" y1="4" x2="4" y2="4" stroke-linecap="round" />
-            <line x1="2.4" y1="6" x2="4" y2="6" stroke-linecap="round" />
-            <line x1="2.4" y1="8" x2="4" y2="8" stroke-linecap="round" />
-          </svg>
-        </button>
-        <div class="tabs">
-          <!-- the tabs of the project; a lone tab of the files alone is no tab to show -->
-          <Tabs least={file ? 1 : 2}>
-            {#snippet extra(tab)}
-              {#if tab.id === getCurrentWebview().label && outside && file}
-                {@const path = file}
-                <button onclick={() => addOutside(path)} title="Add to the Project…" aria-label="Add to the Project">
-                  <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M6 2v8M2 6h8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
-                </button>
-              {/if}
-            {/snippet}
-          </Tabs>
-        </div>
-      </div>
       {#if front?.kind === "pdf"}
         <!-- the tools of the PDF in front, under the tabs -->
         <div class="tools">
@@ -717,6 +707,7 @@
                 onpage={turned}
                 onhistory={recorded}
                 onopen={(c, o) => {
+                  pdfIn.done();
                   count = c;
                   outline = o;
                   current = startPage;
@@ -730,7 +721,7 @@
               <div class="editor">
                 <FileEditor
                   bind:this={editor}
-                  load={() => read(path)}
+                  load={() => read(path).finally(() => textIn.done())}
                   save={write}
                   mono={edited.kind !== "markdown" && edited.kind !== "latex"}
                   latex={edited.kind === "latex"}
@@ -758,8 +749,7 @@
           {/if}
         </div>
       </div>
-    </section>
-  </div>
+  </ProjectFrame>
 {:else if error}
   <p class="error">{error}</p>
 {/if}
@@ -789,66 +779,14 @@
 {/snippet}
 
 <style>
-  /* absolute, not fixed: WebKit tints the title bar with what is fixed at the top of the page (as in Papers
-     Desktop) */
-  .colour {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 50;
-    height: 6px;
-  }
-  .window {
-    height: 100vh;
-    box-sizing: border-box;
-    display: grid;
-  }
-  .window.coloured {
-    padding-top: 6px;
-  }
-  .files {
-    position: relative;
-    min-width: 0;
-    min-height: 0;
-  }
-  .splitter {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    right: -3px;
-    width: 6px;
-    z-index: 5;
-    cursor: col-resize;
-  }
-  .main {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-  .bar {
-    flex: none;
-    display: flex;
-    height: 30px;
-    background: var(--sidebar);
-    border-bottom: 1px solid var(--line);
-  }
-  .tabs {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    min-width: 0;
-    padding: 0 6px;
-  }
   .toggle {
     flex: none;
     display: flex;
     align-items: center;
-    padding: 0 10px;
+    padding: 0 2px;
     color: var(--muted);
     background: none;
     border: none;
-    border-right: 1px solid var(--line);
   }
   .toggle.on {
     color: var(--accent);

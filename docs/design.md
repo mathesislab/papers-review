@@ -61,8 +61,12 @@ between projects, as set in Settings (`⌘,`); several windows when asked
 (File > Open Project in New Window…, `⇧⌘O`). The windows and their tabs are
 papers-tabs's (`crates/tabs` of papers-write), as in Papers Write: a page per
 tab (a web view, a child of the window), the tabs of each project a set, the
-window showing one project at a time, the other tabs hidden but alive (the
-PDF at its page, the text and its undo). A project with no file open has one
+window showing one project at a time, the other tabs behind it, alive and
+drawn (the PDF at its page, the text and its undo); a new tab comes to the
+front once its page is drawn. Every tab has the same frame as in Papers Write
+(ProjectFrame of papers-write/project): the project bar, the files, the strip
+of tabs; the folders open in the files are those of all the project's tabs,
+closed when the project opens. A project with no file open has one
 tab of its files alone, which takes the next file opened; closing the last
 file's tab leaves that one, closing it closes the project in the window.
 `⌘W` closes the tab in front (a text edited is written first); `⇧⌘[` and
