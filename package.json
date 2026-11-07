@@ -1,6 +1,6 @@
 {
   "name": "papers-review",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Review and edit papers: a project folder, the PDF as Preview shows it, a Markdown review floating over it",
   "type": "module",
   "scripts": {
