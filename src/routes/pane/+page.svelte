@@ -440,6 +440,7 @@
     border: 1px solid var(--border);
     overflow: hidden;
     box-sizing: border-box;
+    container: pane / inline-size;
   }
   /* the edges, 6px in, and the corners, 12px square, over them */
   .grip {
@@ -586,12 +587,19 @@
     display: flex;
     padding: 4px 6px;
   }
-  /* in the middle of the header, not among the buttons at its end; the strip on the right keeps it at its top */
+  /* in the middle of the header, not among the buttons at its end; a strip keeps it at its top */
   header:not(.strip) .arrow {
     position: absolute;
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
+  }
+  /* a narrow pane: at the end, where it does not lie over the words and the buttons */
+  @container pane (max-width: 640px) {
+    header:not(.strip) .arrow {
+      position: static;
+      transform: none;
+    }
   }
   .arrow svg {
     transition: transform 0.12s;
