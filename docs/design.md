@@ -197,8 +197,13 @@ NSVisualEffectView under it.
   back to the PDF. The plugin gives the selection line by line with the
   words beside each line (`selection`); `quote.ts` takes the whole number
   nearest each line, left of it first, with no word but numbers beyond it
-  (a number in the text, `and 10000 m`, is none), and keeps the page alone
-  when the numbers do not fit the lines selected. Words split at a line end are made
+  (a number in the text, `and 10000 m`, is none). A line with none beside it
+  (a manuscript numbered every fifth line) is counted from the nearest
+  number of the column of line numbers of its page (the plugin gives the
+  numbers standing alone on the pages, `numbers`): the numbers aligned beside
+  the line, growing down the page, their least spacing per line the line
+  spacing (an equation only widens a gap). The page stays alone when the
+  numbers do not fit the lines selected. Words split at a line end are made
   whole, ligatures undone. The numbers of a two-column layout are not read
   yet: PDFKit glues them to the line's text. `⌘U` quotes it the same way
   without the quotation marks. `⌃L` inserts the location in view.

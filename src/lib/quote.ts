@@ -11,8 +11,11 @@ export type Run = { text: string; x: number };
  *  words beside it. */
 export type Line = { page: number; label: string; text: string; bounds: Rect; margin: Run[] };
 
-/** What the reader selected: its text, and the lines it spans. */
-export type Selection = { text: string; lines: Line[] };
+/** A whole number standing alone on a page, and the centre of its bounds. */
+export type Mark = { page: number; n: number; x: number; y: number };
+
+/** What the reader selected: its text, the lines it spans, and the numbers standing alone on their pages. */
+export type Selection = { text: string; lines: Line[]; numbers: Mark[] };
 
 const NUMBER = /^\d{1,5}$/;
 const HYPHEN = /[-‐­]$/;
@@ -35,6 +38,46 @@ export function lineNumber(line: Line): number | null {
   return found ? Number(found.text.trim()) : null;
 }
 
+/** How far apart (points) the centres of the numbers of one column may lie: numbers aligned at the right, of one
+ *  digit to four. */
+const COLUMN = 10;
+
+/** The line number of a line with none printed beside it (a manuscript numbered every fifth line): counted from the
+ *  nearest number of the column of line numbers beside it, by the spacing of its lines. The column: the numbers of the
+ *  page aligned beside the line, left of it first, nearest it, at least two, growing down the page. The spacing: the
+ *  least of the column (an equation or a figure only widens it). */
+export function numberAt(line: Line, numbers: Mark[]): number | null {
+  const { x, y, width, height } = line.bounds;
+  const middle = y + height / 2;
+  const onPage = numbers.filter((m) => m.page === line.page);
+  const sides = [
+    onPage.filter((m) => m.x < x).sort((a, b) => b.x - a.x),
+    onPage.filter((m) => m.x > x + width).sort((a, b) => a.x - b.x),
+  ];
+  for (const side of sides) {
+    // the columns, nearest the line first
+    const columns: Mark[][] = [];
+    for (const m of side) {
+      const last = columns[columns.length - 1];
+      if (last && Math.abs(m.x - last[last.length - 1].x) <= COLUMN) last.push(m);
+      else columns.push([m]);
+    }
+    for (const column of columns) {
+      const down = [...column].sort((a, b) => b.y - a.y);
+      const steps = down.slice(1).map((m, i) => ({ lines: m.n - down[i].n, points: down[i].y - m.y }));
+      if (steps.length === 0 || steps.some((s) => s.lines <= 0 || s.points <= 0)) continue;
+      const spacing = Math.min(...steps.map((s) => s.points / s.lines));
+      const near = down.reduce((a, b) => (Math.abs(b.y - middle) < Math.abs(a.y - middle) ? b : a));
+      const n = near.n + Math.round((near.y - middle) / spacing);
+      return n > 0 ? n : null;
+    }
+  }
+  return null;
+}
+
+/** The line number of a line: the one printed beside it, else counted from those of the page. */
+const numberOf = (line: Line, numbers: Mark[]) => lineNumber(line) ?? numberAt(line, numbers);
+
 const pageOf = (line: Line) => line.label || String(line.page);
 /** "p5", or "p. iii" for a page labelled in letters. */
 const p = (page: string) => (/^\d/.test(page) ? `p${page}` : `p. ${page}`);
@@ -48,8 +91,8 @@ export function location(selection: Selection): string {
   const last = lines[lines.length - 1];
   const samePage = first.page === last.page;
   const pages = p(samePage ? pageOf(first) : `${pageOf(first)}–${pageOf(last)}`);
-  const a = lineNumber(first);
-  const b = lineNumber(last);
+  const a = numberOf(first, selection.numbers);
+  const b = numberOf(last, selection.numbers);
   if (a === null || b === null || !consistent(lines, a, b, samePage)) return pages;
   // numbered again from the next page: each end with its page
   if (b < a) return `${p(pageOf(first))}, l${a} – ${p(pageOf(last))}, l${b}`;

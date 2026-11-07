@@ -2,7 +2,7 @@
 
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { leadPrefix, lineNumber, location, quote, quoteText, type Line, type Selection } from "../src/lib/quote.ts";
+import { leadPrefix, lineNumber, location, numberAt, quote, quoteText, type Line, type Mark, type Selection } from "../src/lib/quote.ts";
 
 // A line of text at x 100–300, with the numbers given printed in the margin at the given centres.
 function line(page: number, text: string, margin: [string, number][] = [], label = ""): Line {
@@ -20,7 +20,22 @@ function numbered(page: number, from: number, texts: string[], label = ""): Line
   return texts.map((t, i) => line(page, t, [[String(from + i), 80]], label));
 }
 
-const sel = (lines: Line[]): Selection => ({ text: lines.map((l) => l.text).join(" "), lines });
+const sel = (lines: Line[], numbers: Mark[] = []): Selection => ({ text: lines.map((l) => l.text).join(" "), lines, numbers });
+
+// A page whose lines lie 12 points apart from the top (line k centred at 800 - 12 k), selected from x 100 to 300 (or
+// from `x`), with nothing printed beside them.
+const SPACING = 12;
+const centre = (k: number) => 800 - SPACING * k;
+function lineAt(page: number, k: number, x = 100): Line {
+  return { page, label: "", text: `line ${k}`, bounds: { x, y: centre(k) - 5, width: 300 - x, height: 10 }, margin: [] };
+}
+// The numbers printed every fifth line, `from` to `to`, at x (left margin 80), each centred on its line; `shift`: the
+// lines from `after` on lie further down by that many lines (an equation between).
+function every5(page: number, from: number, to: number, x = 80, after = Infinity, shift = 0): Mark[] {
+  const marks: Mark[] = [];
+  for (let n = from; n <= to; n += 5) marks.push({ page, n, x, y: centre(n + (n >= after ? shift : 0)) });
+  return marks;
+}
 
 test("the number in the left margin", () => {
   assert.equal(lineNumber(line(5, "text", [["136", 80]])), 136);
@@ -48,6 +63,68 @@ test("words that are not whole numbers are no line numbers", () => {
 
 test("no numbers: the page only", () => {
   assert.equal(location(sel([line(5, "a"), line(5, "b")])), "p5");
+});
+
+test("numbered every fifth line: the lines between counted from the nearest number", () => {
+  const numbers = every5(5, 5, 30);
+  assert.equal(location(sel([lineAt(5, 11), lineAt(5, 12), lineAt(5, 13)], numbers)), "p5, l11–13");
+  assert.equal(location(sel([lineAt(5, 7)], numbers)), "p5, l7");
+  assert.equal(location(sel([lineAt(5, 9), lineAt(5, 10), lineAt(5, 11)], numbers)), "p5, l9–11");
+});
+
+test("numbered every fifth line: above the first number and below the last", () => {
+  const numbers = every5(5, 5, 20);
+  assert.equal(numberAt(lineAt(5, 1), numbers), 1);
+  assert.equal(numberAt(lineAt(5, 23), numbers), 23);
+});
+
+test("numbered every fifth line: an equation that widens a gap leaves the spacing", () => {
+  // an equation three lines high between lines 14 and 15
+  const numbers = every5(5, 5, 25, 80, 15, 3);
+  assert.equal(numberAt(lineAt(5, 14), numbers), 14);
+  // line 16 lies where 19 would without the equation
+  assert.equal(numberAt(lineAt(5, 19), numbers), 16);
+});
+
+test("numbered every fifth line: numbers in the text, a page number and other pages are no column", () => {
+  const others: Mark[] = [
+    { page: 5, n: 10000, x: 150, y: centre(8) },
+    { page: 5, n: 1, x: 200, y: 40 },
+    { page: 5, n: 1, x: 95, y: centre(1) },
+    ...every5(6, 5, 30, 90),
+  ];
+  const numbers = [...every5(5, 5, 30), ...others];
+  // a selection from the middle of a line, a number in the text left of it
+  assert.equal(numberAt(lineAt(5, 12, 180), numbers), 12);
+  assert.equal(numberAt(lineAt(5, 12), others), null);
+  // a column of one number only: no spacing
+  assert.equal(numberAt(lineAt(5, 12), every5(5, 10, 10)), null);
+});
+
+test("numbered every fifth line: a manuscript of LaTeX (lineno, \\modulolinenumbers[5]) as the plugin reads it", () => {
+  // page 1: the section number, 5, 10000 in the text, 10, an equation between 14 and 15, 15, the page number
+  const numbers: Mark[] = [
+    { page: 1, n: 1, x: 74.9, y: 763.65 },
+    { page: 1, n: 5, x: 59.32, y: 696.56 },
+    { page: 1, n: 10000, x: 418.35, y: 670.69 },
+    { page: 1, n: 10, x: 57.73, y: 628.81 },
+    { page: 1, n: 15, x: 57.73, y: 518.57 },
+    { page: 1, n: 1, x: 297.64, y: 43.71 },
+  ];
+  const at = (y: number): Line => ({ page: 1, label: "", text: "t", bounds: { x: 70.87, y, width: 453.54, height: 9.69 }, margin: [] });
+  assert.equal(numberAt(at(611.65), numbers), 11);
+  assert.equal(numberAt(at(571.01), numbers), 14);
+  assert.equal(numberAt(at(501.41), numbers), 16);
+});
+
+test("numbered every fifth line in the right margin", () => {
+  assert.equal(numberAt(lineAt(5, 13), every5(5, 5, 30, 320)), 13);
+});
+
+test("a number printed beside the line before the one counted", () => {
+  const numbers = every5(5, 5, 30);
+  const printed = { ...lineAt(5, 13), margin: [{ text: "40", x: 80 }] };
+  assert.equal(location(sel([printed], numbers)), "p5, l40");
 });
 
 test("one line, many lines", () => {
@@ -109,7 +186,7 @@ test("a margin number the selection reached over is removed", () => {
 
 test("whitespace is collapsed, and the text of the selection used without lines", () => {
   assert.equal(quoteText(sel([line(5, "  a \t b  "), line(5, "c\n d")])), "a b c d");
-  assert.equal(quoteText({ text: " ﬁx   it ", lines: [] }), "fix it");
+  assert.equal(quoteText({ text: " ﬁx   it ", lines: [], numbers: [] }), "fix it");
 });
 
 test("the quote", () => {
