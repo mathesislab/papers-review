@@ -187,10 +187,10 @@ NSVisualEffectView under it.
   pane at the foot of the screen hardly leaves).
 - A line that starts with a location (`p5, l136–138:`, `p5–6:`, `l153:`,
   `p. iii:`) has it coloured, as the headings are.
-- `⌘U` quotes the selection of the PDF at the cursor, as a paragraph of its
+- `⌘Y` quotes the selection of the PDF at the cursor, as a paragraph of its
   own, with its page (the printed label, else the number) and its lines
-  where the manuscript has line numbers: `**p. 5, l. 136:** "…"`,
-  `**p. 5, ll. 136–138:** "…"`, `**pp. 5–6, ll. 210–228:** "…"`. The pane
+  where the manuscript has line numbers: `p5, l136: "…"`,
+  `p5, l136–138: "…"`, `p5–6, l210–228: "…"`. The pane
   shows with the keys, to write what the quote is about; `Esc` gives them
   back to the PDF. The plugin gives the selection line by line with the
   words beside each line (`selection`); `quote.ts` takes the whole number
@@ -198,7 +198,7 @@ NSVisualEffectView under it.
   (a number in the text, `and 10000 m`, is none), and keeps the page alone
   when the numbers do not fit the lines selected. Words split at a line end are made
   whole, ligatures undone. The numbers of a two-column layout are not read
-  yet: PDFKit glues them to the line's text. `⌘Y` quotes it the same way
+  yet: PDFKit glues them to the line's text. `⌘U` quotes it the same way
   without the quotation marks. `⌃L` inserts the location in view.
 - Symbols, in the Markdown editors (the review, a Markdown tab; not in code
   spans or blocks): typed sequences become one as the last character is

@@ -558,7 +558,7 @@ fn pane_release(app: AppHandle, webview: Webview) {
     pane::release(&app, webview.window().label());
 }
 
-/// ⌘U and ⌘Y: a quote of the PDF into the review, at the pane's cursor.
+/// ⌘Y and ⌘U: a quote of the PDF into the review, at the pane's cursor.
 #[tauri::command]
 fn quote(app: AppHandle, webview: Webview, text: String) {
     pane::insert(&app, webview.window().label(), &text);
