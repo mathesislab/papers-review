@@ -28,7 +28,7 @@
   import EditorButtons from "$lib/EditorButtons.svelte";
   import { formatDate } from "$lib/due";
   import { exportName, pdfDocument, section, textDocument, toHtml, toPlainText, type Frame } from "$lib/export";
-  import { leads } from "$lib/leads";
+  import { leads, setLeadWords } from "$lib/leads";
   import type { ProjectInfo, Settings } from "$lib/types";
 
   type Dock = "bottom" | "right" | "top" | "left" | "free";
@@ -65,6 +65,8 @@
   let symbols = $state<[string, string][]>([]);
   /** what the editor takes from the settings */
   let prefs = $state(PREFS);
+  /** the lead words of the settings, for the export too */
+  let leadWords: string[] = [];
   /** the sections, as tabs, and the one shown alone (null: all of the text) */
   let tabs = $state<Section[]>([]);
   let active = $state<number | null>(null);
@@ -124,7 +126,7 @@
         noteTimer = setTimeout(() => (note = ""), 3000);
         return;
       }
-      const html = pdfDocument({ ...frame, body: toHtml(markdown) });
+      const html = pdfDocument({ ...frame, body: toHtml(markdown, leadWords) });
       await revealItemInDir(await invoke<string>("export_pdf", { name, html }));
     } catch (e) {
       exportError = String(e);
@@ -270,6 +272,8 @@
     invoke<Settings>("settings").then((s) => {
       symbols = s.symbols;
       prefs = prefsFrom(s);
+      leadWords = s.lead_words;
+      setLeadWords(s.lead_words);
       setEditorFont(s.editor_font, s.editor_size);
     });
 

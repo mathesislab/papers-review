@@ -214,6 +214,18 @@ test("a label a line starts with, up to its colon: a word, with a number after i
   assert.equal(leadPrefix("Méthodes: x"), "Méthodes:".length);
 });
 
+test("what comes before the first colon, when one of the user's words is in it", () => {
+  const words = ["Fig.", "caption", "Table"];
+  assert.equal(leadPrefix("p4, Fig. 1, caption: Further", words), "p4, Fig. 1, caption:".length);
+  assert.equal(leadPrefix("p4, fig. 2: x", words), "p4, fig. 2:".length);
+  assert.equal(leadPrefix("Tables 1 and 2: x", words), 0);
+  assert.equal(leadPrefix("p4, Fig. 1, caption: Further", []), 0);
+  assert.equal(leadPrefix("- Fig. 1: x", words), 0);
+  assert.equal(leadPrefix("In the caption of the second figure of all: x", words), 0);
+  assert.equal(leadPrefix("p4, Fig. 1:x", words), 0);
+  assert.equal(leadPrefix("p5, l3: x", words), "p5, l3:".length);
+});
+
 test("other lines have no lead", () => {
   assert.equal(leadPrefix("p5 is fine"), 0);
   assert.equal(leadPrefix("p5:x"), 0);

@@ -52,6 +52,8 @@ export type Settings = {
   readable_width: boolean;
   /** the lines of the editors numbered */
   line_numbers: boolean;
+  /** the words that make what a line starts with up to its colon a lead, when one of them is in it */
+  lead_words: string[];
   /** the reviewer's name, to sign the exports with */
   reviewer_name: string;
   /** sign the PDF with it; off: anonymous */

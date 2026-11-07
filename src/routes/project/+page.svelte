@@ -25,7 +25,7 @@
   import { daysLeft, formatDate, shortDate, urgency } from "$lib/due";
   import { FileEditor, PREFS, prefsFrom, setEditorFont, wordCount, wordsOf, type Status } from "papers-write/editor";
   import EditorButtons from "$lib/EditorButtons.svelte";
-  import { leads } from "$lib/leads";
+  import { leads, setLeadWords } from "$lib/leads";
   import Files from "$lib/Files.svelte";
   import InfoCard from "$lib/InfoCard.svelte";
   import NewProjectCard from "$lib/NewProjectCard.svelte";
@@ -205,6 +205,7 @@
   async function loadSettings() {
     settings = await invoke<Settings>("settings");
     setEditorFont(settings.editor_font, settings.editor_size);
+    setLeadWords(settings.lead_words);
   }
 
   async function loadBar() {

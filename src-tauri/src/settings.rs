@@ -68,6 +68,9 @@ pub struct Settings {
     pub readable_width: bool,
     /// the lines of the editors numbered
     pub line_numbers: bool,
+    /// the words that make what a line starts with up to its colon a lead,
+    /// coloured, when one of them is in it ("Fig." in "p4, Fig. 1, caption:")
+    pub lead_words: Vec<String>,
     /// the reviewer's name, for the header of the PDF export
     pub reviewer_name: String,
     /// the review signed with `reviewer_name`; off, it is anonymous
@@ -94,6 +97,7 @@ impl Default for Settings {
             indent: Indent::default(),
             readable_width: true,
             line_numbers: false,
+            lead_words: ["Fig.", "Figure", "Table", "Eq.", "Section", "caption"].map(String::from).to_vec(),
             reviewer_name: String::new(),
             sign: false,
             header_details: false,
@@ -158,6 +162,13 @@ mod tests {
     }
 
     #[test]
+    fn figures_tables_and_the_like_make_leads_unless_the_settings_give_other_words() {
+        assert!(Settings::default().lead_words.contains(&"Fig.".to_string()));
+        assert_eq!(serde_json::from_str::<Settings>("{}").unwrap().lead_words, Settings::default().lead_words);
+        assert!(serde_json::from_str::<Settings>(r#"{"lead_words": []}"#).unwrap().lead_words.is_empty());
+    }
+
+    #[test]
     fn the_review_is_anonymous_with_a_plain_header_unless_the_settings_say_otherwise() {
         let settings = Settings::default();
         assert_eq!((settings.reviewer_name.as_str(), settings.sign, settings.header_details), ("", false, false));
@@ -203,6 +214,7 @@ mod tests {
             indent: Indent::Tab,
             readable_width: false,
             line_numbers: true,
+            lead_words: vec!["Fig.".into()],
             reviewer_name: "A. Reviewer".into(),
             sign: true,
             header_details: true,

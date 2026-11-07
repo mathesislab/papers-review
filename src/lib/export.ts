@@ -277,26 +277,26 @@ const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;
 /** Whether a link may be one in the page: a web or mail address, or a relative one. */
 const safe = (url: string) => (/^[a-z][a-z0-9+.-]*:/i.test(url) ? /^(?:https?|mailto):/i.test(url) : true);
 
-/** Text with the lead a line of a review starts with (`p5, l136:`, `Figure 3:`) in a span of class "lead"; `start`: the text
- *  starts a line. */
-function htmlText(text: string, start: boolean): string {
+/** Text with the lead a line of a review starts with (`p5, l136:`, `Figure 3:`, or one with one of
+ *  `words`) in a span of class "lead"; `start`: the text starts a line. */
+function htmlText(text: string, start: boolean, words: readonly string[]): string {
   return text
     .split("\n")
     .map((line, i) => {
-      const length = i > 0 || start ? leadPrefix(line) : 0;
+      const length = i > 0 || start ? leadPrefix(line, words) : 0;
       return length ? `<span class="lead">${escape(line.slice(0, length))}</span>${escape(line.slice(length))}` : escape(line);
     })
     .join("\n");
 }
 
-function html(list: Inline[], start = false): string {
+function html(list: Inline[], words: readonly string[], start = false): string {
   let out = "";
   // whether the next text starts a line of the review
   let line = start;
   for (const i of list) {
     switch (i.t) {
       case "text":
-        out += htmlText(i.text, line);
+        out += htmlText(i.text, line, words);
         line = i.text.endsWith("\n");
         continue;
       case "code":
@@ -307,35 +307,35 @@ function html(list: Inline[], start = false): string {
         line = true;
         continue;
       case "link":
-        out += safe(i.url) ? `<a href="${escape(i.url)}">${html(i.children)}</a>` : `${html(i.children)} (${escape(i.url)})`;
+        out += safe(i.url) ? `<a href="${escape(i.url)}">${html(i.children, words)}</a>` : `${html(i.children, words)} (${escape(i.url)})`;
         break;
       default:
-        out += `<${i.t}>${html(i.children)}</${i.t}>`;
+        out += `<${i.t}>${html(i.children, words)}</${i.t}>`;
     }
     line = false;
   }
   return out;
 }
 
-function htmlBlocks(list: Block[]): string {
-  return list.map(htmlBlock).join("\n");
+function htmlBlocks(list: Block[], words: readonly string[]): string {
+  return list.map((b) => htmlBlock(b, words)).join("\n");
 }
 
-function htmlBlock(block: Block): string {
+function htmlBlock(block: Block, words: readonly string[]): string {
   switch (block.t) {
     case "heading":
-      return `<h${block.level}>${html(block.children)}</h${block.level}>`;
+      return `<h${block.level}>${html(block.children, words)}</h${block.level}>`;
     case "p":
-      return `<p>${html(block.children, true)}</p>`;
+      return `<p>${html(block.children, words, true)}</p>`;
     case "quote":
-      return `<blockquote>\n${htmlBlocks(block.blocks)}\n</blockquote>`;
+      return `<blockquote>\n${htmlBlocks(block.blocks, words)}\n</blockquote>`;
     case "list": {
       const tag = block.ordered ? "ol" : "ul";
       const start = block.ordered && block.start !== 1 ? ` start="${block.start}"` : "";
       // the first paragraph of an item is its text, without a paragraph of its own
       const items = block.items.map(([first, ...rest]) => {
-        const lead = first?.t === "p" ? html(first.children, true) : first ? `\n${htmlBlock(first)}` : "";
-        return `<li>${lead}${rest.length ? `\n${htmlBlocks(rest)}\n` : ""}</li>`;
+        const lead = first?.t === "p" ? html(first.children, words, true) : first ? `\n${htmlBlock(first, words)}` : "";
+        return `<li>${lead}${rest.length ? `\n${htmlBlocks(rest, words)}\n` : ""}</li>`;
       });
       return `<${tag}${start}>\n${items.join("\n")}\n</${tag}>`;
     }
@@ -349,9 +349,10 @@ function htmlBlock(block: Block): string {
 }
 
 /** The Markdown as HTML (a fragment): headings, paragraphs, emphasis, code, quotes, lists, links, breaks and rules;
- *  all text escaped. The lead a line starts with (a location, a label) is in a span of class "lead". */
-export function toHtml(markdown: string): string {
-  return htmlBlocks(parse(markdown));
+ *  all text escaped. The lead a line starts with (a location, a label, or one with one of `words`) is in a span of class
+ *  "lead". */
+export function toHtml(markdown: string, words: readonly string[] = []): string {
+  return htmlBlocks(parse(markdown), words);
 }
 
 // Names and the page

@@ -151,9 +151,26 @@ const LOCATION =
 // A label: a word, with a number or a name with a number after it if any ("title:", "Figure 3:", "Table S1:").
 const LABEL = /^\p{L}[\p{L}\p{N}_-]*(?: \p{Lu}?\p{N}[\p{L}\p{N}.]*)?:(?= )/u;
 
+/** The longest a lead with one of the user's words is, up to its colon. */
+const WORDED = 40;
+
+/** The user's words as one pattern, each a whole word in any case ("Fig." in "p4, Fig. 1:"); none: null. */
+const patterns = new WeakMap<readonly string[], RegExp | null>();
+function pattern(words: readonly string[]): RegExp | null {
+  if (!patterns.has(words)) {
+    const alts = words.map((w) => w.trim()).filter(Boolean).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    patterns.set(words, alts.length ? new RegExp(`(?<![\\p{L}\\p{N}])(?:${alts.join("|")})(?![\\p{L}\\p{N}])`, "iu") : null);
+  }
+  return patterns.get(words)!;
+}
+
 /** The length of what a line of a review starts with up to its colon and a space, coloured: a location
- *  ("p5, l136–138:"; "p. iii:", "l153:") or a label ("title:", "Figure 3:"); 0 if it starts with neither. */
-export function leadPrefix(line: string): number {
+ *  ("p5, l136–138:"; "p. iii:", "l153:"), a label ("title:", "Figure 3:"), or what comes before the first colon and
+ *  space when one of `words` is in it and it starts with a letter or digit ("p4, Fig. 1, caption:"); 0 if none. */
+export function leadPrefix(line: string, words: readonly string[] = []): number {
   const length = (LOCATION.exec(line) ?? LABEL.exec(line))?.[0].length ?? 0;
-  return length <= 30 ? length : 0;
+  if (length && length <= 30) return length;
+  const colon = line.indexOf(": ") + 1;
+  const found = pattern(words);
+  return found && colon > 0 && colon <= WORDED && /^[\p{L}\p{N}]/u.test(line) && found.test(line.slice(0, colon)) ? colon : 0;
 }

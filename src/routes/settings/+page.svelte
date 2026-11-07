@@ -58,6 +58,13 @@
     if (settings) invoke("set_settings", { settings: $state.snapshot(settings) });
   }
 
+  /** The lead words, as typed: separated by commas. */
+  function setWords(text: string) {
+    if (!settings) return;
+    settings.lead_words = text.split(",").map((w) => w.trim()).filter(Boolean);
+    save();
+  }
+
   function setColour(colour: Colour) {
     if (!settings) return;
     settings.window_colour = colour;
@@ -304,6 +311,19 @@
           <span class="label">Line numbers</span>
           <input type="checkbox" class="switch" bind:checked={settings.line_numbers} onchange={save} />
         </label>
+        <label class="row">
+          <span>
+            <span class="label">Lead words</span>
+            <span class="hint">A line coloured up to its first colon when one of these is in it, as in “p4, Fig. 1, caption:”; separated by commas</span>
+          </span>
+          <input
+            class="text name words"
+            value={settings.lead_words.join(", ")}
+            onchange={(e) => setWords(e.currentTarget.value)}
+            placeholder="Fig., Table"
+            autocomplete="off"
+            spellcheck="false" />
+        </label>
       </section>
     </div>
 
@@ -449,6 +469,9 @@
     font-size: inherit;
     -webkit-user-select: text;
     user-select: text;
+  }
+  .text.words {
+    width: 220px;
   }
   .size {
     display: flex;
