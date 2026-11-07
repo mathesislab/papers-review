@@ -51,24 +51,58 @@ struct OldLayout {
     pages: HashMap<PathBuf, usize>,
 }
 
-/// The side of the viewer the review pane lies on.
+/// Where the review pane lies over the viewer: along one of its sides, or free, where it was dragged.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Side {
+pub enum Dock {
     Bottom,
     Right,
+    Top,
+    Left,
+    Free,
 }
 
-/// The review pane of a project: shown or not, collapsed to its header bar or
-/// not, its side, its height at the bottom and its width on the right (points).
+impl Dock {
+    /// ⌘⇧J: the next place, round them all.
+    pub fn next(self) -> Dock {
+        match self {
+            Dock::Bottom => Dock::Right,
+            Dock::Right => Dock::Top,
+            Dock::Top => Dock::Left,
+            Dock::Left => Dock::Free,
+            Dock::Free => Dock::Bottom,
+        }
+    }
+}
+
+/// A rectangle in points, from the top left of the viewer.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Frame {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+/// The review pane of a project: shown or not, collapsed to its header bar or not, where it lies, and its size in
+/// each place (points). At the top or the bottom it is in the middle, `across` wide; on the left or the right it is
+/// as tall as the viewer. (`side`, `bottom` and `right` in the files of before 0.6.)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PaneLayout {
     pub shown: bool,
     pub collapsed: bool,
-    pub side: Side,
-    pub bottom: f64,
-    pub right: f64,
+    #[serde(alias = "side")]
+    pub dock: Dock,
+    /// at the top or the bottom: its height and its width
+    #[serde(alias = "bottom")]
+    pub height: f64,
+    pub across: f64,
+    /// on the left or the right: its width
+    #[serde(alias = "right")]
+    pub width: f64,
+    /// free: where it lies
+    pub free: Frame,
 }
 
 impl Default for PaneLayout {
@@ -76,9 +110,12 @@ impl Default for PaneLayout {
         PaneLayout {
             shown: false,
             collapsed: false,
-            side: Side::Bottom,
-            bottom: 280.0,
-            right: 420.0,
+            dock: Dock::Bottom,
+            height: 280.0,
+            // the column of text of the editor (46em at its size by default, 13.5 points) and its padding
+            across: 680.0,
+            width: 420.0,
+            free: Frame { x: 40.0, y: 40.0, width: 560.0, height: 360.0 },
         }
     }
 }
@@ -192,6 +229,13 @@ mod tests {
         assert_eq!(saved.pages[Path::new("/a/x.pdf")], 4);
         let text = serde_json::to_string(&saved).unwrap();
         assert!(!text.contains("layouts") && !text.contains("\"open\""));
+    }
+
+    #[test]
+    fn a_pane_of_before_the_docks_keeps_its_side_and_sizes() {
+        let layout: PaneLayout = serde_json::from_str(r#"{"shown":true,"side":"right","bottom":300.0,"right":500.0}"#).unwrap();
+        assert_eq!((layout.dock, layout.height, layout.width), (Dock::Right, 300.0, 500.0));
+        assert_eq!(layout.across, PaneLayout::default().across);
     }
 
     #[test]

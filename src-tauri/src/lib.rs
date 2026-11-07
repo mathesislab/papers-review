@@ -534,10 +534,10 @@ fn pane_hide(app: AppHandle, webview: Webview) {
     pane::hide(&app, webview.window().label());
 }
 
-/// The pane's side button.
+/// The menu of the pane's header: the pane to `dock`.
 #[tauri::command]
-fn pane_side(app: AppHandle, webview: Webview) {
-    pane::switch_side(&app, webview.window().label());
+fn pane_dock(app: AppHandle, webview: Webview, dock: state::Dock) {
+    pane::dock(&app, webview.window().label(), dock);
 }
 
 /// The pane's collapse button: `collapsed` to its header bar, or expanded.
@@ -570,10 +570,10 @@ fn page_covered(app: AppHandle, webview: Webview, covered: bool) {
     pane::set_covered(&app, webview.label(), covered);
 }
 
-/// The pane's edge dragged to `size` (points); `done` when let go.
+/// The pane's header, an edge or a corner dragged by `dx`, `dy` (points) since the drag began; `done` when let go.
 #[tauri::command]
-fn pane_size(app: AppHandle, webview: Webview, size: f64, done: bool) {
-    pane::resize(&app, webview.window().label(), size, done);
+fn pane_drag(app: AppHandle, webview: Webview, grip: pane::Grip, dx: f64, dy: f64, done: bool) {
+    pane::drag(&app, webview.window().label(), grip, dx, dy, done);
 }
 
 /// The review of the project, for its pane.
@@ -795,13 +795,13 @@ pub fn run() {
             set_colour,
             pane_area,
             pane_hide,
-            pane_side,
+            pane_dock,
             pane_collapse,
             pane_release,
             pane_show,
             quote,
             page_covered,
-            pane_size,
+            pane_drag,
             pane_focus,
             pane_placement,
             review,

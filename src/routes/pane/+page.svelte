@@ -1,8 +1,10 @@
 <script lang="ts">
-  // The review pane: a web view of its own over the viewer of a project's window (src-tauri/src/pane.rs), at the
-  // bottom or on the right. Its inner edge, dragged, sets its size; ⌘J shows or hides it, ⌘⇧J moves it. Collapsed
-  // by its arrow, it is its header bar alone: along the bottom, or a strip down the right side with the name written
-  // upright along it.
+  // The review pane: a web view of its own over the viewer of a project's window (src-tauri/src/pane.rs), along a
+  // side of it (in the middle at the top or the bottom, as tall as the viewer on the left or the right) or free. Its
+  // header dragged moves it, free; its edges and corners dragged set its size (at the top or the bottom its sides
+  // widen it on both sides). The menu of its header, or ⌘⇧J, puts it in another place; ⌘J shows or hides it.
+  // Collapsed by its arrow or a click on its header, it is its header bar alone, where it lies, or a strip down the
+  // left or right side with the name written upright along it.
   //
   // The review, a Markdown file of the project, is edited in a FileEditor: written a moment after the typing stops,
   // and as the pane loses the keys; read again when changed elsewhere (an editor, a sync client), the pane asking
@@ -17,7 +19,7 @@
 
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "$lib/events";
-  import { Menu, MenuItem } from "@tauri-apps/api/menu";
+  import { CheckMenuItem, Menu, MenuItem } from "@tauri-apps/api/menu";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { keymap } from "@codemirror/view";
   import { onMount } from "svelte";
@@ -29,15 +31,15 @@
   import { leads } from "$lib/leads";
   import type { ProjectInfo, Settings } from "$lib/types";
 
-  type Side = "bottom" | "right";
+  type Dock = "bottom" | "right" | "top" | "left" | "free";
+  /** what of the pane is dragged: its header (`move`), or an edge or a corner, by the compass */
+  type Grip = "move" | "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
   /** what the review pane shows while the review is empty */
   const PLACEHOLDER = "Your review, in Markdown: ## for its sections, a section a round, say.";
-  type Placed = { side: Side; size: number; collapsed: boolean };
+  type Placed = { dock: Dock; collapsed: boolean };
   type Review = { path: string; name: string; text: string; exists: boolean };
 
-  let side = $state<Side>("bottom");
-  /** its height at the bottom, its width on the right (points) */
-  let size = $state(280);
+  let dock = $state<Dock>("bottom");
   /** only its header bar shown */
   let collapsed = $state(false);
 
@@ -140,31 +142,71 @@
     await (await Menu.new({ items })).popup();
   }
 
-  /** The inner edge dragged: the size follows, in points of the screen (the pane moves as it grows). */
-  function drag(e: PointerEvent) {
-    const edge = e.currentTarget as HTMLElement;
-    edge.setPointerCapture(e.pointerId);
-    const [startX, startY, start] = [e.screenX, e.screenY, size];
-    let frame = 0;
-    const to = (m: PointerEvent) => (side === "bottom" ? start - (m.screenY - startY) : start - (m.screenX - startX));
+  /** The edges and corners of the pane that are dragged, where it lies: those away from the side of the viewer. */
+  const GRIPS: Record<Dock, Grip[]> = {
+    bottom: ["n", "w", "e", "nw", "ne"],
+    top: ["s", "w", "e", "sw", "se"],
+    right: ["w"],
+    left: ["e"],
+    free: ["n", "s", "e", "w", "ne", "nw", "se", "sw"],
+  };
+  /** How far the header is dragged before it moves the pane rather than being a click (points). */
+  const SLOP = 4;
+
+  /** `grip` dragged from `e`: the app follows by how far, in points of the screen (the pane moves under the pointer,
+   *  the screen does not). Let go without having gone `SLOP` (the header only), `onclick` instead. */
+  function drag(grip: Grip, e: PointerEvent, onclick?: () => void) {
+    if (e.button !== 0) return;
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+    const [startX, startY] = [e.screenX, e.screenY];
+    let [moved, frame] = [!onclick, 0];
+    const by = (m: PointerEvent) => ({ grip, dx: m.screenX - startX, dy: m.screenY - startY });
     const move = (m: PointerEvent) => {
+      moved ||= Math.hypot(m.screenX - startX, m.screenY - startY) >= SLOP;
+      if (!moved) return;
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => invoke("pane_size", { size: to(m), done: false }));
+      frame = requestAnimationFrame(() => invoke("pane_drag", { ...by(m), done: false }));
     };
     const up = (m: PointerEvent) => {
       cancelAnimationFrame(frame);
-      invoke("pane_size", { size: to(m), done: true });
-      edge.removeEventListener("pointermove", move);
-      edge.removeEventListener("pointerup", up);
+      target.removeEventListener("pointermove", move);
+      target.removeEventListener("pointerup", up);
+      if (moved) invoke("pane_drag", { ...by(m), done: true });
+      else onclick?.();
     };
-    edge.addEventListener("pointermove", move);
-    edge.addEventListener("pointerup", up);
+    target.addEventListener("pointermove", move);
+    target.addEventListener("pointerup", up);
   }
 
-  /** A click on the header, not on a button or tab: the pane collapsed, or expanded again. */
-  function toggle(e: MouseEvent) {
-    if (!(e.target as Element).closest("button")) invoke("pane_collapse", { collapsed: !collapsed });
+  /** The header pressed, not on a button or tab: dragged, the pane moved (free); clicked, collapsed or expanded. */
+  function pressHeader(e: PointerEvent) {
+    if ((e.target as Element).closest("button")) return;
+    drag("move", e, () => invoke("pane_collapse", { collapsed: !collapsed }));
   }
+
+  const PLACES: [Dock, string][] = [
+    ["bottom", "At the Bottom"],
+    ["right", "On the Right"],
+    ["top", "At the Top"],
+    ["left", "On the Left"],
+    ["free", "Free"],
+  ];
+
+  /** The menu of the place button: where the pane lies, the one it is in checked. */
+  async function placeMenu() {
+    const items = await Promise.all(
+      PLACES.map(([to, text]) => CheckMenuItem.new({ text, checked: to === dock, action: () => void invoke("pane_dock", { dock: to }) })),
+    );
+    await (await Menu.new({ items })).popup();
+  }
+
+  /** The arrow of the collapse button: toward where the pane goes as it collapses (its side), back as it opens. */
+  const COLLAPSES: Record<Dock, string> = { bottom: "down", top: "up", free: "up", right: "right", left: "left" };
+  const OPPOSITE: Record<string, string> = { down: "up", up: "down", right: "left", left: "right" };
+  const arrowWay = $derived(collapsed ? OPPOSITE[COLLAPSES[dock]] : COLLAPSES[dock]);
+  /** collapsed on the left or the right: a strip down that side */
+  const strip = $derived(collapsed && (dock === "left" || dock === "right"));
 
   const text = () => editor?.view()?.state.doc.toString() ?? "";
 
@@ -234,14 +276,13 @@
   onMount(() => {
     // placed before this page listened, maybe
     invoke<Placed | null>("pane_placement").then((placed) => {
-      if (placed) [side, size, collapsed] = [placed.side, placed.size, placed.collapsed];
+      if (placed) [dock, collapsed] = [placed.dock, placed.collapsed];
     });
     loadSettings();
     const unlisteners = [
       listen("settings-changed", loadSettings),
       listen<Placed>("pane-placed", (e) => {
-        side = e.payload.side;
-        size = e.payload.size;
+        dock = e.payload.dock;
         collapsed = e.payload.collapsed;
       }),
       listen("review-changed", () => editor?.changedOnDisk()),
@@ -305,18 +346,20 @@
     title={collapsed ? "Expand (⌘J)" : "Collapse"}
     aria-label={collapsed ? "Expand" : "Collapse"}
   >
-    <svg class={side === "bottom" ? (collapsed ? "up" : "down") : collapsed ? "left" : "right"} width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+    <svg class={arrowWay} width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
       <polyline points="2.5,4.5 6,8 9.5,4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
     </svg>
   </button>
 {/snippet}
 
-<div class="pane {side}" class:collapsed>
+<div class="pane" class:collapsed>
   {#if !collapsed}
-    <div class="edge" onpointerdown={drag} role="separator" aria-orientation={side === "bottom" ? "horizontal" : "vertical"}></div>
+    {#each GRIPS[dock] as grip (grip)}
+      <div class="grip {grip}" onpointerdown={(e) => drag(grip, e)} role="separator" aria-orientation={grip === "n" || grip === "s" ? "horizontal" : "vertical"}></div>
+    {/each}
   {/if}
-  <header class:strip={collapsed && side === "right"} onclick={toggle} role="presentation">
-    {#if collapsed && side === "right"}
+  <header class:strip onpointerdown={pressHeader} role="presentation">
+    {#if strip}
       {@render arrow()}
       <span class="name" title={path}>{name || "Review"}</span>
     {:else}
@@ -353,8 +396,11 @@
           <path d="M7 1.5v6.5M4.5 5.5 7 8l2.5-2.5M2 8.5v3a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
       </button>
-      <button onclick={() => invoke("pane_side")} title={side === "bottom" ? "To the Right (⌘⇧J)" : "To the Bottom (⌘⇧J)"}>
-        {side === "bottom" ? "⇥" : "⤓"}
+      <button class="place" onclick={placeMenu} title="Move (⌘⇧J)" aria-label="Move">
+        <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+          <rect x="1.5" y="2" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3" />
+          <rect x="4" y="7.5" width="6" height="2.5" rx="0.5" fill="currentColor" />
+        </svg>
       </button>
       <button onclick={() => invoke("pane_hide")} title="Hide (⌘J)">✕</button>
       {@render arrow()}
@@ -395,23 +441,60 @@
     overflow: hidden;
     box-sizing: border-box;
   }
-  .edge {
+  /* the edges, 6px in, and the corners, 12px square, over them */
+  .grip {
     position: absolute;
     z-index: 2;
   }
-  .bottom .edge {
-    top: 0;
+  .n,
+  .s {
     left: 0;
     right: 0;
     height: 6px;
     cursor: row-resize;
   }
-  .right .edge {
+  .e,
+  .w {
     top: 0;
     bottom: 0;
-    left: 0;
     width: 6px;
     cursor: col-resize;
+  }
+  .ne,
+  .nw,
+  .se,
+  .sw {
+    width: 12px;
+    height: 12px;
+    z-index: 3;
+  }
+  .n,
+  .ne,
+  .nw {
+    top: 0;
+  }
+  .s,
+  .se,
+  .sw {
+    bottom: 0;
+  }
+  .w,
+  .nw,
+  .sw {
+    left: 0;
+  }
+  .e,
+  .ne,
+  .se {
+    right: 0;
+  }
+  .nw,
+  .se {
+    cursor: nwse-resize;
+  }
+  .ne,
+  .sw {
+    cursor: nesw-resize;
   }
   header {
     flex: none;
@@ -494,7 +577,8 @@
   button:disabled:hover {
     background: none;
   }
-  .export {
+  .export,
+  .place {
     display: flex;
     padding: 4px 6px;
   }

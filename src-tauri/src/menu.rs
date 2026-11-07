@@ -120,7 +120,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         &[
             &item("files", "Show or Hide Files", Some("Alt+CmdOrCtrl+S"))?,
             &item("review", "Show or Hide Review", Some("CmdOrCtrl+J"))?,
-            &item("review-side", "Review at the Bottom or Right", Some("Shift+CmdOrCtrl+J"))?,
+            &item("review-side", "Move Review", Some("Shift+CmdOrCtrl+J"))?,
             &separator()?,
             &item("zoom-in", "Zoom In", Some("CmdOrCtrl+="))?,
             &item("zoom-out", "Zoom Out", Some("CmdOrCtrl+-"))?,
@@ -200,7 +200,7 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
                 if id == "review" {
                     pane::toggle(app, window.label());
                 } else {
-                    pane::switch_side(app, window.label());
+                    pane::next_dock(app, window.label());
                 }
             }
         }

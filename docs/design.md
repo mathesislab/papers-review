@@ -136,13 +136,19 @@ closed by hand does not, its projects keep their tabs for the next time.
   tools bar's page field). `⌘[` and `⌘]` are indent less and more in an
   editor with the keys (the review pane, a file edited in its tab), as in
   CodeMirror.
-- **Review pane** (`⌘J`): a Markdown editor over the viewer, at the bottom
-  or on the right (`⌘⇧J`), its inner edge dragged for its size; its side,
-  sizes and whether shown kept per project (the app's `state.json`). `⌘J`
+- **Review pane** (`⌘J`): a Markdown editor over the viewer, along a side of
+  it or free. At the top or the bottom it is in the middle, as wide as the
+  column of text by default; on the left or the right, as tall as the viewer.
+  Its header dragged moves it, free, anywhere over the viewer; its edges and
+  corners (those away from its side) dragged set its size, a side at the top
+  or the bottom widening it on both sides. The place button of its header
+  chooses the place; `⌘⇧J` goes round them (bottom, right, top, left, free).
+  Its place, its size in each and whether shown are kept per project (the
+  app's `state.json`). `⌘J`
   hides it when it is open, wherever the keys are (they go back to the PDF),
   else shows it with them. Hidden, nothing remains. A click on its header (not on a
-  button or tab), or its arrow, collapses it to that header (a strip on the
-  right), the keys back to the PDF, and brings it back; `⌘J` expands it too. A window has one pane, of
+  button or tab), or its arrow, collapses it to that header, where it lies (a strip on the
+  left or the right), the keys back to the PDF, and brings it back; `⌘J` expands it too. A window has one pane, of
   the project it shows, placed by the tab in front.
 - **The review**: any Markdown file of the project (`review` in
   `review.toml`, `review.md` without; Edit in Review Pane on a Markdown

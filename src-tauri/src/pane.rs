@@ -1,8 +1,9 @@
-//! The review pane: a web view of its own in a project's window, of the project the window shows, over the viewer,
-//! at the bottom or on the right; above the pages (the tabs), and so above the PDF view that lies in a page. The
-//! page in front tells where the viewer is (`pane_area`); the pane's side, size and whether it is shown are kept per
-//! project (state.json). Collapsed, it is no more than its header bar (`HEADER`), along the bottom of the viewer or
-//! down its right side.
+//! The review pane: a web view of its own in a project's window, of the project the window shows, over the viewer;
+//! above the pages (the tabs), and so above the PDF view that lies in a page. It lies along a side of the viewer (in
+//! the middle at the top or the bottom, as tall as the viewer on the left or the right) or free, where its header was
+//! dragged ([`Dock`]); its edges dragged set its size. The page in front tells where the viewer is (`pane_area`); the
+//! pane's place, its size in each place and whether it is shown are kept per project (state.json). Collapsed, it is
+//! no more than its header bar (`HEADER`), where it lies, or a strip down the left or right side.
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -10,7 +11,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, EventTarget, LogicalPosition, LogicalSize, Manager, Rect, WebviewBuilder, WebviewUrl, Window};
 
-use crate::state::{PaneLayout, Side};
+use crate::state::{Dock, Frame, PaneLayout};
 use crate::{AppState, windows};
 
 /// The pane of a window, by the window's label.
@@ -49,13 +50,45 @@ pub struct Panes {
     pub placed: HashMap<String, Placed>,
     /// the pages that show a card, which the pane would cover
     pub covered: HashSet<String>,
+    /// the pane of each window being dragged: where it was as the drag began
+    pub drags: HashMap<String, Bounds>,
+}
+
+/// Where the pane lies: x, y, width and height, in points from the top left of the page.
+pub type Bounds = (f64, f64, f64, f64);
+
+/// What of the pane is dragged: its header (the pane moved), or an edge or a corner (by the compass).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Grip {
+    Move,
+    N,
+    S,
+    E,
+    W,
+    Ne,
+    Nw,
+    Se,
+    Sw,
+}
+
+impl Grip {
+    /// The edges it moves: top, bottom, left, right.
+    fn edges(self) -> (bool, bool, bool, bool) {
+        use Grip::*;
+        (
+            matches!(self, N | Ne | Nw),
+            matches!(self, S | Se | Sw),
+            matches!(self, W | Nw | Sw),
+            matches!(self, E | Ne | Se),
+        )
+    }
 }
 
 /// What the pane's page learns of where it is, to draw its edge.
 #[derive(Debug, Clone, Serialize)]
 pub struct Placed {
-    side: Side,
-    size: f64,
+    dock: Dock,
     collapsed: bool,
 }
 
@@ -79,21 +112,78 @@ fn keep(app: &AppHandle, root: PathBuf, layout: PaneLayout) {
     state.save();
 }
 
-/// The pane's bounds in the viewer, its size kept within it; collapsed, the
-/// header bar alone at the same place.
-fn bounds(area: Area, layout: &PaneLayout) -> (f64, f64, f64, f64) {
-    match layout.side {
-        Side::Bottom => {
-            let room = (area.height - 2.0 * MARGIN - LEFT).max(SMALLEST);
-            let height = if layout.collapsed { HEADER } else { layout.bottom.clamp(SMALLEST, room) };
-            let y = area.y + area.height - MARGIN - height;
-            (area.x + MARGIN, y, (area.width - 2.0 * MARGIN).max(0.0), height)
+/// The pane's bounds in the viewer, its size kept within it, `MARGIN` from its edges; collapsed, the header bar alone
+/// at the same place (a strip on the left or the right).
+fn bounds(area: Area, layout: &PaneLayout) -> Bounds {
+    let (x, y) = (area.x + MARGIN, area.y + MARGIN);
+    let (width, height) = ((area.width - 2.0 * MARGIN).max(0.0), (area.height - 2.0 * MARGIN).max(0.0));
+    // along a side, it leaves `LEFT` of the viewer
+    let tall = |want: f64| want.clamp(SMALLEST, (height - LEFT).max(SMALLEST));
+    let wide = |want: f64| want.clamp(SMALLEST, (width - LEFT).max(SMALLEST));
+    let collapsed = |size: f64| if layout.collapsed { HEADER } else { size };
+    match layout.dock {
+        Dock::Bottom | Dock::Top => {
+            let h = collapsed(tall(layout.height));
+            let w = layout.across.max(SMALLEST).min(width);
+            let top = if layout.dock == Dock::Top { y } else { y + height - h };
+            (x + (width - w) / 2.0, top, w, h)
         }
-        Side::Right => {
-            let room = (area.width - 2.0 * MARGIN - LEFT).max(SMALLEST);
-            let width = if layout.collapsed { HEADER } else { layout.right.clamp(SMALLEST, room) };
-            let x = area.x + area.width - MARGIN - width;
-            (x, area.y + MARGIN, width, (area.height - 2.0 * MARGIN).max(0.0))
+        Dock::Right | Dock::Left => {
+            let w = collapsed(wide(layout.width));
+            let left = if layout.dock == Dock::Left { x } else { x + width - w };
+            (left, y, w, height)
+        }
+        Dock::Free => {
+            let free = layout.free;
+            let w = free.width.max(SMALLEST).min(width);
+            let h = collapsed(free.height.max(SMALLEST).min(height));
+            let left = (area.x + free.x).min(x + width - w).max(x);
+            let top = (area.y + free.y).min(y + height - h).max(y);
+            (left, top, w, h)
+        }
+    }
+}
+
+/// Where the pane lies, at its size when expanded: a collapsed pane dragged free keeps its size for when it opens.
+fn expanded_at(area: Area, layout: &PaneLayout) -> Bounds {
+    let (x, y, ..) = bounds(area, layout);
+    let (_, _, width, height) = bounds(area, &PaneLayout { collapsed: false, ..layout.clone() });
+    (x, y, width, height)
+}
+
+/// The pane's layout as dragged from `start` (where it was as the drag began, at its size when expanded) by `dx`,
+/// `dy` (points). The header moves it, free; at the top or the bottom its sides widen it on both sides, to stay in
+/// the middle.
+fn dragged(layout: &mut PaneLayout, area: Area, start: Bounds, grip: Grip, dx: f64, dy: f64) {
+    let (x, y, w, h) = start;
+    let (top, bottom, left, right) = grip.edges();
+    let free = |x: f64, y: f64, width: f64, height: f64| Frame { x: x - area.x, y: y - area.y, width, height };
+    match layout.dock {
+        _ if grip == Grip::Move => {
+            layout.dock = Dock::Free;
+            layout.free = free(x + dx, y + dy, w, h);
+        }
+        Dock::Bottom | Dock::Top => {
+            if left || right {
+                layout.across = w + 2.0 * if left { -dx } else { dx };
+            }
+            if top && layout.dock == Dock::Bottom {
+                layout.height = h - dy;
+            }
+            if bottom && layout.dock == Dock::Top {
+                layout.height = h + dy;
+            }
+        }
+        Dock::Right if left => layout.width = w - dx,
+        Dock::Left if right => layout.width = w + dx,
+        Dock::Right | Dock::Left => {}
+        Dock::Free => {
+            let width = (if left { w - dx } else if right { w + dx } else { w }).max(SMALLEST);
+            let height = (if top { h - dy } else if bottom { h + dy } else { h }).max(SMALLEST);
+            // the edge across from the one dragged stays
+            let x = if left { x + w - width } else { x };
+            let y = if top { y + h - height } else { y };
+            layout.free = free(x, y, width, height);
         }
     }
 }
@@ -125,11 +215,7 @@ pub fn place(app: &AppHandle, window: &str) {
         size: LogicalSize::new(width, height).into(),
     });
     let _ = pane.show();
-    let size = match layout.side {
-        Side::Bottom => height,
-        Side::Right => width,
-    };
-    let placed = Placed { side: layout.side, size, collapsed: layout.collapsed };
+    let placed = Placed { dock: layout.dock, collapsed: layout.collapsed };
     state.panes.lock().unwrap().placed.insert(window.to_string(), placed.clone());
     let _ = app.emit_to(EventTarget::webview(label(window)), "pane-placed", placed);
 }
@@ -302,32 +388,52 @@ pub fn collapse(app: &AppHandle, window: &str, collapsed: bool) {
     }
 }
 
-/// ⌘⇧J: the pane to the other side.
-pub fn switch_side(app: &AppHandle, window: &str) {
+/// ⌘⇧J: the pane to its next place.
+pub fn next_dock(app: &AppHandle, window: &str) {
+    if let Some((_, layout)) = layout_of(app, window) {
+        dock(app, window, layout.dock.next());
+    }
+}
+
+/// The pane to `dock` (the menu of its header).
+pub fn dock(app: &AppHandle, window: &str, dock: Dock) {
     let Some((root, mut layout)) = layout_of(app, window) else {
         return;
     };
-    layout.side = match layout.side {
-        Side::Bottom => Side::Right,
-        Side::Right => Side::Bottom,
-    };
+    layout.dock = dock;
     keep(app, root, layout);
     place(app, window);
 }
 
-/// The pane's edge dragged: its size (points); `done` when let go, kept then.
-pub fn resize(app: &AppHandle, window: &str, size: f64, done: bool) {
+/// The pane's header, an edge or a corner dragged by `dx`, `dy` (points) since the drag began; `done` when let go,
+/// kept then.
+pub fn drag(app: &AppHandle, window: &str, grip: Grip, dx: f64, dy: f64, done: bool) {
     let Some((root, mut layout)) = layout_of(app, window) else {
         return;
     };
-    match layout.side {
-        Side::Bottom => layout.bottom = size,
-        Side::Right => layout.right = size,
-    }
+    let state = app.state::<AppState>();
+    let start = {
+        let mut panes = state.panes.lock().unwrap();
+        let Some(area) = panes.areas.get(window).copied() else {
+            return;
+        };
+        let start = *panes.drags.entry(window.to_string()).or_insert_with(|| expanded_at(area, &layout));
+        if done {
+            panes.drags.remove(window);
+        }
+        (area, start)
+    };
+    let (area, start) = start;
+    dragged(&mut layout, area, start, grip, dx, dy);
     if done {
+        // free, it is kept where it lies, within the viewer, not where it was dropped beyond it
+        if layout.dock == Dock::Free {
+            let (x, y, width, height) = expanded_at(area, &layout);
+            layout.free = Frame { x: x - area.x, y: y - area.y, width, height };
+        }
         keep(app, root, layout);
     } else {
-        app.state::<AppState>().saved.lock().unwrap().panes.insert(root, layout);
+        state.saved.lock().unwrap().panes.insert(root, layout);
     }
     place(app, window);
 }
@@ -359,6 +465,7 @@ pub fn closed(app: &AppHandle, window: &str) {
     panes.areas.remove(window);
     panes.focused.remove(window);
     panes.placed.remove(window);
+    panes.drags.remove(window);
 }
 
 #[cfg(test)]
@@ -373,39 +480,83 @@ mod tests {
         viewport: 800.0,
     };
 
-    #[test]
-    fn the_pane_lies_at_the_bottom_or_the_right_of_the_viewer() {
-        let mut layout = PaneLayout {
-            bottom: 280.0,
-            right: 400.0,
+    fn layout(dock: Dock) -> PaneLayout {
+        PaneLayout {
+            dock,
+            height: 280.0,
+            across: 600.0,
+            width: 400.0,
+            free: Frame { x: 100.0, y: 50.0, width: 500.0, height: 300.0 },
             ..PaneLayout::default()
-        };
-        assert_eq!(bounds(AREA, &layout), (248.0, 30.0 + 770.0 - 8.0 - 280.0, 944.0, 280.0));
-        layout.side = Side::Right;
-        assert_eq!(bounds(AREA, &layout), (240.0 + 960.0 - 8.0 - 400.0, 38.0, 400.0, 754.0));
+        }
     }
 
     #[test]
-    fn collapsed_it_is_its_header_at_the_bottom_or_the_right_of_the_viewer() {
-        let mut layout = PaneLayout {
-            collapsed: true,
-            bottom: 280.0,
-            right: 400.0,
-            ..PaneLayout::default()
-        };
-        assert_eq!(bounds(AREA, &layout), (248.0, 30.0 + 770.0 - 8.0 - HEADER, 944.0, HEADER));
-        layout.side = Side::Right;
-        assert_eq!(bounds(AREA, &layout), (240.0 + 960.0 - 8.0 - HEADER, 38.0, HEADER, 754.0));
+    fn at_the_top_or_the_bottom_it_is_in_the_middle_on_the_left_or_the_right_as_tall_as_the_viewer() {
+        let middle = 240.0 + (960.0 - 600.0) / 2.0;
+        assert_eq!(bounds(AREA, &layout(Dock::Bottom)), (middle, 30.0 + 770.0 - 8.0 - 280.0, 600.0, 280.0));
+        assert_eq!(bounds(AREA, &layout(Dock::Top)), (middle, 38.0, 600.0, 280.0));
+        assert_eq!(bounds(AREA, &layout(Dock::Right)), (240.0 + 960.0 - 8.0 - 400.0, 38.0, 400.0, 754.0));
+        assert_eq!(bounds(AREA, &layout(Dock::Left)), (248.0, 38.0, 400.0, 754.0));
+    }
+
+    #[test]
+    fn free_it_is_where_it_was_put_kept_within_the_viewer() {
+        assert_eq!(bounds(AREA, &layout(Dock::Free)), (340.0, 80.0, 500.0, 300.0));
+        let mut away = layout(Dock::Free);
+        away.free.x = 5000.0;
+        away.free.y = -100.0;
+        assert_eq!(bounds(AREA, &away), (240.0 + 960.0 - 8.0 - 500.0, 38.0, 500.0, 300.0));
+    }
+
+    #[test]
+    fn collapsed_it_is_its_header_where_it_lies() {
+        let collapsed = |dock| bounds(AREA, &PaneLayout { collapsed: true, ..layout(dock) });
+        assert_eq!(collapsed(Dock::Bottom), (420.0, 30.0 + 770.0 - 8.0 - HEADER, 600.0, HEADER));
+        assert_eq!(collapsed(Dock::Top), (420.0, 38.0, 600.0, HEADER));
+        assert_eq!(collapsed(Dock::Right), (240.0 + 960.0 - 8.0 - HEADER, 38.0, HEADER, 754.0));
+        assert_eq!(collapsed(Dock::Left), (248.0, 38.0, HEADER, 754.0));
+        assert_eq!(collapsed(Dock::Free), (340.0, 80.0, 500.0, HEADER));
     }
 
     #[test]
     fn its_size_stays_within_the_viewer() {
-        let mut layout = PaneLayout {
-            bottom: 5000.0,
-            ..PaneLayout::default()
-        };
-        assert_eq!(bounds(AREA, &layout).3, 770.0 - 16.0 - LEFT);
-        layout.bottom = 10.0;
-        assert_eq!(bounds(AREA, &layout).3, SMALLEST);
+        let mut big = layout(Dock::Bottom);
+        big.height = 5000.0;
+        big.across = 5000.0;
+        let (_, _, width, height) = bounds(AREA, &big);
+        assert_eq!((width, height), (944.0, 770.0 - 16.0 - LEFT));
+        big.height = 10.0;
+        assert_eq!(bounds(AREA, &big).3, SMALLEST);
+    }
+
+    #[test]
+    fn its_header_dragged_frees_it_where_it_was_dropped() {
+        let mut pane = layout(Dock::Bottom);
+        let start = bounds(AREA, &pane);
+        dragged(&mut pane, AREA, start, Grip::Move, -50.0, -200.0);
+        assert_eq!(pane.dock, Dock::Free);
+        assert_eq!(bounds(AREA, &pane), (start.0 - 50.0, start.1 - 200.0, 600.0, 280.0));
+    }
+
+    #[test]
+    fn a_side_dragged_at_the_bottom_widens_it_on_both_sides() {
+        let mut pane = layout(Dock::Bottom);
+        let start = bounds(AREA, &pane);
+        dragged(&mut pane, AREA, start, Grip::E, 30.0, 0.0);
+        assert_eq!(bounds(AREA, &pane).0 + bounds(AREA, &pane).2, start.0 + start.2 + 30.0);
+        dragged(&mut pane, AREA, start, Grip::Nw, 30.0, -40.0);
+        assert_eq!((pane.across, pane.height), (540.0, 320.0));
+    }
+
+    #[test]
+    fn free_an_edge_dragged_leaves_the_edge_across_from_it() {
+        let mut pane = layout(Dock::Free);
+        let start = bounds(AREA, &pane);
+        dragged(&mut pane, AREA, start, Grip::Nw, 20.0, 30.0);
+        assert_eq!(bounds(AREA, &pane), (360.0, 110.0, 480.0, 270.0));
+        dragged(&mut pane, AREA, start, Grip::W, 1000.0, 0.0);
+        let (x, _, width, _) = bounds(AREA, &pane);
+        assert_eq!((x + width, width), (840.0, SMALLEST));
     }
 }
