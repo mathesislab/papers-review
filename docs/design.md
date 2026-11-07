@@ -186,7 +186,9 @@ NSVisualEffectView under it.
   (CodeMirror's own speed goes with the distance past the edge, which the
   pane at the foot of the screen hardly leaves).
 - A line that starts with a location (`p5, l136–138:`, `p5–6:`, `l153:`,
-  `p. iii:`) has it coloured, as the headings are.
+  `p. iii:`) or a label (`title:`, `Abstract:`, `Figure 3:`, `Table S1:`: a
+  word, a number after it if any, then a colon and a space) has it coloured,
+  as the headings are; in the export too.
 - `⌘Y` quotes the selection of the PDF at the cursor, as a paragraph of its
   own, with its page (the printed label, else the number) and its lines
   where the manuscript has line numbers: `p5, l136: "…"`,

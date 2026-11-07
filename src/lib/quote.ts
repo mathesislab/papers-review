@@ -105,9 +105,12 @@ function withoutNumber(text: string, n: number | null): string {
 const LOCATION =
   /^(?:p\.? ?[\divxlc]+(?:[–-][\divxlc]+)?(?:, ?l\.? ?\d+(?:[–-]\d+)?)?|l\.? ?\d+(?:[–-]\d+)?)(?: – p\.? ?[\divxlc]+, ?l\.? ?\d+)?:(?= )/i;
 
-/** The length of the location a line of a review starts with, up to its colon ("p5, l136–138:"; "p. iii:", "l153:"),
- *  or 0 if it does not start with one. */
-export function locationPrefix(line: string): number {
-  const length = LOCATION.exec(line)?.[0].length ?? 0;
+// A label: a word, with a number or a name with a number after it if any ("title:", "Figure 3:", "Table S1:").
+const LABEL = /^\p{L}[\p{L}\p{N}_-]*(?: \p{Lu}?\p{N}[\p{L}\p{N}.]*)?:(?= )/u;
+
+/** The length of what a line of a review starts with up to its colon and a space, coloured: a location
+ *  ("p5, l136–138:"; "p. iii:", "l153:") or a label ("title:", "Figure 3:"); 0 if it starts with neither. */
+export function leadPrefix(line: string): number {
+  const length = (LOCATION.exec(line) ?? LABEL.exec(line))?.[0].length ?? 0;
   return length <= 30 ? length : 0;
 }

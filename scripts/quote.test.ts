@@ -2,7 +2,7 @@
 
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { lineNumber, location, locationPrefix, quote, quoteText, type Line, type Selection } from "../src/lib/quote.ts";
+import { leadPrefix, lineNumber, location, quote, quoteText, type Line, type Selection } from "../src/lib/quote.ts";
 
 // A line of text at x 100–300, with the numbers given printed in the margin at the given centres.
 function line(page: number, text: string, margin: [string, number][] = [], label = ""): Line {
@@ -120,20 +120,32 @@ test("the quote", () => {
 });
 
 test("the location a line of a review starts with, up to its colon", () => {
-  assert.equal(locationPrefix('p5, l136–138: "the ice"'), "p5, l136–138:".length);
-  assert.equal(locationPrefix('p5–6: "the ice"'), "p5–6:".length);
-  assert.equal(locationPrefix("l153: the ice"), "l153:".length);
-  assert.equal(locationPrefix('p. iii: "the ice"'), "p. iii:".length);
-  assert.equal(locationPrefix('p5, l38 – p6, l4: "the ice"'), "p5, l38 – p6, l4:".length);
-  assert.equal(locationPrefix("P5, L3: x"), "P5, L3:".length);
+  assert.equal(leadPrefix('p5, l136–138: "the ice"'), "p5, l136–138:".length);
+  assert.equal(leadPrefix('p5–6: "the ice"'), "p5–6:".length);
+  assert.equal(leadPrefix("l153: the ice"), "l153:".length);
+  assert.equal(leadPrefix('p. iii: "the ice"'), "p. iii:".length);
+  assert.equal(leadPrefix('p5, l38 – p6, l4: "the ice"'), "p5, l38 – p6, l4:".length);
+  assert.equal(leadPrefix("P5, L3: x"), "P5, L3:".length);
 });
 
-test("other lines have no location", () => {
-  assert.equal(locationPrefix("people: x"), 0);
-  assert.equal(locationPrefix("p5 is fine"), 0);
-  assert.equal(locationPrefix("lorem: x"), 0);
-  assert.equal(locationPrefix("p5:x"), 0);
-  assert.equal(locationPrefix('see p5: "x"'), 0);
-  assert.equal(locationPrefix(' p5: "x"'), 0);
-  assert.equal(locationPrefix("**p. 5, l. 136:** x"), 0);
+test("a label a line starts with, up to its colon: a word, with a number after it if any", () => {
+  assert.equal(leadPrefix("title: Ice sheets"), "title:".length);
+  assert.equal(leadPrefix("Abstract: the second sentence"), "Abstract:".length);
+  assert.equal(leadPrefix("Figure 3: the colours"), "Figure 3:".length);
+  assert.equal(leadPrefix("Table S1: units"), "Table S1:".length);
+  assert.equal(leadPrefix("Section 2.1: the method"), "Section 2.1:".length);
+  assert.equal(leadPrefix("Méthodes: x"), "Méthodes:".length);
+});
+
+test("other lines have no lead", () => {
+  assert.equal(leadPrefix("p5 is fine"), 0);
+  assert.equal(leadPrefix("p5:x"), 0);
+  assert.equal(leadPrefix("title:x"), 0);
+  assert.equal(leadPrefix("The main point: x"), 0);
+  assert.equal(leadPrefix("see p5: x"), 0);
+  assert.equal(leadPrefix(' p5: "x"'), 0);
+  assert.equal(leadPrefix(" title: x"), 0);
+  assert.equal(leadPrefix("**p. 5, l. 136:** x"), 0);
+  assert.equal(leadPrefix("**Title:** x"), 0);
+  assert.equal(leadPrefix("https://example.org x"), 0);
 });

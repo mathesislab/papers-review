@@ -79,10 +79,10 @@ test("html: quotes, rules, breaks", () => {
 });
 
 test("html: the location a line starts with in a span", () => {
-  assert.equal(toHtml('p5, l136: "text"'), '<p><span class="loc">p5, l136:</span> &quot;text&quot;</p>');
-  assert.equal(toHtml("first\np. iii: second"), '<p>first\n<span class="loc">p. iii:</span> second</p>');
+  assert.equal(toHtml('p5, l136: "text"'), '<p><span class="lead">p5, l136:</span> &quot;text&quot;</p>');
+  assert.equal(toHtml("first\np. iii: second"), '<p>first\n<span class="lead">p. iii:</span> second</p>');
   assert.equal(toHtml("see p5, l136: here"), "<p>see p5, l136: here</p>");
-  assert.equal(toHtml("- l153: in a list"), '<ul>\n<li><span class="loc">l153:</span> in a list</li>\n</ul>');
+  assert.equal(toHtml("- l153: in a list"), '<ul>\n<li><span class="lead">l153:</span> in a list</li>\n</ul>');
 });
 
 test("section: the text of a round, or all", () => {

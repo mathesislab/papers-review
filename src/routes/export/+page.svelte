@@ -80,8 +80,8 @@
   :global(.page .review p) {
     margin: 0 0 0.75em;
   }
-  /* the location a line of the review starts with */
-  :global(.page .loc) {
+  /* what a line of the review starts with: a location, a label */
+  :global(.page .lead) {
     color: #777;
   }
   :global(.page .review blockquote) {
@@ -90,8 +90,8 @@
     border-left: 2pt solid #ccc;
     color: #333;
   }
-  /* a quote (a paragraph with its location) is not split between two pages, if it fits on one */
-  :global(.page .review p:has(.loc), .page .review blockquote) {
+  /* a quote or a labelled paragraph (one with a lead) is not split between two pages, if it fits on one */
+  :global(.page .review p:has(.lead), .page .review blockquote) {
     break-inside: avoid-page;
     page-break-inside: avoid;
   }

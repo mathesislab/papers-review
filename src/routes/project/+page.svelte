@@ -25,7 +25,7 @@
   import { daysLeft, formatDate, shortDate, urgency } from "$lib/due";
   import { FileEditor, PREFS, prefsFrom, setEditorFont, wordCount, wordsOf, type Status } from "papers-write/editor";
   import EditorButtons from "$lib/EditorButtons.svelte";
-  import { locations } from "$lib/locations";
+  import { leads } from "$lib/leads";
   import Files from "$lib/Files.svelte";
   import InfoCard from "$lib/InfoCard.svelte";
   import NewProjectCard from "$lib/NewProjectCard.svelte";
@@ -725,7 +725,7 @@
                   save={write}
                   mono={edited.kind !== "markdown" && edited.kind !== "latex"}
                   latex={edited.kind === "latex"}
-                  extensions={edited.kind === "markdown" ? locations : []}
+                  extensions={edited.kind === "markdown" ? leads : []}
                   symbols={settings?.symbols}
                   {prefs}
                   onchange={(text) => (words = wordsOf(text))}

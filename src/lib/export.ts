@@ -3,7 +3,7 @@
 // Markdown (the editor's own parser), so they read the same.
 
 import { markdownLanguage } from "@codemirror/lang-markdown";
-import { locationPrefix } from "./quote.ts";
+import { leadPrefix } from "./quote.ts";
 
 type Node = ReturnType<typeof markdownLanguage.parser.parse>["topNode"];
 
@@ -277,14 +277,14 @@ const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;
 /** Whether a link may be one in the page: a web or mail address, or a relative one. */
 const safe = (url: string) => (/^[a-z][a-z0-9+.-]*:/i.test(url) ? /^(?:https?|mailto):/i.test(url) : true);
 
-/** Text with the location a line of a review starts with (`p5, l136:`) in a span of class "loc"; `start`: the text
+/** Text with the lead a line of a review starts with (`p5, l136:`, `Figure 3:`) in a span of class "lead"; `start`: the text
  *  starts a line. */
 function htmlText(text: string, start: boolean): string {
   return text
     .split("\n")
     .map((line, i) => {
-      const length = i > 0 || start ? locationPrefix(line) : 0;
-      return length ? `<span class="loc">${escape(line.slice(0, length))}</span>${escape(line.slice(length))}` : escape(line);
+      const length = i > 0 || start ? leadPrefix(line) : 0;
+      return length ? `<span class="lead">${escape(line.slice(0, length))}</span>${escape(line.slice(length))}` : escape(line);
     })
     .join("\n");
 }
@@ -349,7 +349,7 @@ function htmlBlock(block: Block): string {
 }
 
 /** The Markdown as HTML (a fragment): headings, paragraphs, emphasis, code, quotes, lists, links, breaks and rules;
- *  all text escaped. The location a line starts with is in a span of class "loc". */
+ *  all text escaped. The lead a line starts with (a location, a label) is in a span of class "lead". */
 export function toHtml(markdown: string): string {
   return htmlBlocks(parse(markdown));
 }

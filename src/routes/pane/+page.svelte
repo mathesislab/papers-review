@@ -26,7 +26,7 @@
   import EditorButtons from "$lib/EditorButtons.svelte";
   import { formatDate } from "$lib/due";
   import { exportName, pdfDocument, section, textDocument, toHtml, toPlainText, type Frame } from "$lib/export";
-  import { locations } from "$lib/locations";
+  import { leads } from "$lib/leads";
   import type { ProjectInfo, Settings } from "$lib/types";
 
   type Side = "bottom" | "right";
@@ -181,7 +181,7 @@
 
   /** Escape: the keys back to the PDF, the pane left as it is. */
   const release = keymap.of([{ key: "Escape", run: () => (invoke("pane_release"), true) }]);
-  const more = [release, ...locations];
+  const more = [release, ...leads];
 
   /** The references listed, closest to the text of a reference selected in the PDF if there is one. Asked again
    *  without a text, the list that is open stays as it is. */
