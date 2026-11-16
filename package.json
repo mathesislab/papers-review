@@ -23,7 +23,7 @@
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.8.3",
     "@tauri-apps/plugin-opener": "^2",
-    "papers-write": "github:mathesislab/papers-write#v0.5.0",
+    "papers-write": "github:mathesislab/papers-write#v0.5.3",
     "tauri-plugin-pdfkit-api": "github:mathesislab/tauri-plugin-pdfkit#v0.5.0"
   },
   "devDependencies": {
