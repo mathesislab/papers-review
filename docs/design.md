@@ -196,8 +196,10 @@ NSVisualEffectView under it.
   `p. iii:`) or a label (`title:`, `Abstract:`, `Figure 3:`, `Table S1:`: a
   word, a number after it if any, then a colon and a space) has it coloured,
   as the headings are; in the export too.
-- `⌘Y` quotes the selection of the PDF at the cursor, as a paragraph of its
-  own, with its page (the printed label, else the number) and its lines
+- `⌘Y` quotes the selection of the PDF as a paragraph of its own, never on a
+  line with text (a heading, a comment being written): on the cursor's line
+  when it is empty, else on the next empty line below it, else after the end,
+  a blank line kept above and below (`insertQuote` of papers-write/editor). With its page (the printed label, else the number) and its lines
   where the manuscript has line numbers: `p5, l136: "…"`,
   `p5, l136–138: "…"`, `p5–6, l210–228: "…"`. The pane
   shows with the keys, to write what the quote is about; `Esc` gives them
