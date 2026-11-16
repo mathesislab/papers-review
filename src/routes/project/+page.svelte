@@ -2,7 +2,8 @@
   // A tab of a project's window (papers-tabs: a page per tab, the others hidden but alive): the colour bar of the
   // settings (right-click: its colour), the project bar at the left when the setting is on (a tile per project to
   // switch to; right-click: open in a new window, remove), the files (⌘⌥S hides them; shown or not and their width the
-  // same in all the project's tabs, ProjectSidebar), the tabs of the project (Tabs), and the file of this tab: a PDF in
+  // same in all the project's tabs, ProjectSidebar), the tabs of the project (Tabs) with the review pane's button at
+  // their right (⌘J; on while the pane is shown and expanded), and the file of this tab: a PDF in
   // PDFKit, with its outline, page, zoom and find; a Markdown, text or BibTeX file edited in place (FileEditor); or
   // none, the project's files alone. A file chosen opens in its tab, or this one when it shows none. The commands of
   // the menu bar come as `menu` to the tab in front. The project's info (⌘I) is a card over the top of it, the PDF
@@ -46,6 +47,12 @@
   const side = new ProjectSidebar();
   /** whether this tab is the one in front of its window */
   let inFront = $state(true);
+  /** the review pane shown and expanded in the window: its button at the right of the tabs is on */
+  let paneShown = $state(false);
+  const askPane = () =>
+    invoke<boolean>("pane_shown")
+      .then((shown) => (paneShown = shown))
+      .catch(() => {});
 
   /** every file of the project, by its path */
   const nodes = $derived.by(() => {
@@ -512,7 +519,13 @@
       await editor?.flush();
       invoke("close_page");
     });
-    const unlistenShown = listen<boolean>("tab-shown", (e) => (inFront = e.payload));
+    const unlistenShown = listen<boolean>("tab-shown", (e) => {
+      inFront = e.payload;
+      if (inFront) askPane();
+    });
+    // the pane shown, hidden, collapsed or expanded (⌘J, its buttons, this page's button)
+    askPane();
+    const unlistenPane = listen<boolean>("pane-shown", (e) => (paneShown = e.payload));
     const unlistenBar = listen("bar-changed", () => loadBar());
     const unlistenEdit = listen<string>("edit", (e) => edit(e.payload));
     // a click or a field in the page: the keys are the page's, not the pane's (which hears no blur when the keys go
@@ -536,6 +549,7 @@
       unlistenOpened.then((f) => f());
       unlistenClosing.then((f) => f());
       unlistenShown.then((f) => f());
+      unlistenPane.then((f) => f());
       unlistenBar.then((f) => f());
       unlistenEdit.then((f) => f());
       unlistenFile.then((f) => f());
@@ -601,6 +615,26 @@
   </button>
 {/snippet}
 
+<!-- the review pane, shown or hidden as by ⌘J: at the right of the tabs, across from the files at their left -->
+{#snippet reviewToggle()}
+  <button
+    class="toggle"
+    class:on={paneShown}
+    onclick={() => invoke("pane_toggle")}
+    title="{paneShown ? 'Hide' : 'Show'} Review (⌘J)"
+    aria-label="{paneShown ? 'Hide' : 'Show'} Review"
+    aria-pressed={paneShown}
+  >
+    <svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
+      <rect x="0.65" y="0.65" width="14.7" height="12.7" rx="2.5" />
+      <line x1="10.35" y1="1" x2="10.35" y2="13" />
+      <line x1="12" y1="4" x2="13.6" y2="4" stroke-linecap="round" />
+      <line x1="12" y1="6" x2="13.6" y2="6" stroke-linecap="round" />
+      <line x1="12" y1="8" x2="13.6" y2="8" stroke-linecap="round" />
+    </svg>
+  </button>
+{/snippet}
+
 <!-- on the tab of a file from outside the project: its + adds it -->
 {#snippet addButton(tab: TabItem)}
   {#if tab.id === getCurrentWebview().label && outside && file}
@@ -624,6 +658,7 @@
     bar={showBar ? tiles : undefined}
     sidebar={filesPanel}
     lead={filesToggle}
+    top={reviewToggle}
   >
       {#if front?.kind === "pdf"}
         <!-- the tools of the PDF in front, under the tabs -->

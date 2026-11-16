@@ -136,7 +136,8 @@ closed by hand does not, its projects keep their tabs for the next time.
   tools bar's page field). `⌘[` and `⌘]` are indent less and more in an
   editor with the keys (the review pane, a file edited in its tab), as in
   CodeMirror.
-- **Review pane** (`⌘J`): a Markdown editor over the viewer, along a side of
+- **Review pane** (`⌘J`, or the button at the right of the tabs, across from
+  the files' at their left, on while the pane is shown): a Markdown editor over the viewer, along a side of
   it or free. At the top or the bottom it is in the middle, as wide as the
   column of text by default; on the left or the right, as tall as the viewer.
   Its header dragged moves it, free, anywhere over the viewer; its edges and

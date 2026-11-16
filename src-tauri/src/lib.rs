@@ -552,6 +552,18 @@ fn pane_show(app: AppHandle, webview: Webview) {
     pane::show(&app, webview.window().label());
 }
 
+/// The page's button for the pane: hidden when shown, else shown (⌘J).
+#[tauri::command]
+fn pane_toggle(app: AppHandle, webview: Webview) {
+    pane::toggle(&app, webview.window().label());
+}
+
+/// Whether the pane is shown and expanded, for the page's button.
+#[tauri::command]
+fn pane_shown(app: AppHandle, webview: Webview) -> bool {
+    pane::shown(&app, webview.window().label())
+}
+
 /// Escape in the pane: the keys back to the PDF, the pane left as it is.
 #[tauri::command]
 fn pane_release(app: AppHandle, webview: Webview) {
@@ -799,6 +811,8 @@ pub fn run() {
             pane_collapse,
             pane_release,
             pane_show,
+            pane_toggle,
+            pane_shown,
             quote,
             page_covered,
             pane_drag,

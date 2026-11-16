@@ -306,6 +306,19 @@ pub fn toggle(app: &AppHandle, window: &str) {
     }
 }
 
+/// Whether the pane of `window` is shown and expanded: the page's button for it is on.
+pub fn shown(app: &AppHandle, window: &str) -> bool {
+    layout_of(app, window).is_some_and(|(_, layout)| layout.shown && !layout.collapsed)
+}
+
+/// The page in front told whether the pane is shown and expanded (`pane-shown`), for its button; a page brought to
+/// the front asks (`pane_shown`).
+fn tell(app: &AppHandle, window: &str) {
+    if let Some(front) = papers_tabs::front_of(app, window) {
+        let _ = app.emit_to(EventTarget::webview(front), "pane-shown", shown(app, window));
+    }
+}
+
 /// The pane shown and expanded in this window, with the keys.
 pub fn show(app: &AppHandle, window: &str) {
     let Some((root, mut layout)) = layout_of(app, window) else {
@@ -315,6 +328,7 @@ pub fn show(app: &AppHandle, window: &str) {
     layout.collapsed = false;
     keep(app, root, layout);
     place(app, window);
+    tell(app, window);
     if let Some(pane) = app.get_webview(&label(window)) {
         let _ = pane.set_focus();
     }
@@ -328,6 +342,7 @@ pub fn hide(app: &AppHandle, window: &str) {
     layout.shown = false;
     keep(app, root, layout);
     place(app, window);
+    tell(app, window);
     keys_to_page(app, window);
 }
 
@@ -381,6 +396,7 @@ pub fn collapse(app: &AppHandle, window: &str, collapsed: bool) {
     layout.collapsed = collapsed;
     keep(app, root, layout);
     place(app, window);
+    tell(app, window);
     if collapsed {
         keys_to_page(app, window);
     } else if let Some(pane) = app.get_webview(&label(window)) {
