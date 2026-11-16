@@ -221,6 +221,7 @@
   const search = (query: string, limit: number) => invoke<Found>("references", { query, limit });
   const closest = (text: string, limit: number) => invoke<Found>("closest_references", { text, limit });
   const sources = () => invoke<string[]>("reference_sources");
+  const leftOut = () => invoke<string[]>("references_left_out");
   const save = (path: string, text: string) => invoke<void>("save_review", { path, text });
 
   /** Escape: the keys back to the PDF, the pane left as it is. */
@@ -417,7 +418,7 @@
     </div>
     {#if listing}
       {#key opened}
-        <RefList bind:this={refs} text={reference} {search} {closest} {sources} oninsert={cited} onopen={openPdf} onclose={closeList} />
+        <RefList bind:this={refs} text={reference} {search} {closest} {sources} dropped={leftOut} oninsert={cited} onopen={openPdf} onclose={closeList} />
       {/key}
     {/if}
     {#if missing}

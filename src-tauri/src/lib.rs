@@ -670,6 +670,14 @@ async fn closest_references(app: AppHandle, webview: Webview, text: String, limi
     Ok(refs::library(&app, &root)?.closest(&text, limit))
 }
 
+/// What the project's `.bib` files have that could not be read and was left out (a field of an entry, or an entry),
+/// one line each.
+#[tauri::command]
+async fn references_left_out(app: AppHandle, webview: Webview) -> Result<Vec<String>, String> {
+    let root = root_of(&webview)?;
+    Ok(refs::library(&app, &root)?.dropped().iter().map(|d| d.to_string()).collect())
+}
+
 /// The `.bib` files the references of the project are read from.
 #[tauri::command]
 async fn reference_sources(app: AppHandle, webview: Webview) -> Result<Vec<PathBuf>, String> {
@@ -829,6 +837,7 @@ pub fn run() {
             references,
             closest_references,
             reference_sources,
+            references_left_out,
             open_reference_pdf,
             trash,
             check_update,
