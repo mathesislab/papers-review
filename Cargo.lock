@@ -1059,7 +1059,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2914,7 +2914,7 @@ dependencies = [
 [[package]]
 name = "papers-tabs"
 version = "0.1.0"
-source = "git+https://github.com/mathesislab/papers-write?tag=v0.4.0#5c9853268a837226c77dfcda3cffce3e0199c70f"
+source = "git+https://github.com/mathesislab/papers-write?tag=v0.6.0#86dad75ed060728174dc64a29cc97a8ec1ea7139"
 dependencies = [
  "objc2",
  "objc2-app-kit",
@@ -3460,7 +3460,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3516,7 +3516,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4408,8 +4408,8 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-pdfkit"
-version = "0.5.0"
-source = "git+https://github.com/mathesislab/tauri-plugin-pdfkit?tag=v0.5.0#8f2f3ad730c08cc2d5055e7e936e0d034d649e93"
+version = "0.7.0"
+source = "git+https://github.com/mathesislab/tauri-plugin-pdfkit?tag=v0.7.0#70b319e2ac96c9bcc7f910fe9ec961f4e190742a"
 dependencies = [
  "block2",
  "objc2",
@@ -4564,7 +4564,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5324,7 +5324,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

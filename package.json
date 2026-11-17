@@ -23,8 +23,8 @@
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.8.3",
     "@tauri-apps/plugin-opener": "^2",
-    "papers-write": "github:mathesislab/papers-write#v0.5.5",
-    "tauri-plugin-pdfkit-api": "github:mathesislab/tauri-plugin-pdfkit#v0.5.0"
+    "papers-write": "github:mathesislab/papers-write#v0.6.0",
+    "tauri-plugin-pdfkit-api": "github:mathesislab/tauri-plugin-pdfkit#v0.7.0"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.10",
