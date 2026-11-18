@@ -2914,7 +2914,7 @@ dependencies = [
 [[package]]
 name = "papers-tabs"
 version = "0.1.0"
-source = "git+https://github.com/mathesislab/papers-write?tag=v0.6.0#86dad75ed060728174dc64a29cc97a8ec1ea7139"
+source = "git+https://github.com/mathesislab/papers-write?tag=v0.6.1#eab80d1aad9052aaebe316c860a5a1f92d645318"
 dependencies = [
  "objc2",
  "objc2-app-kit",
@@ -4408,8 +4408,8 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-pdfkit"
-version = "0.7.0"
-source = "git+https://github.com/mathesislab/tauri-plugin-pdfkit?tag=v0.7.0#70b319e2ac96c9bcc7f910fe9ec961f4e190742a"
+version = "0.7.1"
+source = "git+https://github.com/mathesislab/tauri-plugin-pdfkit?tag=v0.7.1#65f8f83a0aca8ccf32a16fa5cb742bc1560c1527"
 dependencies = [
  "block2",
  "objc2",
