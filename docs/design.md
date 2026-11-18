@@ -110,7 +110,8 @@ closed by hand does not, its projects keep their tabs for the next time.
   or copied in, as asked (files dropped on the window from the Finder, the
   project's own excepted, are added the same way); a file or folder is shown in the Finder; a file
   opens in the default app; a linked one is removed (the file stays), one of
-  the project is moved to the Trash after asking.
+  the project is moved to the Trash after asking (⌘⌫ at once, as the Finder
+  does; ⌫ asks first).
 - **Project info** (`⌘I`, File > Project Info…, a click on the project's box
   in the files, or in the bar's tile menu): a card at the top of the window
   like a macOS sheet, open until Done or `Esc` (Cancel). Name (the folder's

@@ -65,8 +65,8 @@
     ondefault: (path: string) => void;
     /** a linked file or folder to take out of the project (the file stays where it is) */
     onunlink: (node: Node) => void;
-    /** a file or folder of the project to move to the Trash */
-    ontrash: (node: Node) => void;
+    /** a file or folder of the project to move to the Trash, asked first unless `now` (⌘⌫, as the Finder) */
+    ontrash: (node: Node, now?: boolean) => void;
   } = $props();
 
   /** A right-click on the project's box. */

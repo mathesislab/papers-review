@@ -401,9 +401,10 @@
     }
   }
 
-  /** A file or folder of the project to the Trash, once asked. */
-  async function trash(node: Node) {
-    const sure = await confirm(`Move “${node.name}” to the Trash?`, { title: "Move to Trash", kind: "warning", okLabel: "Move to Trash" });
+  /** A file or folder of the project to the Trash: once asked, or at once (`now`: ⌘⌫, as the Finder does; it is in
+   *  the Trash still). */
+  async function trash(node: Node, now = false) {
+    const sure = now || (await confirm(`Move “${node.name}” to the Trash?`, { title: "Move to Trash", kind: "warning", okLabel: "Move to Trash" }));
     if (!sure) return;
     try {
       await invoke("trash", { path: node.path });
