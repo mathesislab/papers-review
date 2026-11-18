@@ -808,6 +808,8 @@ pub fn run() {
             papers_tabs::commands::select_tab,
             papers_tabs::commands::close_tab,
             papers_tabs::commands::move_tab,
+            papers_tabs::commands::recent_tab,
+            papers_tabs::commands::recent_done,
             papers_tabs::commands::sidebar,
             papers_tabs::commands::set_sidebar,
             papers_tabs::commands::folders,

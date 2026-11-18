@@ -94,7 +94,8 @@ closed by hand does not, its projects keep their tabs for the next time.
   old review first); right-click: Open in New Window, Remove from Bar. Open
   Project adds to the bar and switches the window in front, or brings
   forward the window that shows the project. The bar is kept in `state.json`
-  and listed in the Window menu (`⌘1` to `⌘9`); removing a project from it
+  and listed in the Window menu (`⌥⌘1` to `⌥⌘9`; `⌘1` to `⌘9` are the tabs',
+  as papers-tabs' items for the tabs have them in each app); removing a project from it
   closes its tabs: the window shows the project before it, or closes when none
   is left.
 - **Files** (sidebar, `⌘⌥S`, or the button at the left of the tabs; shown or not and

@@ -153,17 +153,19 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             &PredefinedMenuItem::minimize(app, None)?,
             &PredefinedMenuItem::maximize(app, None)?,
             &separator()?,
-            &item("previous-tab", "Show Previous Tab", Some("Shift+CmdOrCtrl+["))?,
-            &item("next-tab", "Show Next Tab", Some("Shift+CmdOrCtrl+]"))?,
         ],
     )?;
-    // the projects of the bar, ⌘1 to ⌘9 for the first nine
+    // the tabs' items, as each app has them (papers-tabs)
+    for item in papers_tabs::menu::items(app)? {
+        window.append(&item)?;
+    }
+    // the projects of the bar, ⌥⌘1 to ⌥⌘9 for the first nine (⌘1 to ⌘9 are the tabs')
     let state = app.state::<AppState>();
     let bar = state.saved.lock().unwrap().bar.clone();
     if state.settings.lock().unwrap().project_bar && !bar.is_empty() {
         window.append(&separator()?)?;
         for (i, project) in crate::bar_items(&bar).iter().enumerate() {
-            let keys = (i < 9).then(|| format!("CmdOrCtrl+{}", i + 1));
+            let keys = (i < 9).then(|| format!("Alt+CmdOrCtrl+{}", i + 1));
             window.append(&item(&format!("bar:{i}"), &project.name, keys.as_deref())?)?;
         }
     }
@@ -182,6 +184,9 @@ pub fn update(app: &AppHandle) {
 
 pub fn on_event(app: &AppHandle, event: MenuEvent) {
     let id = event.id().as_ref();
+    if papers_tabs::menu::handle(app, id) {
+        return;
+    }
     match id {
         "new-review" => choose_manuscript(app),
         "open" => choose_project(app, false),
@@ -249,8 +254,6 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
         }
         // the tabs are papers-tabs's: ⌘W closes the tab in front (a window without tabs, the start or Settings)
         "close-tab" => papers_tabs::close_front(app),
-        "previous-tab" => papers_tabs::step(app, -1),
-        "next-tab" => papers_tabs::step(app, 1),
         // the rest to the page in front, when a project's window is
         _ if PAGE.contains(&id) => {
             let ours = papers_tabs::key_window(app).is_some_and(|w| windows::root_of(app, &w).is_some());
